@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <div id="capture" style="color: oklch(0.5 0.2 180);">Hello</div>
+  <script type="module">
+    import domToImage from './node_modules/dom-to-image/src/dom-to-image.js';
+    domToImage.toPng(document.getElementById('capture')).then(url => console.log('success')).catch(e => console.error(e));
+  </script>
+</body>
+</html>
