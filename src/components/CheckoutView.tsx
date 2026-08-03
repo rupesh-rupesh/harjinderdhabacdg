@@ -523,7 +523,7 @@ export default function CheckoutView({
                   <span className="font-bold text-dhaba-orange">Note:</span> online ordering not implantted yet just call the waiter and ask him to bring your order RIGHT NOWW...
                 </p>
                 <p className="font-black text-dhaba-dark uppercase leading-relaxed text-[11px] sm:text-xs">
-                  IF YOU WANT YOUR ORDER DELIVER TO YOU BY DEVELOPER THEN SHOUT <a href="https://rupeshworld.vercel.app" target="_blank" rel="noopener noreferrer" className="text-dhaba-orange underline decoration-dhaba-orange/50 underline-offset-2 hover:decoration-dhaba-orange transition-colors">RUPESH</a>
+                  IF YOU WANT YOUR ORDER DELIVER TO YOU BY DEVELOPER THEN SHOUT <a href="https://rupeshworld.vercel.app" target="_blank" rel="noopener noreferrer" className="text-dhaba-orange underline decoration-dhaba-orange/50 underline-offset-2 hover:decoration-dhaba-orange transition-colors">Sing A Song For Us</a>
                 </p>
               </div>
             </div>
