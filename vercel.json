@@ -3,7 +3,7 @@
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
   "functions": {
-    "api/[...path].ts": {
+    "api/handler.ts": {
       "maxDuration": 30,
       "memory": 1024
     }
@@ -11,7 +11,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/[...path]"
+      "destination": "/api/handler"
     },
     {
       "source": "/((?!api/).*)",
