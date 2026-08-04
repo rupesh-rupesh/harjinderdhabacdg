@@ -687,21 +687,21 @@ app.delete('/api/admin/managers/:id', async (req, res) => {
 app.get('/api/admin/stats', async (req, res) => {
   try {
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const r = await db.execute(sql`
+    const r: any = await db.execute(sql`
       SELECT
         (SELECT COALESCE(SUM(total), 0) FROM orders WHERE status = 'completed' AND created_at >= ${today.toISOString()}) as daily_revenue,
         (SELECT COUNT(*) FROM orders) as total_orders,
         (SELECT COUNT(*) FROM orders WHERE status IN ('pending', 'processing')) as active_orders,
         (SELECT COUNT(*) FROM users WHERE uid = 'pos_system') as pos_users
     `);
-    res.json({ dailyRevenue: Number(r.rows[0].daily_revenue || 0), totalOrders: Number(r.rows[0].total_orders || 0), activeOrders: Number(r.rows[0].active_orders || 0), posUsers: Number(r.rows[0].pos_users || 0) });
+    res.json({ dailyRevenue: Number(r[0].daily_revenue || 0), totalOrders: Number(r[0].total_orders || 0), activeOrders: Number(r[0].active_orders || 0), posUsers: Number(r[0].pos_users || 0) });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin/daily-revenue', async (req, res) => {
   try {
-    const r = await db.execute(sql`SELECT DATE(created_at) as date_str, COUNT(id) as order_count, COALESCE(SUM(total), 0) as revenue FROM orders WHERE status = 'completed' GROUP BY DATE(created_at) ORDER BY DATE(created_at) ASC`);
-    res.json(r.rows);
+    const r: any = await db.execute(sql`SELECT DATE(created_at) as date_str, COUNT(id) as order_count, COALESCE(SUM(total), 0) as revenue FROM orders WHERE status = 'completed' GROUP BY DATE(created_at) ORDER BY DATE(created_at) ASC`);
+    res.json(r);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
