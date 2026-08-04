@@ -162,16 +162,37 @@ const dashboardAuth = pgTable('dashboard_auth', {
 const schema = { users, orders, categories, menuItems, features, journeyMedia, journeySettings, analyticsSettings, visitors, visits, reviews, dashboardAuth };
 
 let dbUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
-if (dbUrl && dbUrl.includes('pooler.supabase.com:6543') && !dbUrl.includes('pgbouncer=true')) {
-  dbUrl += (dbUrl.includes('?') ? '&' : '?') + 'pgbouncer=true';
+
+if (!dbUrl) {
+  console.error('❌ CRITICAL: No DATABASE_URL or POSTGRES_URL env var found. Set it in Vercel project settings → Environment Variables.');
+} else {
+  // Supabase direct connection (db.[ref].supabase.co:5432) is BLOCKED from Vercel/serverless.
+  // Auto-convert to Supabase Transaction Pooler (aws-0-*.pooler.supabase.com:6543).
+  // Transaction Pooler username format: postgres.[project-ref]
+  const directMatch = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@db\.([^.]+)\.supabase\.co(?::\d+)?\/postgres/);
+  if (directMatch) {
+    const [, , password, projectRef] = directMatch;
+    // Encode password in case it has special chars
+    const encodedPassword = encodeURIComponent(decodeURIComponent(password));
+    // Use Transaction Pooler: username must include project ref, port 6543
+    dbUrl = `postgresql://postgres.${projectRef}:${encodedPassword}@aws-0-ap-south-1.pooler.supabase.com:6543/postgres`;
+    console.log('ℹ️  Auto-converted direct Supabase URL → Transaction Pooler (port 6543) for Vercel serverless.');
+  }
+  // If already a pooler URL but missing pgbouncer=true, add it
+  if (dbUrl.includes('pooler.supabase.com') && !dbUrl.includes('pgbouncer=true')) {
+    dbUrl += (dbUrl.includes('?') ? '&' : '?') + 'pgbouncer=true';
+  }
 }
 
 const pool = new Pool({
   connectionString: dbUrl,
   ssl: { rejectUnauthorized: false },
-  max: 3,
-  connectionTimeoutMillis: 5000,
-  idleTimeoutMillis: 10000,
+  // Serverless: keep pool at max 1 — each Vercel invocation is short-lived
+  max: 1,
+  min: 0,
+  connectionTimeoutMillis: 8000,
+  idleTimeoutMillis: 0,
+  allowExitOnIdle: true,
 });
 
 pool.on('error', (err) => console.error('Pool error:', err));
@@ -239,7 +260,18 @@ async function getDashboardAuth() {
 }
 
 // ─── Health ──────────────────────────────────────────────────────────────────
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
+// DB connection test — use this to verify DB works on Vercel
+app.get('/api/db-test', async (req, res) => {
+  const hasUrl = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
+  try {
+    const result = await pool.query('SELECT NOW() as time, current_database() as db');
+    res.json({ ok: true, hasUrl, time: result.rows[0].time, db: result.rows[0].db, dbUrl: dbUrl ? dbUrl.replace(/:[^:@]+@/, ':***@') : 'NOT SET' });
+  } catch (e: any) {
+    res.status(500).json({ ok: false, hasUrl, error: e.message, dbUrl: dbUrl ? dbUrl.replace(/:[^:@]+@/, ':***@') : 'NOT SET' });
+  }
+});
 
 // ─── Auth Routes ──────────────────────────────────────────────────────────────
 app.post('/api/auth/verify-dashboard-password', async (req, res) => {
