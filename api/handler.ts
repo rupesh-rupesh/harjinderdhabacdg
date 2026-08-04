@@ -1,22 +1,186 @@
 // Vercel Serverless Function entrypoint
 // This file is bundled by @vercel/node which handles TypeScript natively
 import express from 'express';
-// import { drizzle } from 'drizzle-orm/node-postgres';
-// import pg from 'pg';
-// import { integer, real, pgTable, serial, text, timestamp, boolean, jsonb } from 'drizzle-orm/pg-core';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import { integer, real, pgTable, serial, text, timestamp, boolean, jsonb } from 'drizzle-orm/pg-core';
 import { eq, desc, lt, inArray, sql } from 'drizzle-orm';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // ─── Schema ────────────────────────────────────────────────────────────────
-// const { Pool } = pg;
+const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  uid: text('uid').notNull().unique(),
+  email: text('email').notNull(),
+  name: text('name'),
+  role: text('role').notNull().default('customer'),
+  permissions: jsonb('permissions'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
 
-// const users = ... (mock schema to avoid TS errors)
-// Instead of commenting all schema out, just mock the db object.
+const orders = pgTable('orders', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id).notNull(),
+  items: text('items').notNull(),
+  total: real('total').notNull(),
+  status: text('status').notNull().default('pending'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+const categories = pgTable('categories', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  image: text('image'),
+  startTime: text('start_time'),
+  endTime: text('end_time'),
+  isDeleted: boolean('is_deleted').default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+const menuItems = pgTable('menu_items', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  price: integer('price').notNull(),
+  fullPortionPieces: integer('full_portion_pieces'),
+  hasHalfPortion: boolean('has_half_portion').default(false),
+  halfPrice: integer('half_price'),
+  halfPortionPieces: integer('half_portion_pieces'),
+  hasButterOption: boolean('has_butter_option').default(false),
+  butterPrice: integer('butter_price'),
+  image: text('image').notNull(),
+  category: text('category').notNull(),
+  dietaryPreference: text('dietary_preference').notNull(),
+  spiceLevel: text('spice_level').notNull(),
+  isPopular: boolean('is_popular').default(false),
+  isBestSeller: boolean('is_best_seller').default(false),
+  isDhabaSpecial: boolean('is_dhaba_special').default(false),
+  outOfStock: boolean('out_of_stock').default(false),
+  hasTiming: boolean('has_timing').default(false),
+  startTime: text('start_time'),
+  endTime: text('end_time'),
+  variants: jsonb('variants'),
+  isDeleted: boolean('is_deleted').default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+const features = pgTable('features', {
+  id: serial('id').primaryKey(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  iconName: text('icon_name').notNull().default('Sparkles'),
+  videoUrl: text('video_url'),
+  displayOrder: integer('display_order').notNull().default(0),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+const journeyMedia = pgTable('journey_media', {
+  id: serial('id').primaryKey(),
+  url: text('url').notNull(),
+  type: text('type').notNull(),
+  displayOrder: integer('display_order').notNull().default(0),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+const journeySettings = pgTable('journey_settings', {
+  id: serial('id').primaryKey(),
+  header: text('header').notNull().default('Our Journey'),
+  description: text('description').notNull().default(''),
+  signature: text('signature').notNull().default('Harjinder Tourist Dhaba'),
+  subSignature: text('sub_signature').notNull().default('Serving Memories Since 1991.'),
+});
+
+const analyticsSettings = pgTable('analytics_settings', {
+  id: serial('id').primaryKey(),
+  trackingEnabled: boolean('tracking_enabled').default(true),
+  locationTrackingEnabled: boolean('location_tracking_enabled').default(true),
+  deviceTrackingEnabled: boolean('device_tracking_enabled').default(true),
+  browserTrackingEnabled: boolean('browser_tracking_enabled').default(true),
+  liveMonitoringEnabled: boolean('live_monitoring_enabled').default(true),
+  exportEnabled: boolean('export_enabled').default(true),
+  sessionTimeoutMinutes: integer('session_timeout_minutes').default(30),
+  dataRetentionDays: integer('data_retention_days').default(90),
+  demoNoticeEnabled: boolean('demo_notice_enabled').default(true),
+});
+
+const visitors = pgTable('visitors', {
+  id: serial('id').primaryKey(),
+  visitorToken: text('visitor_token').notNull().unique(),
+  firstVisitAt: timestamp('first_visit_at').defaultNow(),
+  lastVisitAt: timestamp('last_visit_at').defaultNow(),
+  totalVisits: integer('total_visits').default(1),
+  country: text('country'),
+  state: text('state'),
+  city: text('city'),
+  deviceType: text('device_type'),
+  os: text('os'),
+  browser: text('browser'),
+  referrer: text('referrer'),
+});
+
+const visits = pgTable('visits', {
+  id: serial('id').primaryKey(),
+  visitorId: integer('visitor_id').references(() => visitors.id, { onDelete: 'cascade' }),
+  sessionToken: text('session_token').notNull().unique(),
+  visitTime: timestamp('visit_time').defaultNow(),
+  durationSeconds: integer('duration_seconds').default(0),
+  landingPage: text('landing_page'),
+  exitPage: text('exit_page'),
+  isActive: boolean('is_active').default(true),
+  lastPingAt: timestamp('last_ping_at').defaultNow(),
+});
+
+const reviews = pgTable('reviews', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').references(() => users.id),
+  name: text('name').notNull(),
+  rating: integer('rating').notNull(),
+  comment: text('comment').notNull(),
+  likes: integer('likes').notNull().default(0),
+  dislikes: integer('dislikes').notNull().default(0),
+  adminReply: text('admin_reply'),
+  isHidden: boolean('is_hidden').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+const dashboardAuth = pgTable('dashboard_auth', {
+  id: serial('id').primaryKey(),
+  adminPassword: text('admin_password').notNull().default('ADMIN2043W'),
+  managerPassword: text('manager_password').notNull().default('MANAGER2043W'),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// ─── Database ───────────────────────────────────────────────────────────────
+const schema = { users, orders, categories, menuItems, features, journeyMedia, journeySettings, analyticsSettings, visitors, visits, reviews, dashboardAuth };
+
 let dbUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 
-// const pool = new Pool({ ... });
-// const db = drizzle(pool, { schema });
-const db: any = { execute: async () => {}, insert: () => ({ values: () => ({ returning: () => [] }) }), select: () => ({ from: () => ({ where: () => ({ orderBy: () => [] }) }) }) };
+if (!dbUrl) {
+  console.error('❌ CRITICAL: No DATABASE_URL or POSTGRES_URL env var found. Set it in Vercel project settings → Environment Variables.');
+} else {
+  // Supabase direct connection (db.[ref].supabase.co:5432) is BLOCKED from Vercel/serverless.
+  // Auto-convert to Supabase Transaction Pooler (aws-0-*.pooler.supabase.com:6543).
+  // Transaction Pooler username format: postgres.[project-ref]
+  const directMatch = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@db\.([^.]+)\.supabase\.co(?::\d+)?\/postgres/);
+  if (directMatch) {
+    const [, , password, projectRef] = directMatch;
+    // Encode password in case it has special chars
+    const encodedPassword = encodeURIComponent(decodeURIComponent(password));
+    // Use Transaction Pooler: username must include project ref, port 6543
+    dbUrl = `postgresql://postgres.${projectRef}:${encodedPassword}@aws-0-ap-south-1.pooler.supabase.com:6543/postgres`;
+    console.log('ℹ️  Auto-converted direct Supabase URL → Transaction Pooler (port 6543) for Vercel serverless.');
+  }
+  // If already a pooler URL but missing pgbouncer=true, add it
+  if (dbUrl.includes('pooler.supabase.com') && !dbUrl.includes('pgbouncer=true')) {
+    dbUrl += (dbUrl.includes('?') ? '&' : '?') + 'pgbouncer=true';
+  }
+}
+
+// Serverless best practice: max 1 connection per cold start
+const queryClient = postgres(dbUrl || '', { max: 1, idle_timeout: 10 });
+const db = drizzle(queryClient, { schema });
 
 // ─── Firebase Admin ─────────────────────────────────────────────────────────
 let adminAuth: any = {
