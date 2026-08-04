@@ -160,19 +160,7 @@ let dbUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 if (!dbUrl) {
   console.error('❌ CRITICAL: No DATABASE_URL or POSTGRES_URL env var found. Set it in Vercel project settings → Environment Variables.');
 } else {
-  // Supabase direct connection (db.[ref].supabase.co:5432) is BLOCKED from Vercel/serverless.
-  // Auto-convert to Supabase Transaction Pooler (aws-0-*.pooler.supabase.com:6543).
-  // Transaction Pooler username format: postgres.[project-ref]
-  const directMatch = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@db\.([^.]+)\.supabase\.co(?::\d+)?\/postgres/);
-  if (directMatch) {
-    const [, , password, projectRef] = directMatch;
-    // Encode password in case it has special chars
-    const encodedPassword = encodeURIComponent(decodeURIComponent(password));
-    // Use Transaction Pooler: username must include project ref, port 6543
-    dbUrl = `postgresql://postgres.${projectRef}:${encodedPassword}@aws-0-ap-south-1.pooler.supabase.com:6543/postgres`;
-    console.log('ℹ️  Auto-converted direct Supabase URL → Transaction Pooler (port 6543) for Vercel serverless.');
-  }
-  // If already a pooler URL but missing pgbouncer=true, add it
+  // Just ensure pgbouncer is enabled if it's a pooler URL
   if (dbUrl.includes('pooler.supabase.com') && !dbUrl.includes('pgbouncer=true')) {
     dbUrl += (dbUrl.includes('?') ? '&' : '?') + 'pgbouncer=true';
   }
