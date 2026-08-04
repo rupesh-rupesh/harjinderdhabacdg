@@ -6,9 +6,16 @@
     "api/handler.ts": {
       "maxDuration": 30,
       "memory": 1024
+    },
+    "api/ping.ts": {
+      "maxDuration": 10
     }
   },
   "rewrites": [
+    {
+      "source": "/api/ping",
+      "destination": "/api/ping"
+    },
     {
       "source": "/api/(.*)",
       "destination": "/api/handler"
