@@ -5,8 +5,6 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import { integer, real, pgTable, serial, text, timestamp, boolean, jsonb } from 'drizzle-orm/pg-core';
 import { eq, desc, lt, inArray, sql } from 'drizzle-orm';
-import { initializeApp, getApps } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // ─── Schema ────────────────────────────────────────────────────────────────
@@ -205,10 +203,10 @@ let adminAuth: any = {
 };
 
 try {
-  if (!getApps().length) {
-    initializeApp({ projectId: 'smart-thunder-8tgzl' });
-  }
-  adminAuth = getAuth();
+  // if (!getApps().length) {
+  //   initializeApp({ projectId: 'smart-thunder-8tgzl' });
+  // }
+  // adminAuth = getAuth();
 } catch (e: any) {
   console.warn('Firebase Admin init failed (using stub):', e?.message || e);
 }
