@@ -209,8 +209,8 @@ try {
     initializeApp({ projectId: 'smart-thunder-8tgzl' });
   }
   adminAuth = getAuth();
-} catch (e) {
-  console.warn('Firebase Admin init failed, using stub:', e);
+} catch (e: any) {
+  console.warn('Firebase Admin init failed (using stub):', e?.message || e);
 }
 
 // ─── Express App ─────────────────────────────────────────────────────────────
