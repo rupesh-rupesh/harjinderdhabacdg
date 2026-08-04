@@ -1,10 +1,8 @@
 // Vercel Serverless Function entrypoint
 // This file is bundled by @vercel/node which handles TypeScript natively
-import 'dotenv/config';
 import express from 'express';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
-import { relations } from 'drizzle-orm';
 import { integer, real, pgTable, serial, text, timestamp, boolean, jsonb } from 'drizzle-orm/pg-core';
 import { eq, desc, lt, inArray, sql } from 'drizzle-orm';
 import { initializeApp, getApps } from 'firebase-admin/app';
@@ -187,12 +185,12 @@ if (!dbUrl) {
 const pool = new Pool({
   connectionString: dbUrl,
   ssl: { rejectUnauthorized: false },
-  // Serverless: keep pool at max 1 — each Vercel invocation is short-lived
+  // Serverless best practice: max 1 connection per cold start
   max: 1,
   min: 0,
   connectionTimeoutMillis: 8000,
-  idleTimeoutMillis: 0,
-  allowExitOnIdle: true,
+  idleTimeoutMillis: 10000,
+  // ⚠️ Do NOT use allowExitOnIdle:true in Vercel — it kills the Node process
 });
 
 pool.on('error', (err) => console.error('Pool error:', err));
