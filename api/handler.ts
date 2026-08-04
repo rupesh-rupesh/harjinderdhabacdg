@@ -250,8 +250,8 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Dat
 app.get('/api/db-test', async (req, res) => {
   const hasUrl = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL);
   try {
-    const result = await pool.query('SELECT NOW() as time, current_database() as db');
-    res.json({ ok: true, hasUrl, time: result.rows[0].time, db: result.rows[0].db, dbUrl: dbUrl ? dbUrl.replace(/:[^:@]+@/, ':***@') : 'NOT SET' });
+    const result = await queryClient`SELECT NOW() as time, current_database() as db`;
+    res.json({ ok: true, hasUrl, time: result[0].time, db: result[0].db, dbUrl: dbUrl ? dbUrl.replace(/:[^:@]+@/, ':***@') : 'NOT SET' });
   } catch (e: any) {
     res.status(500).json({ ok: false, hasUrl, error: e.message, dbUrl: dbUrl ? dbUrl.replace(/:[^:@]+@/, ':***@') : 'NOT SET' });
   }
