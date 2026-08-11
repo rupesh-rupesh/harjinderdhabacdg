@@ -164,3 +164,9 @@ export const dashboardAuth = pgTable('dashboard_auth', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+export const demoNotices = pgTable('demo_notices', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+

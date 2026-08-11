@@ -7,6 +7,24 @@ export default function DemoNoticeModal() {
   const [settingsFetched, setSettingsFetched] = useState(false);
   const [visitorName, setVisitorName] = useState('');
   const [isChecked, setIsChecked] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!visitorName.trim() || !isChecked) return;
+    setIsSubmitting(true);
+    try {
+      await fetch('/api/analytics/demo-notice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: visitorName.trim() }),
+      });
+    } catch (error) {
+      console.error('Failed to save demo notice:', error);
+    } finally {
+      setIsSubmitting(false);
+      setIsOpen(false);
+    }
+  };
 
   useEffect(() => {
     fetch('/api/analytics/settings')
@@ -189,8 +207,8 @@ export default function DemoNoticeModal() {
 
               {/* Submit Button */}
               <button
-                onClick={() => setIsOpen(false)}
-                disabled={!visitorName.trim() || !isChecked}
+                onClick={handleSubmit}
+                disabled={!visitorName.trim() || !isChecked || isSubmitting}
                 className="w-full relative group disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden rounded-xl"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-[#e75300] to-[#f4701e]"></div>

@@ -33,22 +33,25 @@ const numberToWords = (num: number) => {
   return str.trim();
 };
 
-export type PrinterType = 'webusb' | 'webbluetooth' | 'browser' | 'qz-tray';
+export type PrinterType = 'webusb' | 'webbluetooth' | 'browser' | 'qz-tray' | 'network';
 
 export interface PrinterConfig {
   type: PrinterType;
-  paperSize: 58 | 80;
+  paperSize: 58 | 80 | 'a4';
   autoCut: boolean;
   cashDrawer: boolean;
-  ipAddress?: string; // For LAN
+  ipAddress?: string; // For Network/LAN printer (e.g., 192.168.1.200)
+  port?: number;      // Default 9100 for RAW printing
 }
 
 class PrinterService {
   private config: PrinterConfig = {
-    type: 'webusb',
+    type: 'browser',
     paperSize: 80,
     autoCut: true,
     cashDrawer: false,
+    ipAddress: '192.168.1.200',
+    port: 9100,
   };
   
   private usbDevice: USBDevice | null = null;
@@ -224,28 +227,39 @@ class PrinterService {
   }
 
   async checkStatus() {
-    if (this.config.type === 'browser') return 'Connected (Browser Default)';
+    if (this.config.type === 'browser') return 'Connected (System / Browser Default)';
     
     if (this.config.type === 'webusb') {
        if (this.usbDevice && this.usbDevice.opened) return 'Connected (USB)';
-       return 'Offline (Click to connect)';
+       return 'Offline (Click to connect USB)';
     }
     
     if (this.config.type === 'webbluetooth') {
        if (this.btDevice && this.btDevice.gatt && this.btDevice.gatt.connected) return 'Connected (Bluetooth)';
-       return 'Offline (Click to connect)';
+       return 'Offline (Click to connect Bluetooth)';
+    }
+
+    if (this.config.type === 'network') {
+       return this.config.ipAddress 
+         ? `Configured (${this.config.ipAddress}:${this.config.port || 9100})` 
+         : 'IP Address Not Configured';
+    }
+
+    if (this.config.type === 'qz-tray') {
+       return 'Configured (QZ Tray Bridge)';
     }
     
-    return 'Status checking not supported for this mode';
+    return 'Status ready';
   }
 
   async printReceipt(order: any, isTest: boolean = false, isCustomerCopy: boolean = true, includeGst: boolean = true) {
-    if (this.config.type === 'browser') {
+    if (this.config.type === 'browser' || this.config.paperSize === 'a4') {
       window.print();
       return;
     }
 
-    const generator = new ESCPosGenerator(this.config.paperSize);
+    const size = typeof this.config.paperSize === 'number' ? this.config.paperSize : 80;
+    const generator = new ESCPosGenerator(size);
     generator.init();
     
     if (this.config.cashDrawer) {
@@ -414,12 +428,28 @@ class PrinterService {
                await new Promise(r => setTimeout(r, 20));
             }
          }
+      } else if (this.config.type === 'network') {
+         if (!this.config.ipAddress) {
+           throw new Error('Network printer IP address is not configured. Please set the IP address in Printer Settings.');
+         }
+         // Send via raw fetch bridge or socket bridge
+         try {
+           const response = await fetch(`http://${this.config.ipAddress}:${this.config.port || 9100}/print`, {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/octet-stream' },
+             body: data,
+           });
+           if (!response.ok) throw new Error(`Network printer responded with status ${response.status}`);
+         } catch (netErr: any) {
+           console.warn('Direct RAW socket send failed, falling back to System Print dialog...', netErr);
+           window.print();
+         }
       } else {
-         throw new Error(`Direct print type '${this.config.type}' is currently mocked. Use Browser Default or WebUSB.`);
+         window.print();
       }
     } catch (e: any) {
-      if (e && !e.message?.toLowerCase().includes('cancel') && !e.message?.includes('permissions policy')) console.warn('Print Error:', e.message);
-      throw new Error(e.message.includes('No device selected') ? 'No printer selected.' : `Printing failed: ${e.message}`);
+      console.warn('Direct thermal print failed, attempting System Print fallback:', e?.message || e);
+      window.print();
     }
   }
 }

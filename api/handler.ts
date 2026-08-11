@@ -152,8 +152,14 @@ const dashboardAuth = pgTable('dashboard_auth', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+const demoNotices = pgTable('demo_notices', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 // ─── Database ───────────────────────────────────────────────────────────────
-const schema = { users, orders, categories, menuItems, features, journeyMedia, journeySettings, analyticsSettings, visitors, visits, reviews, dashboardAuth };
+const schema = { users, orders, categories, menuItems, features, journeyMedia, journeySettings, analyticsSettings, visitors, visits, reviews, dashboardAuth, demoNotices };
 
 let dbUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 
@@ -622,10 +628,20 @@ app.get('/api/analytics/dashboard', async (req, res) => {
   try {
     const allVisits = await db.select().from(visits);
     const allVisitors = await db.select().from(visitors);
+    const allDemoNotices = await db.select().from(demoNotices);
     const activeThreshold = new Date(Date.now() - 5 * 60000);
     await db.update(visits).set({ isActive: false }).where(lt(visits.lastPingAt, activeThreshold));
     const activeVisits = await db.select().from(visits).where(eq(visits.isActive, true));
-    res.json({ visits: allVisits, visitors: allVisitors, activeVisitors: activeVisits.length });
+    res.json({ visits: allVisits, visitors: allVisitors, demoNotices: allDemoNotices, activeVisitors: activeVisits.length });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/analytics/demo-notice', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const result = await db.insert(demoNotices).values({ name }).returning();
+    res.json(result[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

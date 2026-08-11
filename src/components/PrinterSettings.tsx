@@ -71,15 +71,16 @@ export default function PrinterSettings() {
         <div className="grid md:grid-cols-2 gap-8">
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-bold text-stone-700 mb-2">Connection Type</label>
+              <label className="block text-sm font-bold text-stone-700 mb-2">Connection Method</label>
               <div className="grid grid-cols-2 gap-3">
                 <button 
                   onClick={() => handleSave({ type: 'browser' })}
-                  className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-colors ${config.type === 'browser' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04]' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
+                  className={`p-3.5 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all ${config.type === 'browser' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04] ring-2 ring-[#E85D04]/20 font-bold' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
                 >
                   <Monitor className="w-5 h-5" />
-                  <span className="text-sm font-semibold">Browser Default</span>
+                  <span className="text-xs text-center">System / Wi-Fi</span>
                 </button>
+
                 <button 
                   onClick={async () => {
                     handleSave({ type: 'webusb' });
@@ -91,11 +92,12 @@ export default function PrinterSettings() {
                       setError(e.message);
                     }
                   }}
-                  className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-colors ${config.type === 'webusb' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04]' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
+                  className={`p-3.5 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all ${config.type === 'webusb' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04] ring-2 ring-[#E85D04]/20 font-bold' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
                 >
                   <Usb className="w-5 h-5" />
-                  <span className="text-sm font-semibold">USB (Direct)</span>
+                  <span className="text-xs text-center">Wired USB</span>
                 </button>
+
                 <button 
                   onClick={async () => {
                     handleSave({ type: 'webbluetooth' });
@@ -107,34 +109,75 @@ export default function PrinterSettings() {
                       setError(e.message);
                     }
                   }}
-                  className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-colors ${config.type === 'webbluetooth' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04]' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
+                  className={`p-3.5 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all ${config.type === 'webbluetooth' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04] ring-2 ring-[#E85D04]/20 font-bold' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
                 >
                   <Bluetooth className="w-5 h-5" />
-                  <span className="text-sm font-semibold">Bluetooth</span>
+                  <span className="text-xs text-center">Wireless Bluetooth</span>
                 </button>
+
                 <button 
-                  onClick={() => handleSave({ type: 'qz-tray' })}
-                  className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-colors ${config.type === 'qz-tray' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04]' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
+                  onClick={() => handleSave({ type: 'network' })}
+                  className={`p-3.5 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all ${config.type === 'network' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04] ring-2 ring-[#E85D04]/20 font-bold' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
                 >
                   <Globe className="w-5 h-5" />
-                  <span className="text-sm font-semibold">LAN / QZ Tray</span>
+                  <span className="text-xs text-center">Network IP Printer</span>
+                </button>
+
+                <button 
+                  onClick={() => handleSave({ type: 'qz-tray' })}
+                  className={`col-span-2 p-3 rounded-xl border flex items-center justify-center gap-2 transition-all ${config.type === 'qz-tray' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04] font-bold' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
+                >
+                  <Globe className="w-4 h-4" />
+                  <span className="text-xs">QZ Tray / Local Spooler Bridge</span>
                 </button>
               </div>
               <p className="text-xs text-stone-500 mt-2">
-                * USB requires supported browsers (Chrome, Edge). Others are experimental.
+                * System / Wi-Fi mode prints to any system desktop, Laser, Inkjet, or AirPrint printer.
               </p>
             </div>
 
+            {config.type === 'network' && (
+              <div className="bg-stone-50 p-4 rounded-xl border border-stone-200 space-y-3">
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">Network Printer Settings</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <label className="text-[11px] text-stone-500 font-medium block mb-1">IP Address</label>
+                    <input 
+                      type="text" 
+                      placeholder="192.168.1.200"
+                      value={config.ipAddress || ''}
+                      onChange={(e) => handleSave({ ipAddress: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg bg-white focus:ring-2 focus:ring-[#E85D04]/30 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-stone-500 font-medium block mb-1">Port</label>
+                    <input 
+                      type="number" 
+                      placeholder="9100"
+                      value={config.port || 9100}
+                      onChange={(e) => handleSave({ port: Number(e.target.value) || 9100 })}
+                      className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg bg-white focus:ring-2 focus:ring-[#E85D04]/30 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div>
-              <label className="block text-sm font-bold text-stone-700 mb-2">Paper Size</label>
+              <label className="block text-sm font-bold text-stone-700 mb-2">Paper & Format</label>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="radio" checked={config.paperSize === 58} onChange={() => handleSave({ paperSize: 58 })} className="w-4 h-4 text-[#E85D04] focus:ring-[#E85D04]" />
-                  <span className="text-stone-700 font-medium">58mm</span>
+                  <span className="text-stone-700 font-medium text-sm">58mm Thermal (2")</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="radio" checked={config.paperSize === 80} onChange={() => handleSave({ paperSize: 80 })} className="w-4 h-4 text-[#E85D04] focus:ring-[#E85D04]" />
-                  <span className="text-stone-700 font-medium">80mm</span>
+                  <span className="text-stone-700 font-medium text-sm">80mm Thermal (3")</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={config.paperSize === 'a4'} onChange={() => handleSave({ paperSize: 'a4' })} className="w-4 h-4 text-[#E85D04] focus:ring-[#E85D04]" />
+                  <span className="text-stone-700 font-medium text-sm">A4 Standard Page</span>
                 </label>
               </div>
             </div>
@@ -145,7 +188,7 @@ export default function PrinterSettings() {
                   <input type="checkbox" checked={config.autoCut} onChange={(e) => handleSave({ autoCut: e.target.checked })} className="sr-only peer" />
                   <div className="w-11 h-6 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#E85D04]"></div>
                 </div>
-                <span className="text-stone-700 font-medium">Auto Cut Receipt</span>
+                <span className="text-stone-700 font-medium text-sm">Auto Cut Receipt (Thermal)</span>
               </label>
 
               <label className="flex items-center gap-3 cursor-pointer">
@@ -153,7 +196,7 @@ export default function PrinterSettings() {
                   <input type="checkbox" checked={config.cashDrawer} onChange={(e) => handleSave({ cashDrawer: e.target.checked })} className="sr-only peer" />
                   <div className="w-11 h-6 bg-stone-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#E85D04]"></div>
                 </div>
-                <span className="text-stone-700 font-medium">Kick Cash Drawer</span>
+                <span className="text-stone-700 font-medium text-sm">Kick Cash Drawer</span>
               </label>
             </div>
           </div>

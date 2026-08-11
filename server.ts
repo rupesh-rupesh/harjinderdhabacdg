@@ -5,7 +5,7 @@ import { adminAuth } from "./src/lib/firebase-admin.ts";
 import { requireAuth } from './src/middleware/auth.ts';
 import type { AuthRequest } from './src/middleware/auth.ts';
 import { db } from './src/db/index.ts';
-import { users, orders, menuItems, categories, features, journeyMedia, journeySettings, analyticsSettings, visitors, visits, reviews, dashboardAuth } from './src/db/schema.ts';
+import { users, orders, menuItems, categories, features, journeyMedia, journeySettings, analyticsSettings, visitors, visits, reviews, dashboardAuth, demoNotices } from './src/db/schema.ts';
 import { eq, desc, lt, inArray, sql } from 'drizzle-orm';
 
 const app = express();
@@ -793,6 +793,7 @@ app.get("/api/journey-media", async (req, res) => {
     try {
       const allVisits = await db.select().from(visits);
       const allVisitors = await db.select().from(visitors);
+      const allDemoNotices = await db.select().from(demoNotices);
       
       const now = new Date();
       // Set active threshold to 5 minutes
@@ -803,18 +804,25 @@ app.get("/api/journey-media", async (req, res) => {
       
       const activeVisits = await db.select().from(visits).where(eq(visits.isActive, true));
       
-      const today = new Date();
-      today.setHours(0,0,0,0);
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      
       res.json({ 
         visits: allVisits, 
         visitors: allVisitors,
+        demoNotices: allDemoNotices,
         activeVisitors: activeVisits.length
       });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch analytics data: " + (error.message || error) });
+    }
+  });
+
+  app.post("/api/analytics/demo-notice", async (req, res) => {
+    try {
+      const { name } = req.body;
+      if (!name) return res.status(400).json({ error: 'Name is required' });
+      const result = await db.insert(demoNotices).values({ name }).returning();
+      res.json(result[0]);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to save demo notice: " + (error.message || error) });
     }
   });
 
