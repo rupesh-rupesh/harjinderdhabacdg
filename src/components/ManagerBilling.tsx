@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { LayoutGrid, Package, Utensils, Grid, Search, Plus, Minus, Trash2, CheckCircle2, AlertCircle, ShoppingBag, ArrowLeft, ArrowRight, Table, X, CreditCard, Printer, FileText , Eye } from 'lucide-react';
+import { LayoutGrid, Package, Utensils, Grid, Search, Plus, Minus, Trash2, CheckCircle2, AlertCircle, ShoppingBag, ArrowLeft, ArrowRight, Table, X, CreditCard, Printer, FileText , Eye, UserCircle, Lock } from 'lucide-react';
 import { ThermalReceipt } from './ThermalReceipt';
 import { printerService } from '../lib/printer/PrinterService';
 import { useRef } from 'react';
@@ -285,8 +285,14 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
 
   const filteredItems = useMemo(() => {
     return menuItems.filter(item => {
-      const matchesCat = selectedCategory ? item.category === selectedCategory : true;
       const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Global search: If there is a search query, ignore the category filter
+      if (searchQuery.trim() !== '') {
+        return matchesSearch;
+      }
+      
+      const matchesCat = selectedCategory ? item.category === selectedCategory : true;
       return matchesCat && matchesSearch;
     });
   }, [menuItems, selectedCategory, searchQuery]);
@@ -513,7 +519,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
   }
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100dvh - 64px)', margin: '-1rem -1rem 0', padding: '0' }}>
+    <div className="flex flex-col" style={{ height: 'calc(100dvh - 56px)', margin: '0', padding: '0' }}>
       <div className="hidden">
         <ThermalReceipt order={checkoutTable?.order} includeGst={generateGst} managerName="Manager" forwardedRef={receiptRef} />
         <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName="Manager" forwardedRef={cartReceiptRef} />
@@ -640,9 +646,10 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
           </div>
         </div>
       )}
-      {/* POS Header */}
-      <div className="bg-white border-b border-stone-200 px-6 py-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-4">
+      {/* POS Header — table info left, search center, manager/lock right */}
+      <div className="bg-white border-b border-stone-200 px-3 sm:px-5 py-3 flex items-center justify-between gap-3 shrink-0">
+        {/* Left: back + table name */}
+        <div className="flex items-center gap-2 shrink-0">
           <button 
             onClick={() => setTableSelection(null)}
             className="p-2 hover:bg-stone-100 rounded-lg transition-colors text-stone-500"
@@ -650,37 +657,76 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
-              <Table className="w-5 h-5 text-dhaba-orange" />
+            <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
+              <Table className="w-4 h-4 text-dhaba-orange" />
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-dhaba-dark leading-none">Table {tableSelection}</h2>
-              <span className="text-xs text-stone-500 font-medium uppercase tracking-wider">Active Order</span>
+            <div className="flex flex-col">
+              <h2 className="text-base sm:text-xl font-bold text-dhaba-dark leading-none">Table {tableSelection}</h2>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                <span className="text-[10px] text-green-600 font-bold uppercase tracking-wider">Active Table</span>
+              </div>
             </div>
           </div>
         </div>
-        <div className="relative w-64 hidden sm:block">
+
+        {/* Center: Search — wider and responsive */}
+        <div className="hidden sm:block flex-1 max-w-md lg:max-w-lg xl:max-w-2xl relative mx-4">
           <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input 
             type="text" 
             placeholder="Search menu..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm border border-stone-200 rounded-lg focus:ring-2 focus:ring-dhaba-orange outline-none bg-stone-50 transition-shadow"
+            className="w-full pl-9 pr-4 py-2 text-sm border border-stone-200 rounded-xl focus:ring-2 focus:ring-dhaba-orange outline-none bg-stone-50 transition-shadow"
           />
+        </div>
+
+        {/* Right: Manager chip + Lock */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Mobile search */}
+          <div className="sm:hidden relative w-40 sm:w-48 mr-1">
+            <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input 
+              type="text" 
+              placeholder="Search..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 text-xs border border-stone-200 rounded-lg focus:ring-1 focus:ring-dhaba-orange outline-none bg-stone-50"
+            />
+          </div>
+          
+          <div
+            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full"
+            style={{ background: '#fff', border: '1px solid #ede8e0' }}
+          >
+            <UserCircle className="w-4 h-4" style={{ color: '#C89B3C' }} />
+            <span className="text-sm font-medium" style={{ color: '#241712' }}>Manager</span>
+          </div>
+          <button
+            onClick={() => {
+              sessionStorage.removeItem('manager_dashboard_auth');
+              window.location.reload();
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
+            style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Lock</span>
+          </button>
         </div>
       </div>
 
       {/* POS Body */}
       <div className="flex-1 flex overflow-hidden">
         
-        {/* Left Column: Categories */}
-        <div className="w-24 sm:w-48 bg-stone-50 border-r border-stone-200 overflow-y-auto shrink-0 flex flex-col">
+        {/* Left Column: Categories — narrow on mobile, wider on desktop */}
+        <div className="w-16 sm:w-44 bg-stone-50 border-r border-stone-200 overflow-y-auto shrink-0 flex flex-col">
           {categories.map(cat => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.name)}
-              className={`p-4 text-left border-l-4 transition-all flex flex-col sm:flex-row items-center sm:items-start gap-2 ${
+              className={`p-2 sm:p-4 text-left border-l-4 transition-all flex flex-col items-center sm:flex-row sm:items-start gap-1 sm:gap-2 ${
                 selectedCategory === cat.name 
                   ? 'border-dhaba-orange bg-white shadow-sm' 
                   : 'border-transparent text-stone-500 hover:bg-stone-100'
@@ -698,21 +744,9 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
           ))}
         </div>
 
-        {/* Middle Column: Items */}
-        <div className="flex-1 bg-white overflow-y-auto p-4 sm:p-6">
-          {/* Mobile Search */}
-          <div className="relative w-full mb-6 sm:hidden">
-            <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input 
-              type="text" 
-              placeholder="Search items..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 text-sm border border-stone-200 rounded-lg focus:ring-2 focus:ring-dhaba-orange outline-none bg-stone-50"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {/* Middle Column: Items — no separate mobile search since search is in header */}
+        <div className="flex-1 bg-white overflow-y-auto p-3 sm:p-5">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
             {filteredItems.map(item => (
               <button
                 key={item.id}
@@ -755,8 +789,8 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
           </div>
         </div>
 
-        {/* Right Column: Cart */}
-        <div className="w-72 lg:w-80 bg-stone-50 border-l border-stone-200 flex flex-col shrink-0">
+        {/* Right Column: Current Bill — wider for better usability */}
+        <div className="w-64 sm:w-80 lg:w-96 xl:w-[420px] bg-stone-50 border-l border-stone-200 flex flex-col shrink-0">
           <div className="p-4 border-b border-stone-200 bg-white">
             <h3 className="font-bold text-lg text-stone-800 flex items-center gap-2">
               <ShoppingBag className="w-5 h-5 text-dhaba-orange" />

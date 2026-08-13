@@ -368,6 +368,28 @@ export default function Storefront() {
                   {isMobileMenuOpen ? <X className="h-6 w-6 text-[var(--color-gold)]" /> : <Menu className="h-6 w-6 text-[var(--color-gold)]" />}
                 </button>
               </div>
+
+              {/* Desktop Logo — left side, xl+ only */}
+              <a
+                href="#"
+                onClick={(e) => { e.preventDefault(); setCurrentView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                className="hidden xl:flex items-center gap-2 group select-none"
+              >
+                {/* Decorative khanda-inspired vertical divider */}
+                <span className="flex flex-col items-center justify-center gap-[3px] mr-1">
+                  <span className="block w-[2px] h-3 bg-[var(--color-gold)] opacity-70 rounded-full"></span>
+                  <span className="block w-[5px] h-[5px] rounded-full bg-[var(--color-gold)]"></span>
+                  <span className="block w-[2px] h-3 bg-[var(--color-gold)] opacity-70 rounded-full"></span>
+                </span>
+                <div className="flex flex-col leading-tight">
+                  <span className="font-serif font-bold text-white text-lg tracking-wide group-hover:text-[var(--color-gold)] transition-colors duration-300">
+                    <span className="text-[var(--color-gold)]">Harjinder</span> Tourist Dhaba
+                  </span>
+                  <span className="text-[10px] uppercase tracking-[0.22em] text-stone-400 font-medium group-hover:text-stone-300 transition-colors duration-300">
+                    Since 1991 · Kharar–Kurali Highway
+                  </span>
+                </div>
+              </a>
               
               {/* Logo (centered on tablet and mobile, hidden on desktop where nav menu is centered) */}
               <div className="absolute left-1/2 transform -translate-x-1/2 flex-shrink-0 flex items-center whitespace-nowrap xl:hidden">
@@ -377,6 +399,7 @@ export default function Storefront() {
                 </a>
               </div>
             </div>
+
             
             {/* Centered Desktop Menu */}
             <div className="hidden xl:flex absolute left-1/2 transform -translate-x-1/2 space-x-1 items-center">
@@ -473,7 +496,7 @@ export default function Storefront() {
                 <ShoppingBag className="w-5 h-5 mr-2" /> Order Online
               </a>
               <Link 
-                to="/admin" 
+                to="/htd-ctrl-9x7k2m/admin" 
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="w-full bg-transparent text-stone-400 hover:text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center justify-center transition-all duration-300"
               >
@@ -1043,8 +1066,8 @@ export default function Storefront() {
               <ul className="space-y-3">
                 <li><a href="#about" onClick={(e) => { e.preventDefault(); if (currentView !== 'home') { setCurrentView('home'); setTimeout(() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }), 100); } else { document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }); } }} className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-block">About Us</a></li>
                 <li><button onClick={() => { setCurrentView('menu'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-block focus:outline-none">Food Menu</button></li>
-                <li><Link to="/admin" className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-block">Admin Dashboard</Link></li>
-                <li><Link to="/manager" className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-block">Manager Dashboard</Link></li>
+                <li><Link to="/htd-ctrl-9x7k2m/admin" className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-block">Admin Dashboard</Link></li>
+                <li><Link to="/htd-ctrl-9x7k2m/manager" className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-block">Manager Dashboard</Link></li>
                 <li><Link to="/privacy-policy" className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-block">Privacy Policy</Link></li>
               </ul>
             </div>
@@ -1456,47 +1479,7 @@ export default function Storefront() {
         <span className="hidden sm:inline font-bold text-xs tracking-wide">Quick Chat</span>
       </a>
 
-      {/* Mobile Bottom Navigation Bar (< md) */}
-      <nav className="md:hidden bottom-nav">
-        <button 
-          onClick={() => { setCurrentView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-          className={`bottom-nav-item ${currentView === 'home' ? 'active' : ''}`}
-        >
-          <Utensils className="bn-icon" />
-          <span>Home</span>
-        </button>
 
-        <button 
-          onClick={() => { setCurrentView('menu'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-          className={`bottom-nav-item ${currentView === 'menu' ? 'active' : ''}`}
-        >
-          <BookOpen className="bn-icon" />
-          <span>Menu</span>
-        </button>
-
-        <button 
-          onClick={() => { setCurrentView('order'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-          className={`bottom-nav-item ${currentView === 'order' ? 'active' : ''}`}
-        >
-          <Flame className="bn-icon" />
-          <span>Order</span>
-        </button>
-
-        <button 
-          onClick={() => setIsCartOpen(true)}
-          className={`bottom-nav-item relative ${isCartOpen ? 'active' : ''}`}
-        >
-          <div className="relative">
-            <ShoppingCart className="bn-icon" />
-            {cartCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 bg-dhaba-orange text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center border border-black/40 animate-pop-in">
-                {cartCount}
-              </span>
-            )}
-          </div>
-          <span>Cart</span>
-        </button>
-      </nav>
     </div>
   );
 }

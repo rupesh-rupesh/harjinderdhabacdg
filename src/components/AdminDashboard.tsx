@@ -158,8 +158,12 @@ const safeJson = async (res) => {
     setFormData(prev => ({ ...prev, [name]: val }));
   };
 
+  const [isSaving, setIsSaving] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
+    setIsSaving(true);
     try {
       const url = editingItemId ? `/api/menu-items/${editingItemId}` : '/api/menu-items';
       const method = editingItemId ? 'PUT' : 'POST';
@@ -176,13 +180,20 @@ const safeJson = async (res) => {
         body: JSON.stringify(submitData)
       });
       if (res.ok) {
+        toast.success(editingItemId ? 'Menu item updated successfully!' : 'Menu item added successfully!');
         setIsFormOpen(false);
         setEditingItemId(null);
         resetForm();
         fetchData();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        toast.error('Failed to save item: ' + (errData.error || res.statusText || 'Unknown error'));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save item:", error);
+      toast.error('Failed to save item: ' + (error.message || 'Network error'));
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -198,11 +209,16 @@ const safeJson = async (res) => {
     try {
       const res = await fetch(`/api/menu-items/${id}`, { method: 'DELETE' });
       if (res.ok) {
+        toast.success('Item deleted successfully!');
         setItemToDelete(null);
         fetchData();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        toast.error('Failed to delete item: ' + (errData.error || res.statusText || 'Unknown error'));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to delete item:", error);
+      toast.error('Failed to delete item: ' + (error.message || 'Network error'));
     }
   };
 
@@ -216,9 +232,13 @@ const safeJson = async (res) => {
     setEditingItemId(null);
   };
 
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!categoryForm.name.trim()) return;
+    if (isSavingCategory) return;
+    setIsSavingCategory(true);
     try {
       const url = editingCategory ? `/api/categories/${editingCategory.id}` : '/api/categories';
       const method = editingCategory ? 'PUT' : 'POST';
@@ -228,13 +248,20 @@ const safeJson = async (res) => {
         body: JSON.stringify(categoryForm)
       });
       if (res.ok) {
+        toast.success(editingCategory ? 'Category updated successfully!' : 'Category added successfully!');
         setCategoryForm({ name: '', image: '', startTime: '', endTime: '' });
         setEditingCategory(null);
         setIsCategoryModalOpen(false);
         fetchData();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        toast.error('Failed to save category: ' + (errData.error || res.statusText || 'Unknown error'));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save category:", error);
+      toast.error('Failed to save category: ' + (error.message || 'Network error'));
+    } finally {
+      setIsSavingCategory(false);
     }
   };
 
@@ -253,14 +280,19 @@ const safeJson = async (res) => {
     try {
       const res = await fetch(`/api/categories/${id}`, { method: 'DELETE' });
       if (res.ok) {
+        toast.success('Category deleted!');
         setCategoryToDelete(null);
         if (activeCategoryName === categoryToDelete?.name) {
           setActiveCategoryName(null);
         }
         fetchData();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        toast.error('Failed to delete category: ' + (errData.error || res.statusText || 'Unknown error'));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to delete category:", error);
+      toast.error('Failed to delete category: ' + (error.message || 'Network error'));
     }
   };
 
@@ -1361,9 +1393,14 @@ const safeJson = async (res) => {
                 </button>
                 <button 
                   type="submit" 
-                  className="px-5 py-2.5 bg-dhaba-dark text-white rounded-xl font-medium hover:bg-stone-800 transition-colors shadow-sm"
+                  disabled={isSavingCategory}
+                  className="px-5 py-2.5 bg-dhaba-dark text-white rounded-xl font-medium hover:bg-stone-800 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  {editingCategory ? 'Save Changes' : 'Create Category'}
+                  {isSavingCategory ? (
+                    <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block"></span> Saving...</>
+                  ) : (
+                    editingCategory ? 'Save Changes' : 'Create Category'
+                  )}
                 </button>
               </div>
             </form>
@@ -1639,13 +1676,18 @@ const safeJson = async (res) => {
                     </select>
                   </div>
                   <div className="space-y-2 col-span-1 md:col-span-2">
-                    <label className="block text-sm font-medium text-stone-700">Image URL</label>
+                    <label className="block text-sm font-medium text-stone-700">Image URL <span className="text-stone-400 font-normal">(Optional)</span></label>
                     <div className="flex flex-col gap-2">
-                      <input required name="image" value={formData.image || ''} onChange={handleChange} className="w-full px-4 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-dhaba-orange focus:border-dhaba-orange outline-none transition-shadow" placeholder="Enter URL or upload a file" />
+                      <input name="image" value={formData.image || ''} onChange={handleChange} className="w-full px-4 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-dhaba-orange focus:border-dhaba-orange outline-none transition-shadow" placeholder="Enter image URL or upload a file below" />
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-stone-500">Or upload:</span>
                         <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, 'image', 'menu')} className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-dhaba-orange/10 file:text-dhaba-orange hover:file:bg-dhaba-orange/20 cursor-pointer" />
                       </div>
+                      {formData.image && (
+                        <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-stone-200 shadow-sm">
+                          <img src={formData.image} alt="Preview" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1699,9 +1741,12 @@ const safeJson = async (res) => {
                 <button type="button" onClick={() => setIsFormOpen(false)} className="px-6 py-2.5 bg-stone-100 text-stone-700 rounded-xl font-medium hover:bg-stone-200 transition-colors">
                   Cancel
                 </button>
-                <button type="submit" className="px-6 py-2.5 bg-dhaba-dark text-white rounded-xl font-medium hover:bg-stone-800 transition-colors flex items-center shadow-md">
-                  <Save className="w-5 h-5 mr-2" />
-                  {editingItemId ? 'Save Changes' : 'Add Item'}
+                <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-dhaba-dark text-white rounded-xl font-medium hover:bg-stone-800 transition-colors flex items-center shadow-md disabled:opacity-60 disabled:cursor-not-allowed gap-2">
+                  {isSaving ? (
+                    <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block"></span> Saving...</>
+                  ) : (
+                    <><Save className="w-5 h-5" />{editingItemId ? 'Save Changes' : 'Add Item'}</>
+                  )}
                 </button>
               </div>
             </form>

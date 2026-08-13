@@ -49,8 +49,8 @@ export default function App() {
         <AnalyticsTracker />
         <Routes>
           <Route path="/" element={<Storefront />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/manager" element={<ManagerDashboard />} />
+          <Route path="/htd-ctrl-9x7k2m/admin" element={<AdminDashboard />} />
+          <Route path="/htd-ctrl-9x7k2m/manager" element={<ManagerDashboard />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="*" element={<div className="flex items-center justify-center h-screen bg-stone-50"><p className="text-xl font-medium text-stone-500"><DevEmptyStateText /></p></div>} />
         </Routes>
