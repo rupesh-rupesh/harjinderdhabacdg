@@ -74,8 +74,7 @@ export default function PrivacyPolicy() {
             </p>
             <div className="bg-stone-50 p-6 rounded-2xl border border-stone-100 mt-6">
               <p className="text-stone-700 font-medium mb-1">Privacy Officer</p>
-              <p className="text-stone-600">privacy@restaurant.com</p>
-              <p className="text-stone-600">+1 (555) 123-4567</p>
+              <p className="text-stone-600">+91 9056655093</p>
             </div>
           </div>
         </div>

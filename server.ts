@@ -145,8 +145,10 @@ const isVercel = process.env.VERCEL === "1" || process.env.VERCEL;
   
   app.get("/api/pos-data", async (req, res) => {
     try {
-      const menu = await db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id);
-      const cats = await db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id);
+      const [menu, cats] = await Promise.all([
+        db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
+        db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id)
+      ]);
       res.json({
         menuItems: menu,
         categories: cats
@@ -159,10 +161,12 @@ const isVercel = process.env.VERCEL === "1" || process.env.VERCEL;
 
   app.get("/api/storefront-data", async (req, res) => {
     try {
-      const menu = await db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id);
-      const cats = await db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id);
-      const feats = await db.select().from(features).orderBy(features.displayOrder, features.id);
-      const settings = await db.select().from(journeySettings).limit(1);
+      const [menu, cats, feats, settings] = await Promise.all([
+        db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
+        db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id),
+        db.select().from(features).orderBy(features.displayOrder, features.id),
+        db.select().from(journeySettings).limit(1)
+      ]);
       res.json({
         menuItems: menu,
         categories: cats,
@@ -177,13 +181,16 @@ const isVercel = process.env.VERCEL === "1" || process.env.VERCEL;
 
   app.get("/api/admin-data", async (req, res) => {
     try {
-      const menu = await db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id);
-      const cats = await db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id);
-      const feats = await db.select().from(features).orderBy(features.displayOrder, features.id);
-      const deletedCats = await db.select().from(categories).where(eq(categories.isDeleted, true));
-      const deletedItems = await db.select().from(menuItems).where(eq(menuItems.isDeleted, true));
+      const [menu, cats, feats, deletedCats, deletedItems, settings] = await Promise.all([
+        db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
+        db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id),
+        db.select().from(features).orderBy(features.displayOrder, features.id),
+        db.select().from(categories).where(eq(categories.isDeleted, true)),
+        db.select().from(menuItems).where(eq(menuItems.isDeleted, true)),
+        db.select().from(journeySettings).limit(1)
+      ]);
+      
       const deleted = { categories: deletedCats, menuItems: deletedItems };
-      const settings = await db.select().from(journeySettings).limit(1);
       res.json({
         menuItems: menu,
         categories: cats,
@@ -214,7 +221,33 @@ const isVercel = process.env.VERCEL === "1" || process.env.VERCEL;
   app.post("/api/categories", async (req, res) => {
     try {
       const { name, image, startTime, endTime } = req.body;
-      const newCategory = await db.insert(categories).values({ name, image, startTime: startTime || null, endTime: endTime || null }).returning();
+      if (!name || !name.trim()) {
+        return res.status(400).json({ error: "Category name is required" });
+      }
+
+      // Check if a soft-deleted category with this name already exists
+      const existing = await db.select().from(categories).where(eq(categories.name, name.trim()));
+      if (existing.length > 0) {
+        if (existing[0].isDeleted) {
+          // Recover the deleted category with updated data
+          const recovered = await db.update(categories).set({
+            isDeleted: false,
+            image: image || null,
+            startTime: startTime || null,
+            endTime: endTime || null,
+          }).where(eq(categories.id, existing[0].id)).returning();
+          return res.json(recovered[0]);
+        } else {
+          return res.status(409).json({ error: "A category with this name already exists" });
+        }
+      }
+
+      const newCategory = await db.insert(categories).values({
+        name: name.trim(),
+        image: image || null,
+        startTime: startTime || null,
+        endTime: endTime || null
+      }).returning();
       res.json(newCategory[0]);
     } catch (error: any) {
       console.error("Failed to create category:", error);
@@ -396,8 +429,10 @@ const isVercel = process.env.VERCEL === "1" || process.env.VERCEL;
 
   app.get("/api/deleted-items", async (req, res) => {
     try {
-      const deletedCategories = await db.select().from(categories).where(eq(categories.isDeleted, true));
-      const deletedMenuItems = await db.select().from(menuItems).where(eq(menuItems.isDeleted, true));
+      const [deletedCategories, deletedMenuItems] = await Promise.all([
+        db.select().from(categories).where(eq(categories.isDeleted, true)),
+        db.select().from(menuItems).where(eq(menuItems.isDeleted, true))
+      ]);
       res.json({ categories: deletedCategories, menuItems: deletedMenuItems });
     } catch (error: any) {
       res.status(500).json({ error: "Failed to fetch deleted items: " + (error.message || error) });
@@ -500,9 +535,12 @@ app.get("/api/journey-media", async (req, res) => {
   app.post("/api/features", async (req, res) => {
     try {
       const { title, description, iconName, videoUrl, displayOrder, isActive } = req.body;
+      if (!title || !title.trim()) {
+        return res.status(400).json({ error: "Feature title is required" });
+      }
       const newItem = await db.insert(features).values({ 
-        title, 
-        description, 
+        title: title.trim(), 
+        description: description || '', 
         iconName: iconName || 'Sparkles', 
         videoUrl: videoUrl || null,
         displayOrder: displayOrder !== undefined ? displayOrder : 0,
@@ -791,27 +829,29 @@ app.get("/api/journey-media", async (req, res) => {
 
   app.get("/api/analytics/dashboard", async (req, res) => {
     try {
-      const allVisits = await db.select().from(visits);
-      const allVisitors = await db.select().from(visitors);
-      const allDemoNotices = await db.select().from(demoNotices);
-      
       const now = new Date();
-      // Set active threshold to 5 minutes
       const activeThreshold = new Date(now.getTime() - 5 * 60000);
-      
-      // Update inactive sessions
       await db.update(visits).set({ isActive: false }).where(lt(visits.lastPingAt, activeThreshold));
+
+      const [allVisits, allVisitors, allDemoNotices, activeVisits] = await Promise.all([
+        db.select().from(visits),
+        db.select().from(visitors),
+        db.select().from(demoNotices),
+        db.select().from(visits).where(eq(visits.isActive, true))
+      ]);
       
-      const activeVisits = await db.select().from(visits).where(eq(visits.isActive, true));
+      const totalVisitors = allVisitors.length;
       
-      res.json({ 
-        visits: allVisits, 
-        visitors: allVisitors,
+      res.json({
+        totalVisitors,
+        activeVisitors: activeVisits.length,
+        totalVisits: allVisits.length,
         demoNotices: allDemoNotices,
-        activeVisitors: activeVisits.length
+        visits: allVisits,
+        visitors: allVisitors
       });
     } catch (error: any) {
-      res.status(500).json({ error: "Failed to fetch analytics data: " + (error.message || error) });
+      res.status(500).json({ error: "Failed to fetch analytics: " + (error.message || error) });
     }
   });
 
@@ -1068,6 +1108,8 @@ app.get("/api/journey-media", async (req, res) => {
           server: { middlewareMode: true },
           appType: "spa",
         });
+        // Wait for Vite to be fully ready before adding middleware
+        await vite.waitForRequestsIdle?.().catch(() => {});
         app.use(vite.middlewares);
       } else {
         const distPath = path.join(process.cwd(), 'dist');

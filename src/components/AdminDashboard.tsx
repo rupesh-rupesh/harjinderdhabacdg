@@ -9,6 +9,7 @@ import DashboardAuthModal from './DashboardAuthModal';
 
 import { ConfirmModal } from './ConfirmModal';
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { DevEmptyStateText } from './DevEmptyStateText';
 
 import { Menu, Plus, Activity, Trash2, Edit, Save, X, Image as ImageIcon, Layers, Search, MoreVertical, ArrowLeft, ChevronRight, Video, LayoutDashboard, Star, ToggleLeft, ToggleRight, ArrowUp, ArrowDown, ShieldCheck, Zap, Wifi, Snowflake, MapPin, Coffee, Utensils, ChefHat, Fuel, TreePine, BatteryCharging, Clock, Car, Users, Leaf, Droplets, Package, ShoppingCart, Lock, KeyRound, Shield } from 'lucide-react';
@@ -23,6 +24,10 @@ import { storage } from '../lib/firebase';
 const DynamicIcon = ({ name, className }: { name: string, className?: string }) => {
   const IconComponent = (Icons as any)[name] || Icons.Sparkles;
   return <IconComponent className={className} />;
+};
+
+const ModalPortal = ({ children }: { children: React.ReactNode }) => {
+  return createPortal(children, document.body);
 };
 
 const getSuggestedIcon = (title: string) => {
@@ -113,14 +118,13 @@ export default function AdminDashboard() {
     );
   }
 
-  const fetchData = async () => {
+  const safeJson = async (res: Response) => {
+    const ct = res.headers.get('content-type');
+    if (ct && ct.includes('application/json')) return res.json();
+    return {};
+  };
 
-const safeJson = async (res) => {
-  const ct = res.headers.get('content-type');
-  if (ct && ct.includes('application/json')) return res.json();
-  return {};
-};
-
+  const fetchData = async (retryCount = 0) => {
     setLoading(true);
     try {
       const res = await fetch('/api/admin-data');
@@ -136,6 +140,10 @@ const safeJson = async (res) => {
         if (data.features) setFeatures(data.features);
         if (data.deletedData) setDeletedData(data.deletedData);
         if (data.journeySettings) setJourneySettings(data.journeySettings);
+      } else if (retryCount < 3) {
+        // Retry on server error (e.g. Vite not ready yet)
+        setTimeout(() => fetchData(retryCount + 1), 600);
+        return;
       }
       
       const journeyRes = await fetch('/api/journey-media');
@@ -144,9 +152,12 @@ const safeJson = async (res) => {
         if (Array.isArray(journeyData)) setJourneyMedia(journeyData);
       }
     } catch (err: any) {
-      if (err.message !== 'Failed to fetch') {
-        console.error("Failed to fetch data:", err);
+      if (retryCount < 3) {
+        // Retry on network error (server still starting up)
+        setTimeout(() => fetchData(retryCount + 1), 600);
+        return;
       }
+      console.error("Failed to fetch data after retries:", err);
     } finally {
       setLoading(false);
     }
@@ -623,12 +634,17 @@ const safeJson = async (res) => {
         body: JSON.stringify(body)
       });
       if (res.ok) {
+        toast.success(featureForm.id ? 'Feature updated!' : 'Feature added!');
         setIsFeatureFormOpen(false);
         setFeatureForm({ id: null, title: '', description: '', videoUrl: '', iconName: 'Sparkles', isActive: true });
         fetchData();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        toast.error('Failed to save feature: ' + (errData.error || res.statusText || 'Unknown error'));
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      toast.error('Failed to save feature: ' + (err.message || 'Network error'));
     }
   };
 
@@ -825,7 +841,8 @@ const safeJson = async (res) => {
       )}
       
       {isFeatureFormOpen && (
-        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+        <ModalPortal>
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-md flex items-center justify-center p-4 z-[100] animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
               <h2 className="text-2xl font-bold font-serif text-stone-800">{featureForm.id ? 'Edit Feature' : 'Add New Feature'}</h2>
@@ -834,7 +851,7 @@ const safeJson = async (res) => {
               </button>
             </div>
             
-            <form onSubmit={handleSaveFeature} className="p-6 overflow-y-auto">
+            <form onSubmit={handleSaveFeature} className="p-6 overflow-y-auto" data-lenis-prevent="true">
               <div className="space-y-5">
                 <div>
                   <label className="block text-sm font-medium text-stone-700 mb-1.5">Title <span className="text-red-500">*</span></label>
@@ -889,6 +906,7 @@ const safeJson = async (res) => {
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
     </div>
   );
@@ -1321,7 +1339,8 @@ const safeJson = async (res) => {
         )}
 
       {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <ModalPortal>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20 backdrop-blur-md">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b border-stone-100 flex justify-between items-center">
               <h2 className="text-xl font-bold font-serif text-dhaba-dark">{editingCategory ? 'Edit Category' : 'Add New Category'}</h2>
@@ -1406,10 +1425,12 @@ const safeJson = async (res) => {
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {categoryToDelete !== null && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <ModalPortal>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20 backdrop-blur-md">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 text-center animate-in fade-in zoom-in-95 duration-200">
             <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-red-100">
               <Trash2 className="w-7 h-7" />
@@ -1440,10 +1461,12 @@ const safeJson = async (res) => {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {itemToDelete !== null && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <ModalPortal>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20 backdrop-blur-md">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center animate-in fade-in zoom-in-95 duration-200">
             <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-red-100">
               <Trash2 className="w-7 h-7" />
@@ -1466,11 +1489,13 @@ const safeJson = async (res) => {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
+        <ModalPortal>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/20 backdrop-blur-md">
+          <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl" data-lenis-prevent="true">
             <div className="sticky top-0 bg-white px-6 py-4 border-b border-stone-100 flex justify-between items-center z-10">
               <h2 className="text-xl font-bold font-serif text-dhaba-dark">{editingItemId ? 'Edit Item' : 'Add New Item'}</h2>
               <button onClick={() => setIsFormOpen(false)} className="text-stone-400 hover:text-stone-600 p-1">
@@ -1752,6 +1777,7 @@ const safeJson = async (res) => {
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
       
           

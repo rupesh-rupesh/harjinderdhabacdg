@@ -18,6 +18,10 @@ import PrivacyPolicy from './components/PrivacyPolicy.tsx';
 export default function App() {
 
   useEffect(() => {
+    if (window.location.pathname.includes('/admin') || window.location.pathname.includes('/manager')) {
+      return;
+    }
+
     const lenis = new Lenis({
       duration: 1.2,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
