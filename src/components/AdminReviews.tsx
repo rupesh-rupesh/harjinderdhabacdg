@@ -109,12 +109,12 @@ export default function AdminReviews() {
         <h2 className="text-2xl font-bold text-stone-800">Manage Reviews</h2>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-stone-200 divide-y divide-stone-100">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {reviews.length === 0 ? (
           <div className="p-8 text-center text-stone-500">There are currently no reviews available to display.</div>
         ) : (
           reviews.map(review => (
-            <div key={review.id} className={`p-6 ${review.isHidden ? 'bg-stone-50 opacity-75' : ''}`}>
+            <div key={review.id} className={`bg-white rounded-3xl p-6 shadow-sm border border-stone-100 hover:shadow-lg transition-shadow flex flex-col ${review.isHidden ? 'opacity-60 bg-stone-50' : ''}`}>
               <div className="flex justify-between items-start">
                 <div>
                   <h4 className="font-bold text-stone-900">{review.name}</h4>
@@ -146,9 +146,9 @@ export default function AdminReviews() {
                 </div>
               </div>
               
-              <p className="mt-3 text-stone-700">{review.comment}</p>
+              <p className="mt-4 text-stone-600 flex-1">{review.comment}</p>
               
-              <div className="mt-4 flex gap-4 text-sm text-stone-500">
+              <div className="mt-6 pt-4 border-t border-stone-100 flex gap-4 text-sm text-stone-500">
                 <span className="font-medium">{review.likes} Likes</span>
                 <span className="font-medium">{review.dislikes} Dislikes</span>
               </div>

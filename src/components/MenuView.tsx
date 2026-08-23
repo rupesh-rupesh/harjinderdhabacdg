@@ -1,7 +1,42 @@
-
 import { DevEmptyStateText } from './DevEmptyStateText';
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Search, ShoppingCart, Minus, Plus, ShoppingBag, Flame, Star } from 'lucide-react';
+import { ArrowLeft, Search, ShoppingCart, Minus, Plus, ShoppingBag, Flame, Star, Info, X, Clock, Sun, CupSoda, Soup, ConciergeBell, UtensilsCrossed, Pizza, Coffee, Utensils } from 'lucide-react';
+import * as Icons from 'lucide-react';
+import { NoodleBowlIcon } from './CustomIcons';
+
+const DynamicIcon = ({ name, className }: { name: string, className?: string }) => {
+  const cleanClassName = className?.replace(/text-\w+-\d+/, '') || '';
+  
+  if (name === "NoodleBowl") return <NoodleBowlIcon className={cleanClassName} />;
+  
+  let colorClass = "text-stone-300"; // default
+  if (name === "Sun") colorClass = "text-yellow-500";
+  if (name === "CupSoda") colorClass = "text-cyan-500";
+  if (name === "Soup") colorClass = "text-orange-500";
+  if (name === "ConciergeBell") colorClass = "text-stone-500";
+  if (name === "UtensilsCrossed") colorClass = "text-red-500";
+  if (name === "Pizza") colorClass = "text-amber-500";
+  if (name === "Coffee") colorClass = "text-amber-700";
+  if (name === "Utensils") colorClass = "text-stone-400";
+  
+  const IconComponent = (Icons as any)[name] || Icons.Utensils;
+  return <IconComponent className={`${cleanClassName} ${colorClass}`.trim()} />;
+};
+
+const getItemFallbackIcon = (category: string) => {
+  if (!category) return "Utensils";
+  const lowerName = category.toLowerCase();
+  if (lowerName.includes("breakfast")) return "Sun";
+  if (lowerName.includes("indian") || lowerName.includes("tandoor") || lowerName.includes("bread") || lowerName.includes("roti") || lowerName.includes("naan")) return "NoodleBowl";
+  if (lowerName.includes("beverage") || lowerName.includes("drink") || lowerName.includes("shake")) return "CupSoda";
+  if (lowerName.includes("raita") || lowerName.includes("curd") || lowerName.includes("dal") || lowerName.includes("paneer") || lowerName.includes("sabzi")) return "Soup";
+  if (lowerName.includes("thali")) return "ConciergeBell";
+  if (lowerName.includes("chinese")) return "UtensilsCrossed";
+  if (lowerName.includes("pizza")) return "Pizza";
+  if (lowerName.includes("dessert") || lowerName.includes("sweet")) return "Coffee";
+  if (lowerName.includes("snack") || lowerName.includes("starter") || lowerName.includes("appetizer")) return "Utensils";
+  return "Utensils";
+};
 
 interface CartItem {
   name: string;
@@ -46,20 +81,10 @@ export default function MenuView({
   const isItemLocked = (item: any) => {
     if (item.outOfStock) return true;
     
-    let hasTiming = item.hasTiming;
-    let startTime = item.startTime;
-    let endTime = item.endTime;
+    if (!item.hasTiming || !item.startTime || !item.endTime) return false;
     
-    if (!hasTiming) {
-      const category = dbCategories.find(c => c.name === item.category);
-      if (category && category.startTime && category.endTime) {
-        hasTiming = true;
-        startTime = category.startTime;
-        endTime = category.endTime;
-      }
-    }
-
-    if (!hasTiming || !startTime || !endTime) return false;
+    const startTime = item.startTime;
+    const endTime = item.endTime;
     
     const now = new Date();
     const currentTotal = now.getHours() * 60 + now.getMinutes();
@@ -84,12 +109,7 @@ export default function MenuView({
   
   const getLockSubReason = (item: any) => {
     if (item.outOfStock) return "Not available for order";
-    let startTime = item.startTime;
-    if (!item.hasTiming) {
-      const category = dbCategories.find(c => c.name === item.category);
-      if (category) startTime = category.startTime;
-    }
-    return `Available at ${startTime || 'later'}`;
+    return `Available at ${item.startTime || 'later'}`;
   };
   
 
@@ -175,7 +195,7 @@ export default function MenuView({
           <Search className="w-5 h-5 text-stone-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
         </div>
         
-        <div className="flex overflow-x-auto hide-scrollbar gap-2 max-w-4xl mx-auto pb-1">
+        <div className="flex overflow-x-auto hide-scrollbar gap-2 max-w-4xl mx-auto pb-1" data-lenis-prevent="true">
           {filters.map(filter => (
             <button
               key={filter}
@@ -195,7 +215,7 @@ export default function MenuView({
       {/* Main Content Area (Two Columns) */}
       <div className="flex flex-1 overflow-hidden relative max-w-7xl mx-auto w-full">
         {/* Left Sidebar */}
-        <div className="w-[28%] md:w-64 flex-shrink-0 bg-stone-100/50 border-r border-stone-200 overflow-y-auto flex flex-col hide-scrollbar">
+        <div className="w-[28%] md:w-64 flex-shrink-0 bg-stone-100/50 border-r border-stone-200 overflow-y-auto flex flex-col hide-scrollbar" data-lenis-prevent="true">
           <div className="p-2 sm:p-3 space-y-1 sm:space-y-2">
             <button
               onClick={() => handleCategoryClick('All')}
@@ -244,6 +264,7 @@ export default function MenuView({
         <div 
           ref={rightColumnRef}
           className="flex-1 overflow-y-auto bg-stone-50/80 p-3 sm:p-5 pb-36 transition-opacity duration-300"
+          data-lenis-prevent="true"
         >
           {!searchQuery && filterType === 'All' && (
              <h2 className="text-3xl sm:text-4xl font-serif font-bold text-dhaba-dark mb-6 pl-2 drop-shadow-sm">{activeCategory}</h2>
@@ -277,7 +298,13 @@ export default function MenuView({
               return (
               <div key={item.id} className={`bg-white rounded-[2rem] shadow-sm hover:shadow-xl hover:shadow-stone-200/50 transition-all duration-500 overflow-hidden border border-stone-100 flex flex-col group transform hover:-translate-y-1 ${locked ? 'opacity-80 grayscale-[50%]' : 'cursor-pointer'}`} onClick={() => !locked && setSelectedItemDetail(item)}>
                 <div className="relative h-48 sm:h-56 overflow-hidden bg-stone-100 border-b border-stone-100/50">
-                  <img src={item.image || undefined} alt={item.name} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
+                  {item.image ? (
+                    <img src={item.image} alt={item.name} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center transform group-hover:scale-110 transition-transform duration-700">
+                      <DynamicIcon name={getItemFallbackIcon(item.category)} className="w-20 h-20 text-stone-300" />
+                    </div>
+                  )}
                   {locked && (
                     <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
                       <div className="bg-stone-900/80 text-white font-bold text-xs sm:text-sm px-4 py-2 rounded-xl backdrop-blur-md shadow-2xl transform -rotate-12 border border-stone-700 mx-4 text-center">

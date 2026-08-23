@@ -34,7 +34,19 @@ export default function AnalyticsDashboard() {
       ]);
       const dataJson = await safeJson(dataRes);
       const settingsJson = await safeJson(settingsRes);
-      setData(dataJson);
+      setData({
+        visits: dataJson.visits || [],
+        visitors: dataJson.visitors || [],
+        activeVisitors: dataJson.activeVisitors || 0,
+        demoNotices: dataJson.demoNotices || []
+      });
+      
+      
+      const localDemoNotice = localStorage.getItem('htd_analytics_demoNoticeEnabled');
+      if (localDemoNotice !== null) {
+        settingsJson.demoNoticeEnabled = JSON.parse(localDemoNotice);
+      }
+      
       setSettings(settingsJson);
     } catch (e) {
       toast.error("We were unable to load the analytics data at this time.");
@@ -109,6 +121,7 @@ export default function AnalyticsDashboard() {
     try {
       const newSettings = { ...settings, [key]: val };
       setSettings(newSettings);
+      localStorage.setItem(`htd_analytics_${key}`, JSON.stringify(val));
       await fetch('/api/analytics/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -455,12 +468,15 @@ export default function AnalyticsDashboard() {
 
 function StatCard({ icon, label, value }: { icon: any, label: string, value: string | number }) {
   return (
-    <div className="bg-white p-5 rounded-2xl shadow-sm border border-stone-100 flex flex-col justify-center">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="bg-stone-50 p-2 rounded-xl border border-stone-100">{icon}</div>
-        <span className="text-sm font-medium text-stone-500">{label}</span>
+    <div className="bg-white p-6 rounded-3xl shadow-sm border border-stone-100 hover:shadow-lg hover:border-dhaba-orange/30 transition-all flex flex-col justify-center relative overflow-hidden group">
+      <div className="absolute -top-4 -right-4 p-4 opacity-5 group-hover:scale-125 group-hover:opacity-10 transition-all duration-500">
+        {React.cloneElement(icon, { className: 'w-24 h-24' })}
       </div>
-      <div className="text-2xl font-bold text-stone-800">{value}</div>
+      <div className="flex items-center gap-3 mb-3 relative z-10">
+        <div className="bg-stone-50 p-3 rounded-2xl border border-stone-100 shadow-inner group-hover:bg-white transition-colors">{icon}</div>
+        <span className="text-xs font-black text-stone-500 uppercase tracking-wider">{label}</span>
+      </div>
+      <div className="text-3xl font-black text-dhaba-dark relative z-10">{value}</div>
     </div>
   );
 }

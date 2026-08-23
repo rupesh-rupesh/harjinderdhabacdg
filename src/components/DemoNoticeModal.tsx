@@ -27,23 +27,39 @@ export default function DemoNoticeModal() {
   };
 
   useEffect(() => {
-    fetch('/api/analytics/settings')
-      .then(res => {
-        const ct = res.headers.get('content-type');
-        if (ct && ct.includes('application/json')) return res.json();
-        return {};
-      })
-      .then((data: any) => {
-        if (data && data.demoNoticeEnabled !== false) {
-          setIsOpen(true);
+    const isAdmin = sessionStorage.getItem('admin_dashboard_auth') === 'true' || localStorage.getItem('admin_dashboard_auth') === 'true';
+    const isManager = sessionStorage.getItem('manager_dashboard_auth') === 'true' || localStorage.getItem('manager_dashboard_auth') === 'true';
+    
+    if (isAdmin || isManager) {
+      setSettingsFetched(true);
+      return;
+    }
+
+    const checkSettings = async () => {
+      try {
+        const res = await fetch('/api/analytics/settings');
+        let data: any = {};
+        const ct = res.headers?.get('content-type');
+        if (ct && ct.includes('application/json')) {
+          data = await res.json();
         }
-        setSettingsFetched(true);
-      })
-      .catch(err => {
+        
+        const localSetting = localStorage.getItem('htd_analytics_demoNoticeEnabled');
+        const isEnabled = localSetting !== null ? JSON.parse(localSetting) : (data?.demoNoticeEnabled !== false);
+        
+        if (isEnabled) setIsOpen(true);
+      } catch (err: any) {
         if (err.message !== 'Failed to fetch') console.error(err);
-        setIsOpen(true);
+        const localSetting = localStorage.getItem('htd_analytics_demoNoticeEnabled');
+        const isEnabled = localSetting !== null ? JSON.parse(localSetting) : true;
+        
+        if (isEnabled) setIsOpen(true);
+      } finally {
         setSettingsFetched(true);
-      });
+      }
+    };
+
+    checkSettings();
   }, []);
 
   if (!settingsFetched) return null;

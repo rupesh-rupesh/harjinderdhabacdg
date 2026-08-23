@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowLeft, Menu, Search, ShoppingCart, Minus, Plus, ChevronRight, Clock, Star, Sun, Coffee, CupSoda, Pizza, ConciergeBell, Utensils, UtensilsCrossed, Flame, Soup, Droplets, Leaf } from 'lucide-react';
+import { NoodleBowlIcon } from './CustomIcons';
 
 interface OrderViewProps {
   isLoading?: boolean;
@@ -22,18 +23,18 @@ interface OrderViewProps {
 
 const getCategoryMetadata = (name: string) => {
   const lowerName = name.toLowerCase();
-  if (lowerName.includes("breakfast")) return { icon: Sun, subtitle: "Start your day right" };
-  if (lowerName.includes("indian")) return { icon: Flame, subtitle: "Authentic Indian flavors" };
-  if (lowerName.includes("beverage") || lowerName.includes("drink")) return { icon: CupSoda, subtitle: "Refreshing drinks" };
-  if (lowerName.includes("raita") || lowerName.includes("curd")) return { icon: Soup, subtitle: "Cool & healthy" };
-  if (lowerName.includes("thali")) return { icon: ConciergeBell, subtitle: "Complete satisfying meals" };
-  if (lowerName.includes("chinese")) return { icon: UtensilsCrossed, subtitle: "Indo-Chinese delights" };
-  if (lowerName.includes("pizza")) return { icon: Pizza, subtitle: "Cheesy & delicious" };
-  if (lowerName.includes("tandoor") || lowerName.includes("bread") || lowerName.includes("roti") || lowerName.includes("naan")) return { icon: Flame, subtitle: "Fresh from the clay oven" };
-  if (lowerName.includes("dal") || lowerName.includes("paneer") || lowerName.includes("sabzi")) return { icon: Soup, subtitle: "Rich & flavorful dishes" };
-  if (lowerName.includes("snack") || lowerName.includes("starter") || lowerName.includes("appetizer")) return { icon: Utensils, subtitle: "Perfect light bites" };
-  if (lowerName.includes("dessert") || lowerName.includes("sweet")) return { icon: Coffee, subtitle: "Sweet endings" };
-  return { icon: Utensils, subtitle: "Explore our delicious offerings" };
+  if (lowerName.includes("breakfast")) return { icon: Sun, color: "text-yellow-500", subtitle: "Start your day right" };
+  if (lowerName.includes("indian")) return { icon: NoodleBowlIcon, color: "", subtitle: "Authentic Indian flavors" };
+  if (lowerName.includes("beverage") || lowerName.includes("drink")) return { icon: CupSoda, color: "text-cyan-500", subtitle: "Refreshing drinks" };
+  if (lowerName.includes("raita") || lowerName.includes("curd")) return { icon: Soup, color: "text-orange-500", subtitle: "Cool & healthy" };
+  if (lowerName.includes("thali")) return { icon: ConciergeBell, color: "text-stone-500", subtitle: "Complete satisfying meals" };
+  if (lowerName.includes("chinese")) return { icon: UtensilsCrossed, color: "text-red-500", subtitle: "Indo-Chinese delights" };
+  if (lowerName.includes("pizza")) return { icon: Pizza, color: "text-amber-500", subtitle: "Cheesy & delicious" };
+  if (lowerName.includes("tandoor") || lowerName.includes("bread") || lowerName.includes("roti") || lowerName.includes("naan")) return { icon: NoodleBowlIcon, color: "", subtitle: "Fresh from the clay oven" };
+  if (lowerName.includes("dal") || lowerName.includes("paneer") || lowerName.includes("sabzi")) return { icon: Soup, color: "text-orange-500", subtitle: "Rich & flavorful dishes" };
+  if (lowerName.includes("snack") || lowerName.includes("starter") || lowerName.includes("appetizer")) return { icon: Utensils, color: "text-stone-400", subtitle: "Perfect light bites" };
+  if (lowerName.includes("dessert") || lowerName.includes("sweet")) return { icon: Coffee, color: "text-amber-700", subtitle: "Sweet endings" };
+  return { icon: Utensils, color: "text-stone-300", subtitle: "Explore our delicious offerings" };
 };
 
 export default function OrderView({
@@ -59,20 +60,10 @@ export default function OrderView({
   const isItemLocked = (item: any) => {
     if (item.outOfStock) return true;
     
-    let hasTiming = item.hasTiming;
-    let startTime = item.startTime;
-    let endTime = item.endTime;
+    if (!item.hasTiming || !item.startTime || !item.endTime) return false;
     
-    if (!hasTiming) {
-      const category = dbCategories.find(c => c.name === item.category);
-      if (category && category.startTime && category.endTime) {
-        hasTiming = true;
-        startTime = category.startTime;
-        endTime = category.endTime;
-      }
-    }
-
-    if (!hasTiming || !startTime || !endTime) return false;
+    const startTime = item.startTime;
+    const endTime = item.endTime;
     
     const now = new Date();
     const currentTotal = now.getHours() * 60 + now.getMinutes();
@@ -97,12 +88,7 @@ export default function OrderView({
   
   const getLockSubReason = (item: any) => {
     if (item.outOfStock) return "Not orderable";
-    let startTime = item.startTime;
-    if (!item.hasTiming) {
-      const category = dbCategories.find(c => c.name === item.category);
-      if (category) startTime = category.startTime;
-    }
-    return `Tomorrow ${startTime || '5 AM'}`;
+    return `Tomorrow ${item.startTime || '5 AM'}`;
   };
   
 
@@ -157,7 +143,7 @@ export default function OrderView({
       {/* Layout */}
       <div className="flex flex-1 overflow-hidden relative">
         {orderViewStatus === 'categories' ? (
-          <div className="flex-1 overflow-y-auto p-6 sm:p-8 lg:p-12 bg-dhaba-light">
+          <div className="flex-1 overflow-y-auto p-6 sm:p-8 lg:p-12 bg-dhaba-light" data-lenis-prevent="true">
             <div className="max-w-7xl mx-auto">
               <div className="text-center mb-8 sm:mb-12 relative">
                 <div className="absolute top-1/2 left-0 w-full h-px bg-gradient-to-r from-transparent via-dhaba-orange/20 to-transparent -z-10 hidden sm:block"></div>
@@ -266,7 +252,7 @@ export default function OrderView({
                </div>
              </div>
 
-             <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-dhaba-light">
+             <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-dhaba-light" data-lenis-prevent="true">
                <div className="max-w-3xl mx-auto pb-24">
                  <h2 className="text-3xl sm:text-4xl font-serif font-bold text-dhaba-dark mb-8 drop-shadow-sm">{orderCategory}</h2>
                  
@@ -297,7 +283,17 @@ export default function OrderView({
                        return (
                        <div key={item.id} className={`bg-white rounded-[2rem] shadow-sm hover:shadow-xl hover:shadow-stone-200/50 transition-all duration-500 overflow-hidden border border-stone-100 flex p-4 sm:p-5 gap-4 sm:gap-6 group transform hover:-translate-y-1 ${locked ? 'opacity-80 grayscale-[50%]' : ''}`}>
                          <div className="w-28 h-28 sm:w-40 sm:h-40 flex-shrink-0 rounded-2xl overflow-hidden bg-stone-100 relative">
-                           <img src={item.image} alt={item.name} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
+                           {item.image ? (
+                             <img src={item.image} alt={item.name} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
+                           ) : (
+                             <div className="w-full h-full flex items-center justify-center transform group-hover:scale-110 transition-transform duration-700">
+                                {(() => {
+                                  const meta = getCategoryMetadata(item.category || '');
+                                  const CategoryIcon = meta.icon;
+                                  return <CategoryIcon className={`w-12 h-12 ${meta.color}`} />;
+                                })()}
+                             </div>
+                           )}
                            {item.dietaryPreference && (
                              <div className="absolute top-2 left-2 bg-white/90 backdrop-blur px-1 py-1 rounded shadow-sm flex items-center justify-center">
                                <div className={`w-3 h-3 border ${(item.dietaryPreference?.toLowerCase() === 'veg' || item.dietaryPreference?.toLowerCase() === 'vegetarian') ? 'border-green-600' : 'border-red-600'} flex items-center justify-center rounded-sm bg-white`}>

@@ -5,14 +5,16 @@ import ManagerOrders from './ManagerOrders';
 import ManagerBilling from './ManagerBilling';
 import AdminManagers from './AdminManagers';
 import AdminPasswordSettings from './AdminPasswordSettings';
+import PrinterSettings from './PrinterSettings';
 import DashboardAuthModal from './DashboardAuthModal';
 
 import { ConfirmModal } from './ConfirmModal';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { DevEmptyStateText } from './DevEmptyStateText';
+import { TimePicker } from './TimePicker';
 
-import { Menu, Plus, Activity, Trash2, Edit, Save, X, Image as ImageIcon, Layers, Search, MoreVertical, ArrowLeft, ChevronRight, Video, LayoutDashboard, Star, ToggleLeft, ToggleRight, ArrowUp, ArrowDown, ShieldCheck, Zap, Wifi, Snowflake, MapPin, Coffee, Utensils, ChefHat, Fuel, TreePine, BatteryCharging, Clock, Car, Users, Leaf, Droplets, Package, ShoppingCart, Lock, KeyRound, Shield } from 'lucide-react';
+import { Menu, Plus, Activity, Trash2, Edit, Save, X, Image as ImageIcon, Layers, Search, MoreVertical, ArrowLeft, ChevronRight, Video, LayoutDashboard, Star, ToggleLeft, ToggleRight, ArrowUp, ArrowDown, ShieldCheck, Zap, Wifi, Snowflake, MapPin, Coffee, Utensils, ChefHat, Fuel, TreePine, BatteryCharging, Clock, Car, Users, Leaf, Droplets, Package, ShoppingCart, Lock, KeyRound, Shield, MessageCircle, Upload, FileText, Printer } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -55,17 +57,20 @@ const SPICE_LEVELS = ['None', 'Mild', 'Medium', 'Spicy', 'Extra Spicy'];
 
 export default function AdminDashboard() {
   const [authenticated, setAuthenticated] = useState<boolean>(
-    () => sessionStorage.getItem('admin_dashboard_auth') === 'true'
+    () => sessionStorage.getItem('admin_dashboard_auth') === 'true' || localStorage.getItem('admin_dashboard_auth') === 'true'
   );
   const [items, setItems] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  const [activeModule, setActiveModule] = useState<'menu' | 'features' | 'journey' | 'recover' | 'analytics' | 'reviews' | 'managers' | 'stats' | 'orders' | 'billing' | 'passwords'>('analytics');
+  const [activeModule, setActiveModule] = useState<'menu' | 'features' | 'journey' | 'recover' | 'analytics' | 'reviews' | 'managers' | 'stats' | 'orders' | 'billing' | 'passwords' | 'ticker' | 'printer'>('analytics');
   const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
 
   const [features, setFeatures] = useState<any[]>([]);
   const [journeyMedia, setJourneyMedia] = useState<any[]>([]);
   const [journeySettings, setJourneySettings] = useState({ header: '', description: '', signature: '', subSignature: '' });
   const [deletedData, setDeletedData] = useState<{categories: any[], menuItems: any[]}>({categories: [], menuItems: []});
+  const [newsTickers, setNewsTickers] = useState<any[]>([]);
+  const [isTickerFormOpen, setIsTickerFormOpen] = useState(false);
+  const [tickerForm, setTickerForm] = useState({ id: null as number|null, text: '', isActive: true, displayOrder: 0 });
   const [isFeatureFormOpen, setIsFeatureFormOpen] = useState(false);
   const [featureForm, setFeatureForm] = useState({ id: null as number|null, title: '', description: '', videoUrl: '', iconName: 'Sparkles', isActive: true });
 
@@ -79,7 +84,15 @@ export default function AdminDashboard() {
   
   const [categoryForm, setCategoryForm] = useState({ name: '', image: '', startTime: '', endTime: '' });
   const [loading, setLoading] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth >= 1024);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem('admin_sidebar_open');
+    if (saved !== null) return saved === 'true';
+    return window.innerWidth >= 1024;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('admin_sidebar_open', String(isSidebarOpen));
+  }, [isSidebarOpen]);
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,6 +108,7 @@ export default function AdminDashboard() {
 
   const handleLock = () => {
     sessionStorage.removeItem('admin_dashboard_auth');
+    localStorage.removeItem('admin_dashboard_auth');
     setAuthenticated(false);
     toast.success('Admin Dashboard locked');
   };
@@ -127,7 +141,11 @@ export default function AdminDashboard() {
   const fetchData = async (retryCount = 0) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin-data');
+      const [res, journeyRes] = await Promise.all([
+        fetch('/api/admin-data'),
+        fetch('/api/journey-media')
+      ]);
+
       if (res.ok) {
         const data = await safeJson(res);
         if (data.menuItems) setItems(data.menuItems);
@@ -140,13 +158,13 @@ export default function AdminDashboard() {
         if (data.features) setFeatures(data.features);
         if (data.deletedData) setDeletedData(data.deletedData);
         if (data.journeySettings) setJourneySettings(data.journeySettings);
+        if (data.newsTickers) setNewsTickers(data.newsTickers);
       } else if (retryCount < 3) {
         // Retry on server error (e.g. Vite not ready yet)
         setTimeout(() => fetchData(retryCount + 1), 600);
         return;
       }
       
-      const journeyRes = await fetch('/api/journey-media');
       if (journeyRes.ok) {
         const journeyData = await safeJson(journeyRes);
         if (Array.isArray(journeyData)) setJourneyMedia(journeyData);
@@ -307,27 +325,33 @@ export default function AdminDashboard() {
     }
   };
 
-  const filteredItems = items.filter(item => {
-    const matchesCategory = item.category === activeCategoryName;
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const filteredItems = React.useMemo(() => {
+    return items.filter(item => {
+      const matchesCategory = item.category === activeCategoryName;
+      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [items, activeCategoryName, searchQuery]);
 
   const renderCategoryCards = () => {
-    const filteredCategories = categories.filter(cat => {
-      const matchCat = cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase());
-      const matchItems = items.some(item => 
-        item.category === cat.name && 
-        (item.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) || 
-         item.description?.toLowerCase().includes(categorySearchQuery.toLowerCase()))
-      );
-      return matchCat || matchItems;
-    });
+    const filteredCategories = React.useMemo(() => {
+      return categories.filter(cat => {
+        const matchCat = cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase());
+        const matchItems = items.some(item => 
+          item.category === cat.name && 
+          (item.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) || 
+           item.description?.toLowerCase().includes(categorySearchQuery.toLowerCase()))
+        );
+        return matchCat || matchItems;
+      });
+    }, [categories, items, categorySearchQuery]);
 
-    const matchingItems = categorySearchQuery ? items.filter(item => 
-      item.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) || 
-      item.description?.toLowerCase().includes(categorySearchQuery.toLowerCase())
-    ) : [];
+    const matchingItems = React.useMemo(() => {
+      return categorySearchQuery ? items.filter(item => 
+        item.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) || 
+        item.description?.toLowerCase().includes(categorySearchQuery.toLowerCase())
+      ) : [];
+    }, [items, categorySearchQuery]);
 
     return (
       <div className="space-y-6">
@@ -514,71 +538,79 @@ export default function AdminDashboard() {
     
   
   return (
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-stone-50 text-stone-600 text-sm border-b border-stone-200">
-              <th className="px-6 py-4 font-medium">Item</th>
-              <th className="px-6 py-4 font-medium">Price</th>
-              <th className="px-6 py-4 font-medium">Badges</th>
-              <th className="px-6 py-4 font-medium text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-stone-100">
-            {filteredItems.map(item => (
-              <tr key={item.id} className="hover:bg-stone-50 transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); handleEdit(item); }}>
-                <td className="px-6 py-4">
-                  <div className="flex items-center">
-                    <img src={item.image || undefined} alt={item.name} className="w-12 h-12 rounded-lg object-cover mr-4 border border-stone-200" />
-                    <div>
-                      <div className="font-bold text-stone-800 flex items-center gap-2 text-base">
-                        {item.name}
-                        <span className={`w-2 h-2 rounded-full ${item.dietaryPreference === 'veg' ? 'bg-green-500' : 'bg-red-500'}`} title={item.dietaryPreference === 'veg' ? 'Vegetarian' : 'Non-Vegetarian'}></span>
-                      </div>
-                      <div className="text-sm text-stone-500 max-w-[240px] truncate" title={item.description}>{item.description}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
+        {filteredItems.map(item => (
+          <div 
+            key={item.id} 
+            onClick={(e) => { e.stopPropagation(); handleEdit(item); }}
+            className="bg-white rounded-2xl border border-stone-100 shadow-sm hover:shadow-md hover:border-dhaba-orange/30 transition-all cursor-pointer flex flex-col group overflow-hidden"
+          >
+            <div className="relative h-48 w-full bg-stone-100 overflow-hidden">
+              {item.image ? (
+                <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-stone-300 bg-stone-100">
+                  <ImageIcon className="w-12 h-12 opacity-50" />
+                </div>
+              )}
+              {/* Badges Overlay */}
+              <div className="absolute top-3 left-3 flex flex-col gap-1.5 items-start">
+                {item.isBestSeller && (
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-yellow-400 text-yellow-900 shadow-sm">
+                    Best Seller
+                  </span>
+                )}
+                {item.isPopular && (
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-dhaba-orange text-white shadow-sm">
+                    Popular
+                  </span>
+                )}
+                {item.spiceLevel !== 'None' && (
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-500 text-white shadow-sm flex items-center gap-1">
+                    🌶️ {item.spiceLevel}
+                  </span>
+                )}
+              </div>
+              {/* Dietary Indicator */}
+              <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm p-1.5 rounded-lg shadow-sm">
+                <span className={`block w-3 h-3 rounded-full ${item.dietaryPreference === 'veg' ? 'bg-green-500' : 'bg-red-500'}`} title={item.dietaryPreference === 'veg' ? 'Vegetarian' : 'Non-Vegetarian'}></span>
+              </div>
+            </div>
+            
+            <div className="p-5 flex-1 flex flex-col">
+              <div className="flex justify-between items-start mb-2 gap-2">
+                <h3 className="font-bold text-lg text-stone-800 leading-tight">{item.name}</h3>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={(e) => { e.stopPropagation(); handleEdit(item); }} className="p-1.5 text-stone-400 hover:text-dhaba-orange hover:bg-orange-50 rounded-lg transition-colors">
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); setItemToDelete(item.id); }} className="p-1.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <p className="text-sm text-stone-500 line-clamp-2 mb-4 flex-1">{item.description}</p>
+              
+              <div className="flex items-end justify-between mt-auto pt-4 border-t border-stone-100">
+                <div className="space-y-1">
+                  <div className="font-bold text-dhaba-dark text-lg">
+                    ₹{item.price} <span className="text-xs text-stone-400 font-normal">{item.fullPortionPieces ? `(${item.fullPortionPieces} pcs)` : ''}</span>
+                  </div>
+                  {item.hasHalfPortion && (
+                    <div className="text-sm font-medium text-stone-500">
+                      Half: ₹{item.halfPrice} <span className="text-xs text-stone-400 font-normal">{item.halfPortionPieces ? `(${item.halfPortionPieces} pcs)` : ''}</span>
                     </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 font-medium text-stone-800">
-                  <div>Full: ₹{item.price}{item.fullPortionPieces ? ` (${item.fullPortionPieces} pcs)` : ''}</div>
-                              {item.hasHalfPortion && <div className="text-stone-500 text-sm">Half: ₹{item.halfPrice}{item.halfPortionPieces ? ` (${item.halfPortionPieces} pcs)` : ''}</div>}
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex flex-wrap gap-2">
-                    {item.isBestSeller && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
-                        Best Seller
-                      </span>
-                    )}
-                    {item.isPopular && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-dhaba-orange/10 text-dhaba-orange border border-dhaba-orange/20">
-                        Popular
-                      </span>
-                    )}
-                    {item.outOfStock && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-stone-100 text-stone-600 border border-stone-200">
-                        Out of Stock
-                      </span>
-                    )}
-                    {item.spiceLevel !== 'None' && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-100">
-                        {item.spiceLevel}
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <button onClick={(e) => { e.stopPropagation(); handleEdit(item); }} className="text-stone-400 hover:text-dhaba-orange transition-colors mr-3" title="Edit">
-                    <Edit className="w-5 h-5" />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); setItemToDelete(item.id); }} className="text-stone-400 hover:text-red-500 transition-colors" title="Delete">
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  )}
+                </div>
+                {item.outOfStock && (
+                  <span className="px-3 py-1 bg-stone-100 text-stone-600 text-xs font-bold uppercase rounded-full">
+                    Out of Stock
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     );
   };
@@ -721,6 +753,200 @@ export default function AdminDashboard() {
       console.error(err);
     }
   };
+
+  const handleSaveTicker = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tickerForm.id) {
+      const texts = tickerForm.text.split(/[,\n]+/).map(t => t.trim()).filter(Boolean);
+      if (texts.length === 0) return;
+      try {
+        await Promise.all(texts.map(async (text, index) => {
+          const body = {
+            text,
+            isActive: tickerForm.isActive,
+            displayOrder: newsTickers.length + index
+          };
+          const res = await fetch('/api/news-ticker', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          if (!res.ok) throw new Error(`Failed to add: ${text}`);
+        }));
+        toast.success(texts.length > 1 ? 'Tickers added!' : 'Ticker added!');
+        setIsTickerFormOpen(false);
+        setTickerForm({ id: null, text: '', isActive: true, displayOrder: 0 });
+        fetchData();
+      } catch (err: any) {
+        toast.error('Failed to add ticker: ' + err.message);
+      }
+    } else {
+      const url = `/api/news-ticker/${tickerForm.id}`;
+      const body = {
+        ...tickerForm,
+        displayOrder: newsTickers.find(t => t.id === tickerForm.id)?.displayOrder || 0
+      };
+      try {
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (res.ok) {
+          toast.success('Ticker updated!');
+          setIsTickerFormOpen(false);
+          setTickerForm({ id: null, text: '', isActive: true, displayOrder: 0 });
+          fetchData();
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          toast.error('Failed to update ticker: ' + (errData.error || res.statusText));
+        }
+      } catch (err: any) {
+        toast.error('Failed to update ticker: ' + err.message);
+      }
+    }
+  };
+
+  const handleToggleTicker = async (ticker: any) => {
+    try {
+      await fetch(`/api/news-ticker/${ticker.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...ticker, isActive: !ticker.isActive })
+      });
+      fetchData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteTicker = async (id: number) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Delete Ticker",
+      message: "Are you sure you want to delete this ticker?",
+      onConfirm: async () => {
+        try {
+          await fetch(`/api/news-ticker/${id}`, { method: 'DELETE' });
+          fetchData();
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    });
+  };
+
+  const handleReorderTicker = async (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === newsTickers.length - 1) return;
+    const newTickers = [...newsTickers];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const tempOrder = newTickers[index].displayOrder;
+    newTickers[index].displayOrder = newTickers[targetIndex].displayOrder;
+    newTickers[targetIndex].displayOrder = tempOrder;
+    const temp = newTickers[index];
+    newTickers[index] = newTickers[targetIndex];
+    newTickers[targetIndex] = temp;
+    setNewsTickers(newTickers);
+    try {
+      await Promise.all([
+        fetch(`/api/news-ticker/${newTickers[index].id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newTickers[index]) }),
+        fetch(`/api/news-ticker/${newTickers[targetIndex].id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newTickers[targetIndex]) })
+      ]);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const renderTickerModule = () => (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
+        <div>
+          <h2 className="text-2xl font-serif font-bold text-dhaba-dark">News Ticker</h2>
+          <p className="text-stone-500">Manage scrolling announcements displayed below the hero section.</p>
+        </div>
+        <button onClick={() => { setTickerForm({ id: null, text: '', isActive: true, displayOrder: 0 }); setIsTickerFormOpen(true); }} className="bg-dhaba-orange hover:bg-dhaba-orange/90 text-white px-5 py-2.5 rounded-xl font-medium transition-colors flex items-center shadow-sm">
+          <Plus className="w-5 h-5 mr-2" /> Add Ticker
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="bg-white rounded-2xl h-40 animate-pulse border border-stone-100 shadow-sm"></div>
+      ) : newsTickers.length === 0 ? (
+        <div className="text-center py-20 bg-white rounded-2xl border border-stone-100 shadow-sm">
+          <MessageCircle className="w-16 h-16 text-stone-200 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-stone-800 mb-2">No Tickers Added</h3>
+          <p className="text-stone-500 mb-6">Add scrolling announcements to inform customers about latest news.</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
+          <ul className="divide-y divide-stone-100">
+            {newsTickers.map((ticker, idx) => (
+              <li key={ticker.id} className={`p-4 flex items-center justify-between gap-4 transition-colors hover:bg-stone-50 ${!ticker.isActive ? 'opacity-50' : ''}`}>
+                <div className="flex-1 min-w-0">
+                  <p className="text-stone-800 font-medium truncate">{ticker.text}</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button onClick={() => handleToggleTicker(ticker)} className="text-stone-400 hover:text-dhaba-orange transition-colors px-2 py-1" title={ticker.isActive ? 'Disable' : 'Enable'}>
+                    {ticker.isActive ? <ToggleRight className="w-6 h-6 text-green-500" /> : <ToggleLeft className="w-6 h-6" />}
+                  </button>
+                  <div className="flex flex-col gap-0.5">
+                    <button onClick={() => handleReorderTicker(idx, 'up')} disabled={idx === 0} className="text-stone-400 hover:text-stone-600 disabled:opacity-30">
+                      <ArrowUp className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleReorderTicker(idx, 'down')} disabled={idx === newsTickers.length - 1} className="text-stone-400 hover:text-stone-600 disabled:opacity-30">
+                      <ArrowDown className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <button onClick={() => { setTickerForm(ticker); setIsTickerFormOpen(true); }} className="text-stone-400 hover:text-dhaba-orange p-1 ml-2">
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => handleDeleteTicker(ticker.id)} className="text-stone-400 hover:text-red-500 p-1">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {isTickerFormOpen && (
+        <ModalPortal>
+          <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm flex justify-center items-center p-4 z-[9999] opacity-100 transition-opacity">
+            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden transform transition-all scale-100">
+              <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
+                <h3 className="text-xl font-bold font-serif text-stone-800">
+                  {tickerForm.id ? 'Edit Ticker' : 'Add Ticker'}
+                </h3>
+                <button onClick={() => setIsTickerFormOpen(false)} className="text-stone-400 hover:text-stone-600 bg-white p-1.5 rounded-lg shadow-sm border border-stone-100">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <form onSubmit={handleSaveTicker} className="p-6">
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-1">Ticker Text *</label>
+                    <textarea required value={tickerForm.text} onChange={(e) => setTickerForm({ ...tickerForm, text: e.target.value })} className="w-full p-2.5 border border-stone-200 rounded-lg focus:ring-2 focus:ring-dhaba-orange focus:border-dhaba-orange outline-none transition-all resize-y min-h-[100px]" placeholder="E.g. Now open 24/7!, Try our new Kulcha... (Separate multiple items with commas or new lines)" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input type="checkbox" id="ticker-active" checked={tickerForm.isActive} onChange={(e) => setTickerForm({ ...tickerForm, isActive: e.target.checked })} className="w-4 h-4 text-dhaba-orange focus:ring-dhaba-orange border-stone-300 rounded cursor-pointer" />
+                    <label htmlFor="ticker-active" className="text-sm font-medium text-stone-700 cursor-pointer">Active</label>
+                  </div>
+                </div>
+                <div className="mt-8 flex justify-end gap-3">
+                  <button type="button" onClick={() => setIsTickerFormOpen(false)} className="px-5 py-2.5 text-stone-600 bg-stone-100 hover:bg-stone-200 rounded-xl font-medium transition-colors">Cancel</button>
+                  <button type="submit" className="bg-dhaba-orange hover:bg-dhaba-orange-light text-white px-6 py-2.5 rounded-xl font-medium transition-colors shadow-sm">
+                    {tickerForm.id ? 'Save Changes' : 'Add Ticker'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+    </div>
+  );
 
   const renderFeaturesModule = () => (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -955,41 +1181,66 @@ export default function AdminDashboard() {
   };
 
   const renderRecoverModule = () => (
-    <div className="bg-white rounded-[2rem] shadow-sm border border-stone-100 p-8">
-      <h2 className="text-2xl font-serif font-bold text-stone-800 mb-6">Recycle Bin</h2>
+    <div className="bg-white rounded-[2rem] shadow-sm border border-stone-100 p-6 sm:p-8">
+      <div className="flex items-center gap-3 mb-8">
+        <div className="p-3 bg-red-50 text-red-500 rounded-2xl">
+          <Trash2 className="w-6 h-6" />
+        </div>
+        <h2 className="text-2xl font-serif font-bold text-stone-800">Recycle Bin</h2>
+      </div>
       
-      <h3 className="text-xl font-bold mb-4 mt-8">Categories</h3>
-      {deletedData.categories.length === 0 ? <p className="text-stone-500"><DevEmptyStateText /></p> : (
-        <ul className="divide-y divide-stone-100 border rounded-lg">
-          {deletedData.categories.map(cat => (
-            <li key={cat.id} className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <span className="font-medium">{cat.name}</span>
-              <div className="flex gap-2 w-full sm:w-auto">
-                <button onClick={() => handleRecoverCategory(cat.id)} className="flex-1 sm:flex-none text-sm bg-green-500 text-white px-3 py-1.5 rounded hover:bg-green-600 font-medium transition-colors">Recover</button>
-                <button onClick={() => handlePermanentDeleteCategory(cat.id)} className="flex-1 sm:flex-none text-sm bg-red-500 text-white px-3 py-1.5 rounded hover:bg-red-600 font-medium transition-colors">Delete Permanently</button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Categories Section */}
+        <div className="bg-stone-50 rounded-3xl p-6 border border-stone-100">
+          <h3 className="text-lg font-bold mb-4 text-stone-800 flex items-center gap-2">
+            <Layers className="w-5 h-5 text-stone-400" /> Categories
+          </h3>
+          {deletedData.categories.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-stone-400 font-medium">No deleted categories</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {deletedData.categories.map(cat => (
+                <div key={cat.id} className="bg-white p-4 rounded-2xl border border-stone-100 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:shadow-md transition-all">
+                  <span className="font-bold text-stone-700">{cat.name}</span>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <button onClick={() => handleRecoverCategory(cat.id)} className="flex-1 sm:flex-none text-xs bg-green-500 text-white px-4 py-2 rounded-xl hover:bg-green-600 font-bold transition-all hover:-translate-y-0.5 shadow-sm">Recover</button>
+                    <button onClick={() => handlePermanentDeleteCategory(cat.id)} className="flex-1 sm:flex-none text-xs bg-red-50 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 font-bold transition-all hover:-translate-y-0.5 border border-red-100">Permanent Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-      <h3 className="text-xl font-bold mb-4 mt-8">Menu Items</h3>
-      {deletedData.menuItems.length === 0 ? <p className="text-stone-500"><DevEmptyStateText /></p> : (
-        <ul className="divide-y divide-stone-100 border rounded-lg">
-          {deletedData.menuItems.map(item => (
-            <li key={item.id} className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <span className="font-medium block">{item.name}</span>
-                <span className="text-xs text-stone-500">{item.category}</span>
-              </div>
-              <div className="flex gap-2 w-full sm:w-auto">
-                <button onClick={() => handleRecoverItem(item.id)} className="flex-1 sm:flex-none text-sm bg-green-500 text-white px-3 py-1.5 rounded hover:bg-green-600 font-medium transition-colors">Recover</button>
-                <button onClick={() => handlePermanentDeleteItem(item.id)} className="flex-1 sm:flex-none text-sm bg-red-500 text-white px-3 py-1.5 rounded hover:bg-red-600 font-medium transition-colors">Delete Permanently</button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+        {/* Menu Items Section */}
+        <div className="bg-stone-50 rounded-3xl p-6 border border-stone-100">
+          <h3 className="text-lg font-bold mb-4 text-stone-800 flex items-center gap-2">
+            <Utensils className="w-5 h-5 text-stone-400" /> Menu Items
+          </h3>
+          {deletedData.menuItems.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-stone-400 font-medium">No deleted items</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {deletedData.menuItems.map(item => (
+                <div key={item.id} className="bg-white p-4 rounded-2xl border border-stone-100 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:shadow-md transition-all">
+                  <div>
+                    <span className="font-bold text-stone-700 block">{item.name}</span>
+                    <span className="text-xs font-medium text-stone-400 uppercase tracking-wider">{item.category}</span>
+                  </div>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <button onClick={() => handleRecoverItem(item.id)} className="flex-1 sm:flex-none text-xs bg-green-500 text-white px-4 py-2 rounded-xl hover:bg-green-600 font-bold transition-all hover:-translate-y-0.5 shadow-sm">Recover</button>
+                    <button onClick={() => handlePermanentDeleteItem(item.id)} className="flex-1 sm:flex-none text-xs bg-red-50 text-red-600 px-4 py-2 rounded-xl hover:bg-red-100 font-bold transition-all hover:-translate-y-0.5 border border-red-100">Permanent Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 
@@ -1013,30 +1264,42 @@ export default function AdminDashboard() {
   };
 
   const renderJourneyModule = () => (
-    <div className="bg-white rounded-[2rem] shadow-sm border border-stone-100 p-8">
-      <h2 className="text-2xl font-serif font-bold text-stone-800 mb-6">Our Journey Media</h2>
+    <div className="bg-white rounded-[2rem] shadow-sm border border-stone-100 p-6 sm:p-8 space-y-8">
+      <div className="flex items-center gap-3">
+        <div className="p-3 bg-blue-50 text-blue-500 rounded-2xl">
+          <ImageIcon className="w-6 h-6" />
+        </div>
+        <h2 className="text-2xl font-serif font-bold text-stone-800">Our Journey</h2>
+      </div>
       
-      <div className="mb-10 bg-stone-50 p-6 rounded-xl border border-stone-100">
-        <h3 className="text-xl font-serif font-bold text-stone-800 mb-4">Journey Text Content</h3>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-stone-700 mb-2">Header Title</label>
-            <input type="text" value={journeySettings.header} onChange={e => setJourneySettings({...journeySettings, header: e.target.value})} className="w-full p-2 border rounded" />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-stone-700 mb-2">Description</label>
-            <textarea value={journeySettings.description} onChange={e => setJourneySettings({...journeySettings, description: e.target.value})} className="w-full p-2 border rounded h-32" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Settings Form */}
+      <div className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm shadow-stone-200/50">
+        <h3 className="text-lg font-bold text-stone-800 mb-6 flex items-center gap-2">
+          <FileText className="w-5 h-5 text-dhaba-orange" /> Text Content
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-stone-700 mb-2">Signature Text</label>
-              <input type="text" value={journeySettings.signature} onChange={e => setJourneySettings({...journeySettings, signature: e.target.value})} className="w-full p-2 border rounded" />
+              <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Header Title</label>
+              <input type="text" value={journeySettings.header} onChange={e => setJourneySettings({...journeySettings, header: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl focus:border-dhaba-orange focus:ring-1 focus:ring-dhaba-orange outline-none transition-all font-medium text-stone-800" />
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-stone-700 mb-2">Sub Signature</label>
-              <input type="text" value={journeySettings.subSignature} onChange={e => setJourneySettings({...journeySettings, subSignature: e.target.value})} className="w-full p-2 border rounded" />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Signature Text</label>
+                <input type="text" value={journeySettings.signature} onChange={e => setJourneySettings({...journeySettings, signature: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl focus:border-dhaba-orange focus:ring-1 focus:ring-dhaba-orange outline-none transition-all font-medium text-stone-800" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Sub Signature</label>
+                <input type="text" value={journeySettings.subSignature} onChange={e => setJourneySettings({...journeySettings, subSignature: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl focus:border-dhaba-orange focus:ring-1 focus:ring-dhaba-orange outline-none transition-all font-medium text-stone-800" />
+              </div>
             </div>
           </div>
+          <div className="flex flex-col h-full">
+            <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Description</label>
+            <textarea value={journeySettings.description} onChange={e => setJourneySettings({...journeySettings, description: e.target.value})} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:border-dhaba-orange focus:ring-1 focus:ring-dhaba-orange outline-none transition-all flex-1 min-h-[120px] font-medium text-stone-800 resize-none leading-relaxed" />
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end pt-6 border-t border-stone-100">
           <button 
             onClick={async () => {
               try {
@@ -1049,63 +1312,87 @@ export default function AdminDashboard() {
                 toast.success('Settings saved!');
               } catch (e) {}
             }} 
-            className="bg-dhaba-dark text-white px-6 py-2 rounded-lg font-medium"
+            className="bg-dhaba-dark hover:bg-stone-800 text-white px-8 py-3 rounded-xl font-bold transition-colors flex items-center gap-2 shadow-sm"
           >
-            Save Text Content
+            <Save className="w-4 h-4" /> Save Content
           </button>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 mb-8 bg-stone-50 p-6 rounded-xl border border-stone-100 sm:items-end">
-        <div className="flex-1">
-          <label className="block text-sm font-semibold text-stone-700 mb-2">Media URL or Upload File</label>
-          <input type="text" value={journeyForm.url} onChange={e => setJourneyForm({...journeyForm, url: e.target.value})} className="w-full p-2 border rounded mb-2" placeholder="Paste URL here..." />
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-stone-500">OR</span>
-            <input type="file" accept="image/*,video/*" onChange={e => {
-              const file = e.target.files?.[0];
-              if (file) {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                  setJourneyForm(prev => ({
-                    ...prev, 
-                    url: reader.result as string, 
-                    type: file.type.startsWith('video') ? 'video' : 'image'
-                  }));
-                };
-                reader.readAsDataURL(file);
-              }
-            }} className="flex-1 p-1.5 border rounded text-sm bg-white cursor-pointer" />
+      {/* Add Media Form */}
+      <div className="bg-stone-50 p-6 rounded-3xl border border-stone-100">
+        <h3 className="text-lg font-bold text-stone-800 mb-6 flex items-center gap-2">
+          <ImageIcon className="w-5 h-5 text-dhaba-orange" /> Add Media
+        </h3>
+        <div className="flex flex-col lg:flex-row gap-4 items-end">
+          <div className="flex-1 w-full">
+            <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Media Source</label>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input type="text" value={journeyForm.url} onChange={e => setJourneyForm({...journeyForm, url: e.target.value})} className="flex-1 p-3 bg-white border border-stone-200 rounded-xl focus:border-dhaba-orange focus:ring-1 focus:ring-dhaba-orange outline-none transition-all text-sm font-medium" placeholder="Paste URL here..." />
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-xs font-bold text-stone-400">OR</span>
+                <label className="cursor-pointer bg-white border border-stone-200 text-stone-600 px-4 py-3 rounded-xl hover:bg-stone-100 transition-colors text-sm font-bold flex items-center gap-2">
+                  <Upload className="w-4 h-4" /> Upload File
+                  <input type="file" accept="image/*,video/*" className="hidden" onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setJourneyForm(prev => ({
+                          ...prev, 
+                          url: reader.result as string, 
+                          type: file.type.startsWith('video') ? 'video' : 'image'
+                        }));
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }} />
+                </label>
+              </div>
+            </div>
           </div>
+          <div className="w-full lg:w-48">
+            <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Type</label>
+            <select value={journeyForm.type} onChange={e => setJourneyForm({...journeyForm, type: e.target.value})} className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:border-dhaba-orange outline-none text-sm font-bold text-stone-700">
+              <option value="image">Image</option>
+              <option value="video">Video</option>
+            </select>
+          </div>
+          <div className="w-full lg:w-32">
+            <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Order</label>
+            <input type="number" value={journeyForm.displayOrder} onChange={e => setJourneyForm({...journeyForm, displayOrder: parseInt(e.target.value) || 0})} className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:border-dhaba-orange outline-none text-sm font-bold text-stone-700 text-center" />
+          </div>
+          <button onClick={handleAddJourneyMedia} className="bg-dhaba-orange hover:bg-orange-600 text-white px-8 py-3 rounded-xl font-bold transition-all hover:-translate-y-0.5 shadow-sm w-full lg:w-auto">
+            Add
+          </button>
         </div>
-        <div>
-          <label className="block text-sm font-semibold text-stone-700 mb-2">Type</label>
-          <select value={journeyForm.type} onChange={e => setJourneyForm({...journeyForm, type: e.target.value})} className="p-2 border rounded w-full sm:w-auto">
-            <option value="image">Image</option>
-            <option value="video">Video</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-semibold text-stone-700 mb-2">Order</label>
-          <input type="number" value={journeyForm.displayOrder} onChange={e => setJourneyForm({...journeyForm, displayOrder: parseInt(e.target.value) || 0})} className="w-full sm:w-20 p-2 border rounded" />
-        </div>
-        <button onClick={handleAddJourneyMedia} className="bg-dhaba-orange text-white px-6 py-2 rounded-lg font-medium w-full sm:w-auto">Add Media</button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Media Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {journeyMedia.map(media => (
-          <div key={media.id} className="relative rounded-xl overflow-hidden border">
+          <div key={media.id} className="relative rounded-3xl overflow-hidden border border-stone-100 shadow-sm group bg-stone-100 aspect-[4/3]">
             {media.type === 'video' ? (
-              <video src={media.url || undefined} className="w-full h-48 object-cover" controls />
+              <video src={media.url || undefined} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" controls />
             ) : (
-              <img src={media.url || undefined} className="w-full h-48 object-cover" />
+              <img src={media.url || undefined} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
             )}
-            <button onClick={() => handleDeleteJourneyMedia(media.id)} className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full shadow hover:bg-red-600">
-              <Trash2 className="w-4 h-4" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+              <span className="text-white text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                {media.type === 'video' ? <Video className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />} {media.type}
+              </span>
+            </div>
+            <button onClick={() => handleDeleteJourneyMedia(media.id)} className="absolute top-4 right-4 bg-white/90 backdrop-blur-md text-red-500 p-2.5 rounded-xl shadow-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:-translate-y-1 transition-all duration-300">
+              <Trash2 className="w-5 h-5" />
             </button>
-
           </div>
         ))}
+        {journeyMedia.length === 0 && (
+          <div className="col-span-full py-16 text-center text-stone-500 bg-stone-50 rounded-3xl border border-stone-100">
+            <ImageIcon className="w-12 h-12 mx-auto mb-3 text-stone-300" />
+            <p className="font-medium">No media items added yet.</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1113,7 +1400,8 @@ export default function AdminDashboard() {
 
   const MODULE_LABELS: Record<string, string> = {
     menu: 'Menu Content', features: 'Why Stop Here?', journey: 'Our Journey',
-    analytics: 'Analytics', reviews: 'Reviews', passwords: 'Password Security',
+    ticker: 'News Ticker',
+    analytics: 'Analytics', reviews: 'Reviews', passwords: 'Password Security', printer: 'Printer Settings',
     managers: 'Managers', stats: 'Revenue Stats', orders: 'Orders Control',
     billing: 'Make Bills', recover: 'Recycle Bin',
   };
@@ -1131,10 +1419,10 @@ export default function AdminDashboard() {
       )}
 
       {/* Sidebar */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 flex flex-col transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:flex lg:z-auto ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-        style={{ background: 'linear-gradient(180deg,#1a1008 0%,#241712 65%,#1a1008 100%)' }}
-      >
+      <aside 
+          className={`fixed inset-y-0 left-0 z-50 w-72 flex flex-col transform transition-all duration-300 ease-in-out lg:relative lg:z-auto ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:hidden'}`}
+          style={{ background: 'linear-gradient(180deg,#1a1008 0%,#241712 65%,#1a1008 100%)' }}
+        >
         {/* Sidebar Header */}
         <div className="flex items-center justify-between px-6 pt-8 pb-6" style={{ borderBottom: '1px solid rgba(200,155,60,0.12)' }}>
           <div>
@@ -1146,8 +1434,8 @@ export default function AdminDashboard() {
             </div>
             <p className="text-xs" style={{ color: '#7a6555' }}>Harjinder Tourist Dhaba</p>
           </div>
-          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1.5 rounded-lg" style={{ color: '#7a6555' }}>
-            <X className="w-4 h-4" />
+          <button onClick={() => setIsSidebarOpen(false)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" style={{ color: '#7a6555' }}>
+            <X className="w-6 h-6" />
           </button>
         </div>
 
@@ -1157,9 +1445,11 @@ export default function AdminDashboard() {
             { key: 'menu',      label: 'Menu Content',      icon: <LayoutDashboard className="w-5 h-5" /> },
             { key: 'features',  label: 'Why Stop Here?',    icon: <Star className="w-5 h-5" /> },
             { key: 'journey',   label: 'Our Journey',       icon: <ImageIcon className="w-5 h-5" /> },
+            { key: 'ticker',    label: 'News Ticker',       icon: <MessageCircle className="w-5 h-5" /> },
             { key: 'analytics', label: 'Analytics',         icon: <Activity className="w-5 h-5" /> },
             { key: 'reviews',   label: 'Reviews',           icon: <Star className="w-5 h-5" /> },
             { key: 'passwords', label: 'Password Security', icon: <Shield className="w-5 h-5" /> },
+            { key: 'printer', label: 'Printer Settings', icon: <Printer className="w-5 h-5" /> },
             { key: 'managers',  label: 'Managers',          icon: <Users className="w-5 h-5" /> },
             { key: 'stats',     label: 'Revenue Stats',     icon: <Activity className="w-5 h-5" /> },
             { key: 'orders',    label: 'Orders Control',    icon: <Package className="w-5 h-5" /> },
@@ -1167,7 +1457,7 @@ export default function AdminDashboard() {
           ] as const).map(({ key, label, icon }) => (
             <button
               key={key}
-              onClick={() => { setActiveModule(key as any); setIsSidebarOpen(false); }}
+              onClick={() => { setActiveModule(key as any); }}
               className={`dash-sidebar-item${activeModule === key ? ' active' : ''}`}
             >
               <span className="icon">{icon}</span>
@@ -1176,7 +1466,7 @@ export default function AdminDashboard() {
           ))}
           <div className="pt-3 mt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
             <button
-              onClick={() => { setActiveModule('recover'); setIsSidebarOpen(false); }}
+              onClick={() => { setActiveModule('recover'); }}
               className={`dash-sidebar-item${activeModule === 'recover' ? ' active' : ''}`}
             >
               <span className="icon"><Trash2 className="w-5 h-5" /></span>
@@ -1201,49 +1491,24 @@ export default function AdminDashboard() {
       {/* Main Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-        {/* Top Bar */}
-        <header
-          className="flex items-center justify-between px-4 sm:px-6 py-3 shrink-0"
-          style={{ background: 'rgba(247,244,240,0.92)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #ede8e0', height: '64px' }}
-        >
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-xl transition-colors"
-              style={{ background: '#fff', border: '1px solid #ede8e0', color: '#241712' }}
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            <div>
-              <h1 className="font-serif font-bold text-lg leading-tight" style={{ color: '#241712' }}>
-                {MODULE_LABELS[activeModule] || 'Admin'}
-              </h1>
-              <p className="text-xs hidden sm:block" style={{ color: '#9a8878' }}>Admin Dashboard</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ background: '#fff', border: '1px solid #ede8e0' }}>
-              <KeyRound className="w-4 h-4" style={{ color: '#C89B3C' }} />
-              <span className="text-sm font-medium" style={{ color: '#241712' }}>Admin</span>
-            </div>
-            <button
-              onClick={handleLock}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
-              style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Lock</span>
-            </button>
-          </div>
-        </header>
-
+        {/* Floating Main Menu Toggle Button */}
+        {!isSidebarOpen && (
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="fixed bottom-6 right-6 z-40 p-4 rounded-full shadow-2xl bg-dhaba-dark text-white hover:bg-stone-800 transition-all active:scale-95"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+        )}
         {/* Scrollable Content */}
         <div className={`flex-1 ${activeModule === 'billing' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-8 pb-8'}`}>
-        <div className={`${activeModule === 'billing' ? 'h-full' : 'max-w-6xl mx-auto w-full fade-in-up'}`}>
+        <div className={`${activeModule === 'billing' ? 'h-full' : 'max-w-6xl mx-auto w-full'}`}>
 
         
         {activeModule === 'passwords' ? (
           <AdminPasswordSettings />
+        ) : activeModule === 'printer' ? (
+          <PrinterSettings role="admin" />
         ) : activeModule === 'managers' ? (
           <AdminManagers />
         ) : activeModule === 'stats' ? (
@@ -1382,20 +1647,16 @@ export default function AdminDashboard() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-stone-700">Start Time</label>
-                      <input
-                        type="time"
+                      <TimePicker
                         value={categoryForm.startTime || ''}
-                        onChange={(e) => setCategoryForm(prev => ({ ...prev, startTime: e.target.value }))}
-                        className="w-full px-4 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-dhaba-orange outline-none bg-white"
+                        onChange={(val) => setCategoryForm(prev => ({ ...prev, startTime: val }))}
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-stone-700">End Time</label>
-                      <input
-                        type="time"
+                      <TimePicker
                         value={categoryForm.endTime || ''}
-                        onChange={(e) => setCategoryForm(prev => ({ ...prev, endTime: e.target.value }))}
-                        className="w-full px-4 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-dhaba-orange outline-none bg-white"
+                        onChange={(val) => setCategoryForm(prev => ({ ...prev, endTime: val }))}
                       />
                     </div>
                   </div>
@@ -1752,11 +2013,19 @@ export default function AdminDashboard() {
                   <div className="grid grid-cols-2 gap-6 p-4 bg-stone-50 rounded-xl border border-stone-100">
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-stone-700">Start Time</label>
-                      <input required={formData.hasTiming} type="time" name="startTime" value={formData.startTime || ''} onChange={handleChange} className="w-full px-4 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-dhaba-orange focus:border-dhaba-orange outline-none transition-shadow bg-white" />
+                      <TimePicker
+                        required={formData.hasTiming}
+                        value={formData.startTime || ''}
+                        onChange={(val) => setFormData(prev => ({ ...prev, startTime: val }))}
+                      />
                     </div>
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-stone-700">End Time</label>
-                      <input required={formData.hasTiming} type="time" name="endTime" value={formData.endTime || ''} onChange={handleChange} className="w-full px-4 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-dhaba-orange focus:border-dhaba-orange outline-none transition-shadow bg-white" />
+                      <TimePicker
+                        required={formData.hasTiming}
+                        value={formData.endTime || ''}
+                        onChange={(val) => setFormData(prev => ({ ...prev, endTime: val }))}
+                      />
                     </div>
                   </div>
                 )}
@@ -1782,6 +2051,8 @@ export default function AdminDashboard() {
       
           
           </>
+        ) : activeModule === 'ticker' ? (
+          renderTickerModule()
         ) : activeModule === 'features' ? (
           renderFeaturesModule()
         ) : activeModule === 'recover' ? (

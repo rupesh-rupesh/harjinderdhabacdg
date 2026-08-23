@@ -1,16 +1,20 @@
 import "dotenv/config";
 import express from "express";
+import compression from "compression";
 import path from "path";
 import { adminAuth } from "./src/lib/firebase-admin.ts";
 import { requireAuth } from './src/middleware/auth.ts';
 import type { AuthRequest } from './src/middleware/auth.ts';
 import { db } from './src/db/index.ts';
-import { users, orders, menuItems, categories, features, journeyMedia, journeySettings, analyticsSettings, visitors, visits, reviews, dashboardAuth, demoNotices } from './src/db/schema.ts';
+import { users, orders, menuItems, categories, features, journeyMedia, journeySettings, analyticsSettings, visitors, visits, reviews, dashboardAuth, demoNotices, newsTicker } from './src/db/schema.ts';
 import { eq, desc, lt, inArray, sql } from 'drizzle-orm';
 
 const app = express();
 const PORT = 3000;
 const isVercel = process.env.VERCEL === "1" || process.env.VERCEL;
+
+app.use(compression());
+
   // CORS headers middleware
   app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -161,17 +165,19 @@ const isVercel = process.env.VERCEL === "1" || process.env.VERCEL;
 
   app.get("/api/storefront-data", async (req, res) => {
     try {
-      const [menu, cats, feats, settings] = await Promise.all([
+      const [menu, cats, feats, settings, tickers] = await Promise.all([
         db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
         db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id),
         db.select().from(features).orderBy(features.displayOrder, features.id),
-        db.select().from(journeySettings).limit(1)
+        db.select().from(journeySettings).limit(1),
+        db.select().from(newsTicker).where(eq(newsTicker.isActive, true)).orderBy(newsTicker.displayOrder, newsTicker.id)
       ]);
       res.json({
         menuItems: menu,
         categories: cats,
         features: feats,
-        journeySettings: settings[0] || { header: 'Our Journey', description: '' }
+        journeySettings: settings[0] || { header: 'Our Journey', description: '' },
+        newsTickers: tickers
       });
     } catch (error: any) {
       console.error(error);
@@ -181,13 +187,14 @@ const isVercel = process.env.VERCEL === "1" || process.env.VERCEL;
 
   app.get("/api/admin-data", async (req, res) => {
     try {
-      const [menu, cats, feats, deletedCats, deletedItems, settings] = await Promise.all([
+      const [menu, cats, feats, deletedCats, deletedItems, settings, tickers] = await Promise.all([
         db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
         db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id),
         db.select().from(features).orderBy(features.displayOrder, features.id),
         db.select().from(categories).where(eq(categories.isDeleted, true)),
         db.select().from(menuItems).where(eq(menuItems.isDeleted, true)),
-        db.select().from(journeySettings).limit(1)
+        db.select().from(journeySettings).limit(1),
+        db.select().from(newsTicker).orderBy(newsTicker.displayOrder, newsTicker.id)
       ]);
       
       const deleted = { categories: deletedCats, menuItems: deletedItems };
@@ -196,7 +203,8 @@ const isVercel = process.env.VERCEL === "1" || process.env.VERCEL;
         categories: cats,
         features: feats,
         deletedData: deleted,
-        journeySettings: settings[0] || { header: 'Our Journey', description: '' }
+        journeySettings: settings[0] || { header: 'Our Journey', description: '' },
+        newsTickers: tickers
       });
     } catch (error: any) {
       console.error(error);
@@ -583,6 +591,54 @@ app.get("/api/journey-media", async (req, res) => {
     }
   });
 
+  // News Ticker API
+  app.get("/api/news-ticker", async (req, res) => {
+    try {
+      const items = await db.select().from(newsTicker).orderBy(newsTicker.displayOrder, newsTicker.id);
+      res.json(items);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to fetch news ticker: " + (error.message || error) });
+    }
+  });
+
+  app.post("/api/news-ticker", async (req, res) => {
+    try {
+      const { text, isActive, displayOrder } = req.body;
+      const newItem = await db.insert(newsTicker).values({ 
+        text, 
+        isActive: isActive !== undefined ? isActive : true,
+        displayOrder: displayOrder || 0
+      }).returning();
+      res.json(newItem[0]);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to create news ticker: " + (error.message || error) });
+    }
+  });
+
+  app.put("/api/news-ticker/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { text, isActive, displayOrder } = req.body;
+      const updatedItem = await db.update(newsTicker).set({ 
+        text, 
+        isActive, 
+        displayOrder 
+      }).where(eq(newsTicker.id, Number(id))).returning();
+      res.json(updatedItem[0]);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update news ticker: " + (error.message || error) });
+    }
+  });
+
+  app.delete("/api/news-ticker/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.delete(newsTicker).where(eq(newsTicker.id, Number(id)));
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to delete news ticker: " + (error.message || error) });
+    }
+  });
   // Example secure route: Create an order
 
   app.post("/api/orders", requireAuth, async (req: AuthRequest, res) => {

@@ -12,10 +12,25 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 import * as Icons from 'lucide-react';
+import { NoodleBowlIcon } from './components/CustomIcons';
 
 const DynamicIcon = ({ name, className }: { name: string, className?: string }) => {
+  const cleanClassName = className?.replace(/text-\w+-\d+/, '') || '';
+  
+  if (name === "NoodleBowl") return <NoodleBowlIcon className={cleanClassName} />;
+  
+  let colorClass = "text-stone-300"; // default
+  if (name === "Sun") colorClass = "text-yellow-500";
+  if (name === "CupSoda") colorClass = "text-cyan-500";
+  if (name === "Soup") colorClass = "text-orange-500";
+  if (name === "ConciergeBell") colorClass = "text-stone-500";
+  if (name === "UtensilsCrossed") colorClass = "text-red-500";
+  if (name === "Pizza") colorClass = "text-amber-500";
+  if (name === "Coffee") colorClass = "text-amber-700";
+  if (name === "Utensils") colorClass = "text-stone-400";
+  
   const IconComponent = (Icons as any)[name] || Icons.Sparkles;
-  return <IconComponent className={className} />;
+  return <IconComponent className={`${cleanClassName} ${colorClass}`.trim()} />;
 };
 
 const DietaryBadge = ({ type }: { type?: string }) => {
@@ -37,6 +52,7 @@ type CartItem = {
   numericPrice: number;
   quantity: number;
   image: string;
+  category?: string;
   isHalf?: boolean;
   isButter?: boolean;
   variantName?: string;
@@ -128,6 +144,7 @@ const BackgroundVideo = ({ src }: { src: string }) => {
 export default function Storefront() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [features, setFeatures] = useState<any[]>([]);
+  const [newsTickers, setNewsTickers] = useState<any[]>([]);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [selectedItemDetail, setSelectedItemDetail] = useState<any | null>(null);
@@ -200,6 +217,7 @@ export default function Storefront() {
         setDbCategories(data.categories || []);
         setFeatures(data.features || []);
         if (data.journeySettings) setJourneySettings(data.journeySettings);
+        if (data.newsTickers) setNewsTickers(data.newsTickers);
       } else if (!data || data.length === 0) {
         setApiError("Received empty response from API");
       }
@@ -274,20 +292,10 @@ export default function Storefront() {
   const isItemLocked = (item: any) => {
     if (item.outOfStock) return true;
 
-    let hasTiming = item.hasTiming;
-    let startTime = item.startTime;
-    let endTime = item.endTime;
+    if (!item.hasTiming || !item.startTime || !item.endTime) return false;
 
-    if (!hasTiming) {
-      const category = dbCategories.find(c => c.name === item.category);
-      if (category && category.startTime && category.endTime) {
-        hasTiming = true;
-        startTime = category.startTime;
-        endTime = category.endTime;
-      }
-    }
-
-    if (!hasTiming || !startTime || !endTime) return false;
+    const startTime = item.startTime;
+    const endTime = item.endTime;
 
     const now = new Date();
     const currentTotal = now.getHours() * 60 + now.getMinutes();
@@ -312,12 +320,22 @@ export default function Storefront() {
 
   const getLockSubReason = (item: any) => {
     if (item.outOfStock) return "Not available for order";
-    let startTime = item.startTime;
-    if (!item.hasTiming) {
-      const category = dbCategories.find(c => c.name === item.category);
-      if (category) startTime = category.startTime;
-    }
-    return `Available tomorrow at ${startTime || 'later'}`;
+    return `Available tomorrow at ${item.startTime || 'later'}`;
+  };
+
+  const getItemFallbackIcon = (category: string) => {
+    if (!category) return "Utensils";
+    const lowerName = category.toLowerCase();
+    if (lowerName.includes("breakfast")) return "Sun";
+    if (lowerName.includes("indian") || lowerName.includes("tandoor") || lowerName.includes("bread") || lowerName.includes("roti") || lowerName.includes("naan")) return "NoodleBowl";
+    if (lowerName.includes("beverage") || lowerName.includes("drink") || lowerName.includes("shake")) return "CupSoda";
+    if (lowerName.includes("raita") || lowerName.includes("curd") || lowerName.includes("dal") || lowerName.includes("paneer") || lowerName.includes("sabzi")) return "Soup";
+    if (lowerName.includes("thali")) return "ConciergeBell";
+    if (lowerName.includes("chinese")) return "UtensilsCrossed";
+    if (lowerName.includes("pizza")) return "Pizza";
+    if (lowerName.includes("dessert") || lowerName.includes("sweet")) return "Coffee";
+    if (lowerName.includes("snack") || lowerName.includes("starter") || lowerName.includes("appetizer")) return "Utensils";
+    return "Utensils";
   };
 
   const categories = ['All', ...Array.from(new Set(menuItems.filter(item => item.isPopular || item.isBestSeller).map(item => item.category)))];
@@ -549,6 +567,32 @@ export default function Storefront() {
             </div>
           </section>
 
+          {/* News Ticker */}
+          {newsTickers && newsTickers.length > 0 && (
+            <div className="relative z-30 bg-dhaba-orange border-y border-[rgba(255,255,255,0.1)] py-3 overflow-hidden flex items-center shadow-lg -mt-6">
+              <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-dhaba-orange to-transparent z-10 pointer-events-none"></div>
+              <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-dhaba-orange to-transparent z-10 pointer-events-none"></div>
+              <div className="flex animate-marquee whitespace-nowrap">
+                {[...Array(2)].map((_, i) => (
+                  <div key={i} className="flex items-center space-x-8 px-4">
+                    {newsTickers.map((ticker, idx) => (
+                      <React.Fragment key={`${i}-${idx}`}>
+                        <span className="text-white font-medium tracking-wide flex items-center gap-2 text-sm sm:text-base">
+                          <Flame className="w-4 h-4 text-yellow-300" />
+                          {ticker.text}
+                        </span>
+                        {idx < newsTickers.length - 1 && (
+                          <span className="text-white/30">•</span>
+                        )}
+                      </React.Fragment>
+                    ))}
+                    <span className="text-white/30">•</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Our Specials (Responsive Grid/Scroll) */}
           <section id="specials" className="relative z-20 -mt-12 pt-24 pb-24 bg-[var(--color-ivory)] border-b border-stone-200/50 overflow-hidden rounded-t-[3rem] shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.1)]">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10">
@@ -567,7 +611,7 @@ export default function Storefront() {
 
             {/* Container */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center">
-              <div className={`${!showAllSpecials ? 'flex overflow-x-auto snap-x snap-mandatory pb-12' : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 pb-4'} gap-6 lg:gap-8 pt-4 w-full hide-scrollbar scroll-smooth`}>
+              <div className={`${!showAllSpecials ? 'flex overflow-x-auto snap-x snap-mandatory pb-12' : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 pb-4'} gap-6 lg:gap-8 pt-4 w-full hide-scrollbar scroll-smooth`} data-lenis-prevent="true">
                 {isLoading ? (
                   [1, 2, 3].map(i => (
                     <div key={i} className={`${!showAllSpecials ? 'flex-none w-[280px] sm:w-[320px] md:w-[340px]' : 'w-full'} relative bg-white/80 backdrop-blur-sm rounded-[2rem] shadow-sm border border-stone-100 overflow-hidden flex flex-col animate-pulse`}>
@@ -627,11 +671,17 @@ export default function Storefront() {
                               </div>
                             </div>
                           </div>
-                          <img
-                            src={item.image || 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&q=80'}
-                            alt={item.name}
-                            className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700 ease-in-out"
-                          />
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700 ease-in-out"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-stone-100 flex items-center justify-center transform group-hover:scale-110 transition-transform duration-700 ease-in-out">
+                              <DynamicIcon name={getItemFallbackIcon(item.category)} className="w-16 h-16 text-stone-300" />
+                            </div>
+                          )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
                           <div className="absolute bottom-4 right-4 flex items-center gap-1.5">
                             <span className={`bg-white/90 backdrop-blur-md text-[var(--color-brown)] text-xs font-bold tracking-wider px-3 py-1.5 rounded-lg shadow-sm ${locked ? 'line-through text-stone-500' : ''}`}>
@@ -1184,8 +1234,14 @@ export default function Storefront() {
             ) : (
               cartItems.map((item, idx) => (
                 <div key={idx} className="flex gap-4 p-5 bg-white border border-stone-100 rounded-[1.5rem] shadow-sm hover:border-[var(--color-gold)]/20 hover:shadow-lg transition-all duration-500 group">
-                  <div className="w-24 h-24 flex-shrink-0 overflow-hidden rounded-xl shadow-inner">
-                    <img src={item.image || undefined} alt={item.name} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
+                  <div className="w-24 h-24 flex-shrink-0 overflow-hidden rounded-xl shadow-inner bg-stone-100">
+                    {item.image ? (
+                      <img src={item.image} alt={item.name} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center transform group-hover:scale-110 transition-transform duration-700">
+                        <DynamicIcon name={getItemFallbackIcon(item.category)} className="w-8 h-8 text-stone-300" />
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col justify-between">
                     <div>
@@ -1282,12 +1338,18 @@ export default function Storefront() {
             >
               <X className="w-5 h-5" />
             </button>
-            <div className="h-[35vh] sm:h-80 relative flex-shrink-0">
-              <img
-                src={selectedItemDetail.image || undefined}
-                alt={selectedItemDetail.name}
-                className="w-full h-full object-cover"
-              />
+            <div className="h-[35vh] sm:h-80 relative flex-shrink-0 bg-stone-100">
+              {selectedItemDetail.image ? (
+                <img
+                  src={selectedItemDetail.image}
+                  alt={selectedItemDetail.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <DynamicIcon name={getItemFallbackIcon(selectedItemDetail.category)} className="w-24 h-24 text-stone-300" />
+                </div>
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10"></div>
 
               <div className="absolute top-4 left-4 z-10 flex gap-2">

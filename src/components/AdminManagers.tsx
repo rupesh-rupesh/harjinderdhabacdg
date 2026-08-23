@@ -150,61 +150,54 @@ export default function AdminManagers() {
         </button>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-stone-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-stone-50 border-b border-stone-200">
-                <th className="p-4 font-bold text-stone-600 text-sm">Manager</th>
-                <th className="p-4 font-bold text-stone-600 text-sm">Email</th>
-                <th className="p-4 font-bold text-stone-600 text-sm">Permissions</th>
-                <th className="p-4 font-bold text-stone-600 text-sm text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {managers.map(manager => (
-                <tr key={manager.id} className="border-b border-stone-100 last:border-0 hover:bg-stone-50 transition-colors">
-                  <td className="p-4">
-                    <div className="font-bold text-stone-900 flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center text-stone-600 font-bold uppercase">
-                        {(manager.name || 'M')[0]}
-                      </div>
-                      {manager.name}
-                    </div>
-                  </td>
-                  <td className="p-4 text-stone-600 font-medium">{manager.email}</td>
-                  <td className="p-4">
-                    <div className="flex gap-2">
-                      {manager.permissions?.canEditMenu && (
-                        <span className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-bold border border-blue-100">
-                          Menu Edit
-                        </span>
-                      )}
-                      {manager.permissions?.canControlAccess && (
-                        <span className="inline-flex items-center px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-bold border border-purple-100">
-                          Access Control
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="p-4 text-right space-x-2">
-                    <button onClick={() => handleEdit(manager)} className="p-2 text-stone-400 hover:text-dhaba-orange hover:bg-orange-50 rounded-lg transition-colors">
-                      <Edit className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => handleDelete(manager.id)} className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {managers.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="p-8 text-center text-stone-500 font-medium">No managers are currently registered</td>
-                </tr>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {managers.map(manager => (
+          <div key={manager.id} className="bg-white rounded-3xl p-6 shadow-sm border border-stone-100 hover:shadow-lg transition-shadow group flex flex-col">
+            <div className="flex justify-between items-start mb-6">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-stone-100 to-stone-200 flex items-center justify-center text-stone-600 font-serif font-bold text-xl uppercase shadow-inner">
+                  {(manager.name || 'M')[0]}
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-stone-900 leading-tight">{manager.name}</h3>
+                  <p className="text-sm text-stone-500">{manager.email}</p>
+                </div>
+              </div>
+              <div className="flex gap-1">
+                <button onClick={() => handleEdit(manager)} className="p-2 text-stone-400 hover:text-dhaba-orange hover:bg-orange-50 rounded-xl transition-colors">
+                  <Edit className="w-4 h-4" />
+                </button>
+                <button onClick={() => handleDelete(manager.id)} className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="mt-auto pt-4 border-t border-stone-100 flex flex-wrap gap-2">
+              {manager.permissions?.canEditMenu ? (
+                <span className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">
+                  Menu Edit
+                </span>
+              ) : null}
+              {manager.permissions?.canControlAccess ? (
+                <span className="inline-flex items-center px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-xs font-bold">
+                  Access Control
+                </span>
+              ) : null}
+              {!manager.permissions?.canEditMenu && !manager.permissions?.canControlAccess && (
+                <span className="inline-flex items-center px-3 py-1 bg-stone-50 text-stone-500 rounded-full text-xs font-bold">
+                  No Permissions
+                </span>
               )}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
+        ))}
+        {managers.length === 0 && (
+          <div className="col-span-full py-16 text-center text-stone-500 bg-stone-50 rounded-3xl border border-stone-100">
+            <Users className="w-12 h-12 mx-auto mb-3 text-stone-300" />
+            <p className="font-medium">No managers are currently registered.</p>
+          </div>
+        )}
       </div>
 
       {isFormOpen && (

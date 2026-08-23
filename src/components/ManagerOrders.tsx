@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { DevEmptyStateText } from './DevEmptyStateText';
 import { Package, Clock, CheckCircle2, XCircle, Search, Trash2, Edit, FileText, X, Plus, Minus, Printer, Bell, ClipboardCheck, Filter, ChevronDown, ShoppingBag, Eye, Grid } from 'lucide-react';
 import { ThermalReceipt } from './ThermalReceipt';
-import { printerService } from '../lib/printer/PrinterService';
+import { managerPrinterService as printerService } from '../lib/printer/PrinterService';
 import toast from 'react-hot-toast';
 import { PrinterPermissionCard } from './PrinterPermissionCard';
 
@@ -217,18 +217,20 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
     }
   };
 
-  const filteredOrders = orders.filter(order => {
-    let matchesTab = false;
-    if (activeTab === 'active') matchesTab = ['pending', 'processing'].includes(order.status) || order.status === 'pending';
-    else if (activeTab === 'completed') matchesTab = order.status === 'completed';
-    else if (activeTab === 'cancelled') matchesTab = order.status === 'cancelled';
+  const filteredOrders = React.useMemo(() => {
+    return orders.filter(order => {
+      let matchesTab = false;
+      if (activeTab === 'active') matchesTab = ['pending', 'processing'].includes(order.status) || order.status === 'pending';
+      else if (activeTab === 'completed') matchesTab = order.status === 'completed';
+      else if (activeTab === 'cancelled') matchesTab = order.status === 'cancelled';
 
-    const itemsText = order.items.toLowerCase();
-    const matchesSearch = itemsText.includes(searchQuery.toLowerCase()) || 
-                          order.id.toString().includes(searchQuery);
+      const itemsText = typeof order.items === 'string' ? order.items.toLowerCase() : JSON.stringify(order.items).toLowerCase();
+      const matchesSearch = itemsText.includes(searchQuery.toLowerCase()) || 
+                            order.id.toString().includes(searchQuery);
 
-    return matchesTab && matchesSearch;
-  });
+      return matchesTab && matchesSearch;
+    });
+  }, [orders, activeTab, searchQuery]);
 
   return (
     <>
@@ -264,10 +266,11 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
         </div>
       )}
 
-      <div className="space-y-0 animate-in fade-in duration-500 max-w-4xl mx-auto">
-        <PrinterPermissionCard onConnect={() => {}} />
-        {/* Top Navigation Tabs */}
-        <div className="flex border-b border-stone-200">
+      <div className="space-y-6 animate-in fade-in duration-500 max-w-4xl mx-auto">
+        <PrinterPermissionCard role="manager" onConnect={() => {}} />
+        
+        {/* Floating Segmented Navigation */}
+        <div className="bg-stone-100/80 backdrop-blur-sm p-1.5 rounded-2xl flex gap-1 shadow-inner border border-stone-200/50">
           {[
             { id: 'active', label: 'Live Orders', icon: Bell },
             { id: 'completed', label: 'Completed Orders', icon: CheckCircle2 },
@@ -276,29 +279,37 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex-1 py-4 flex items-center justify-center gap-2 font-bold text-sm sm:text-base border-b-2 transition-colors ${
+              className={`flex-1 py-3 px-4 flex items-center justify-center gap-2 font-bold text-sm rounded-xl transition-all duration-300 ${
                 activeTab === tab.id
-                  ? 'border-[var(--color-gold)] text-dhaba-dark bg-white'
-                  : 'border-transparent text-stone-500 hover:text-stone-700 bg-stone-50/50 hover:bg-stone-50'
+                  ? 'bg-white text-dhaba-orange shadow-sm scale-100 ring-1 ring-stone-200/50'
+                  : 'text-stone-500 hover:text-stone-700 hover:bg-stone-200/50 scale-95 opacity-80 hover:opacity-100'
               }`}
             >
-              <tab.icon className="w-5 h-5" />
+              <tab.icon className={`w-5 h-5 ${activeTab === tab.id ? 'animate-bounce-slight' : ''}`} />
               {tab.label}
             </button>
           ))}
         </div>
 
-        <div className="p-4 sm:p-6 bg-white min-h-[500px]">
+        <div className="bg-white/50 backdrop-blur-md rounded-3xl p-4 sm:p-6 border border-stone-100 shadow-sm min-h-[500px]">
           {loading ? (
-            <div className="text-center text-stone-500 py-12 animate-pulse">Loading orders...</div>
+            <div className="flex flex-col items-center justify-center h-64 space-y-4">
+              <div className="w-10 h-10 border-4 border-stone-200 border-t-dhaba-orange rounded-full animate-spin"></div>
+              <div className="text-stone-500 font-bold uppercase tracking-widest text-sm">Loading Orders...</div>
+            </div>
           ) : filteredOrders.length === 0 ? (
-            <div className="text-center py-16 px-4 bg-stone-50 rounded-2xl border border-stone-100">
-              <Package className="w-16 h-16 text-stone-300 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-stone-700 mb-2">No {activeTab} orders currently available</h3>
-              <p className="text-stone-500">There are currently no orders in this category.</p>
+            <div className="flex flex-col items-center justify-center py-20 px-4 bg-stone-50/80 backdrop-blur-sm rounded-3xl border border-dashed border-stone-200 text-center shadow-inner">
+              <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-sm mb-6 relative">
+                <Package className="w-12 h-12 text-stone-300" />
+                <div className="absolute top-0 right-0 w-6 h-6 bg-stone-100 rounded-full flex items-center justify-center border-2 border-white">
+                  <span className="w-2 h-2 rounded-full bg-stone-300"></span>
+                </div>
+              </div>
+              <h3 className="text-2xl font-black text-stone-800 mb-2">No {activeTab} orders</h3>
+              <p className="text-stone-500 font-medium max-w-sm">We couldn't find any orders matching this status. Fresh orders will appear here automatically.</p>
             </div>
           ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               {filteredOrders.map(order => {
                 let items = [];
                 try { items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items; } catch (e) {}
@@ -310,10 +321,10 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
                   <button
                     key={order.id}
                     onClick={() => setSelectedOrder(order)}
-                    className={`p-5 rounded-2xl border text-left transition-all hover:-translate-y-1 hover:shadow-md ${
-                      order.status === 'completed' ? 'bg-[#f4fbf7] border-[#d1f0df] shadow-[0_4px_20px_rgba(34,197,94,0.05)]' :
-                      order.status === 'cancelled' ? 'bg-[#fef4f4] border-[#fce4e4] shadow-[0_4px_20px_rgba(239,68,68,0.05)]' :
-                      'bg-white border-stone-200 shadow-sm'
+                    className={`p-6 rounded-3xl border text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group ${
+                      order.status === 'completed' ? 'bg-gradient-to-br from-green-50 to-emerald-50/30 border-green-100' :
+                      order.status === 'cancelled' ? 'bg-gradient-to-br from-red-50 to-rose-50/30 border-red-100' :
+                      'bg-white border-stone-100 shadow-sm hover:border-dhaba-orange/30'
                     }`}
                   >
                     <div className="flex justify-between items-start mb-4">
@@ -334,12 +345,12 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
                           </div>
                         </div>
                       </div>
-                      <div className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        order.status === 'completed' ? 'bg-green-100 text-green-700' :
-                        order.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                        'bg-[#FFF9EE] text-[#D4AF37]'
+                      <div className={`px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase ${
+                        order.status === 'completed' ? 'bg-green-500 text-white shadow-sm shadow-green-500/20' :
+                        order.status === 'cancelled' ? 'bg-red-500 text-white shadow-sm shadow-red-500/20' :
+                        'bg-dhaba-orange text-white shadow-sm shadow-orange-500/20 animate-pulse'
                       }`}>
-                        {order.status.toUpperCase()}
+                        {order.status}
                       </div>
                     </div>
                     
@@ -378,55 +389,59 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
         >
           <div
             className="bg-stone-50 w-full rounded-3xl shadow-2xl flex flex-col overflow-hidden"
-            style={{ maxWidth: '520px', maxHeight: '92dvh', animation: 'popIn 0.22s cubic-bezier(0.175,0.885,0.32,1.275) forwards' }}
+            style={{ maxWidth: '480px', maxHeight: '92dvh', animation: 'popIn 0.22s cubic-bezier(0.175,0.885,0.32,1.275) forwards' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 bg-white border-b border-stone-100 flex justify-between items-start shrink-0">
+            <div className="p-6 bg-white border-b border-stone-100 flex justify-between items-start shrink-0 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-dhaba-orange via-amber-500 to-yellow-400"></div>
               <div>
-                <h2 className="text-2xl font-bold text-stone-900">Order Details</h2>
+                <h2 className="text-2xl font-black text-stone-900 tracking-tight">Order Details</h2>
                 <div className="flex items-center gap-3 mt-2">
-                  <span className="text-sm text-stone-500">#{selectedOrder.id}</span>
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                  <span className="text-sm font-bold text-stone-500 bg-stone-100 px-2 py-1 rounded-lg">#{selectedOrder.id}</span>
+                  <span className={`px-3 py-1 rounded-lg text-xs font-black tracking-wider uppercase ${
                     selectedOrder.status === 'completed' ? 'bg-green-100 text-green-700' :
                     selectedOrder.status === 'cancelled' ? 'bg-red-100 text-red-700' :
                     'bg-[#FFF9EE] text-[#D4AF37]'
                   }`}>
-                    {selectedOrder.status.toUpperCase()}
+                    {selectedOrder.status}
                   </span>
                 </div>
               </div>
               <button 
                 onClick={() => setSelectedOrder(null)}
-                className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-500"
+                className="p-2.5 bg-stone-50 hover:bg-stone-100 rounded-full transition-colors text-stone-500 hover:text-stone-700"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="bg-white rounded-2xl border border-stone-100 overflow-hidden mb-6">
-                <div className="p-4 bg-stone-50 border-b border-stone-100 flex justify-between items-center">
-                  <h3 className="font-bold text-stone-800">Items</h3>
+            <div className="flex-1 overflow-y-auto p-6 bg-[#f8f9fa] relative">
+              {/* Zigzag top for receipt look */}
+              <div className="absolute top-0 left-4 right-4 h-2 bg-repeat-x opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #000 2px, transparent 3px)', backgroundSize: '12px 12px' }}></div>
+              
+              <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden mb-6 relative">
+                <div className="p-4 border-b border-dashed border-stone-200 flex justify-between items-center bg-stone-50/50">
+                  <h3 className="font-black text-stone-400 uppercase tracking-widest text-xs">Order Items</h3>
                 </div>
-                <div className="divide-y divide-stone-100">
+                <div className="divide-y divide-dashed divide-stone-100 p-2">
                   {(() => {
                     let items = [];
                     try { items = typeof selectedOrder.items === 'string' ? JSON.parse(selectedOrder.items) : selectedOrder.items; } catch (e) {}
                     return items.filter((i: any) => !i.isTableMarker).map((item: any, idx: number) => (
-                      <div key={idx} className="p-4 flex justify-between items-center hover:bg-stone-50/50 transition-colors">
+                      <div key={idx} className="p-3 flex justify-between items-center group hover:bg-stone-50/50 rounded-xl transition-colors">
                         <div className="flex-1">
                           <div className="font-bold text-stone-800">{item.name}</div>
                           {(item.variantName || item.isHalf || item.isButter) && (
-                            <div className="text-xs text-stone-500 mt-0.5 flex gap-2">
-                              {item.variantName && <span>{item.variantName}</span>}
-                              {item.isHalf && <span>Half</span>}
-                              {item.isButter && <span>+ Butter</span>}
+                            <div className="text-xs font-semibold text-stone-400 mt-1 flex gap-2">
+                              {item.variantName && <span className="bg-stone-100 px-1.5 rounded">{item.variantName}</span>}
+                              {item.isHalf && <span className="bg-stone-100 px-1.5 rounded">Half</span>}
+                              {item.isButter && <span className="bg-amber-50 text-amber-600 px-1.5 rounded">+ Butter</span>}
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center gap-6">
-                          <div className="text-sm font-bold text-stone-500">{item.quantity}x</div>
-                          <div className="font-bold text-stone-900 w-16 text-right">
+                        <div className="flex items-center gap-4">
+                          <div className="text-sm font-black text-stone-400 bg-stone-100 w-8 h-8 flex items-center justify-center rounded-lg">{item.quantity}x</div>
+                          <div className="font-black text-stone-900 w-16 text-right">
                             ₹{((Number(item.price) || 0) + (item.isButter ? (Number(item.butterPrice) || 0) : 0)) * item.quantity}
                           </div>
                         </div>
@@ -436,14 +451,18 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl border border-stone-100 p-5">
-                <div className="flex justify-between items-center mb-3 text-stone-500">
+              <div className="bg-stone-900 rounded-2xl shadow-lg p-5 text-white relative overflow-hidden">
+                {/* Decorative background circle */}
+                <div className="absolute -right-6 -top-6 w-24 h-24 bg-white/5 rounded-full blur-xl"></div>
+                <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-dhaba-orange/20 rounded-full blur-xl"></div>
+                
+                <div className="flex justify-between items-center mb-3 text-stone-400 relative z-10 font-medium">
                   <span>Subtotal</span>
                   <span>₹{selectedOrder.total}</span>
                 </div>
-                <div className="flex justify-between items-center pt-3 border-t border-stone-100">
-                  <span className="font-bold text-stone-800">Total</span>
-                  <span className="text-2xl font-bold text-dhaba-orange">₹{selectedOrder.total}</span>
+                <div className="flex justify-between items-center pt-3 border-t border-stone-700 relative z-10">
+                  <span className="font-bold text-stone-200">Total</span>
+                  <span className="text-3xl font-black text-dhaba-orange">₹{selectedOrder.total}</span>
                 </div>
               </div>
             </div>
@@ -452,16 +471,16 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <button 
                   onClick={() => setShowReceiptPreview(true)}
-                  className="w-full py-4 bg-white border border-stone-200 text-stone-700 font-bold rounded-2xl hover:bg-stone-50 transition-colors flex items-center justify-center text-lg shadow-sm"
+                  className="w-full py-4 bg-stone-50 border border-stone-200 text-stone-700 font-bold rounded-2xl hover:bg-stone-100 hover:border-stone-300 transition-all flex items-center justify-center text-sm shadow-sm"
                 >
-                  <Eye className="w-5 h-5 mr-2" /> View Bill Preview
+                  <Eye className="w-4 h-4 mr-2" /> View Bill
                 </button>
                 <div className="grid grid-cols-2 gap-2">
-                  <button onClick={handlePrint} className="w-full py-4 bg-[#2b1f15] text-[#e8ba7d] font-bold rounded-2xl hover:bg-black transition-colors flex items-center justify-center shadow-md">
-                    <Printer className="w-5 h-5" />
+                  <button onClick={handlePrint} className="w-full py-4 bg-[#2b1f15] text-[#e8ba7d] font-bold rounded-2xl hover:bg-black transition-colors flex items-center justify-center shadow-md group">
+                    <Printer className="w-5 h-5 group-hover:scale-110 transition-transform" />
                   </button>
-                  <button onClick={handlePrintKOT} className="w-full py-4 bg-stone-100 text-stone-700 border border-stone-200 font-bold rounded-2xl hover:bg-stone-200 transition-colors flex items-center justify-center shadow-sm">
-                    <FileText className="w-5 h-5" /> KOT
+                  <button onClick={handlePrintKOT} className="w-full py-4 bg-stone-100 text-stone-700 border border-stone-200 font-bold rounded-2xl hover:bg-stone-200 transition-colors flex items-center justify-center shadow-sm text-sm">
+                    KOT
                   </button>
                 </div>
               </div>
@@ -470,15 +489,15 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <button 
                     onClick={() => { handleUpdateStatus(selectedOrder.id, 'cancelled'); }}
-                    className="w-full py-4 bg-white border border-red-200 text-red-600 font-bold rounded-2xl hover:bg-red-50 transition-colors flex items-center justify-center text-lg shadow-sm"
+                    className="w-full py-4 bg-white border border-red-200 text-red-600 font-bold rounded-2xl hover:bg-red-50 hover:border-red-300 transition-all flex items-center justify-center text-sm shadow-sm"
                   >
-                    <XCircle className="w-5 h-5 mr-2" /> Cancel
+                    <XCircle className="w-4 h-4 mr-2" /> Cancel
                   </button>
                   <button 
                     onClick={() => { handleUpdateStatus(selectedOrder.id, 'completed'); }}
-                    className="w-full py-4 bg-[#0f8b4d] text-white font-bold rounded-2xl hover:bg-[#0c7340] transition-colors shadow-md flex items-center justify-center text-lg"
+                    className="w-full py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold rounded-2xl hover:from-emerald-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center text-sm"
                   >
-                    <CheckCircle2 className="w-5 h-5 mr-2" /> Complete
+                    <CheckCircle2 className="w-4 h-4 mr-2" /> Complete
                   </button>
                 </div>
               )}
@@ -486,14 +505,14 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
               {(selectedOrder.status === 'pending' || selectedOrder.status === 'processing') && (
                 <button 
                   onClick={() => { if (onEditOrder) onEditOrder(selectedOrder); }}
-                  className="w-full py-4 bg-[#fdf5f0] text-[#E85D04] font-bold rounded-2xl hover:bg-[#fce9dc] transition-colors flex items-center justify-center text-lg shadow-sm"
+                  className="w-full py-4 bg-dhaba-orange/10 text-dhaba-orange border border-dhaba-orange/20 font-bold rounded-2xl hover:bg-dhaba-orange/20 transition-all flex items-center justify-center text-sm shadow-sm"
                 >
-                  <Edit className="w-5 h-5 mr-2" /> Edit Order
+                  <Edit className="w-4 h-4 mr-2" /> Edit Order
                 </button>
               )}
-              <div className="mt-4 flex justify-center">
-                <button onClick={(e) => handleDelete(selectedOrder.id, e)} className="text-red-400 hover:text-red-600 font-medium text-sm flex items-center transition-colors">
-                  <Trash2 className="w-4 h-4 mr-1" /> Delete Order Record
+              <div className="mt-6 flex justify-center">
+                <button onClick={(e) => handleDelete(selectedOrder.id, e)} className="text-stone-400 hover:text-red-500 font-bold text-xs flex items-center transition-colors px-4 py-2 rounded-xl hover:bg-red-50">
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete Order Record
                 </button>
               </div>
             </div>

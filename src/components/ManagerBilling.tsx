@@ -1,42 +1,133 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { LayoutGrid, Package, Utensils, Grid, Search, Plus, Minus, Trash2, CheckCircle2, AlertCircle, ShoppingBag, ArrowLeft, ArrowRight, Table, X, CreditCard, Printer, FileText , Eye, UserCircle, Lock } from 'lucide-react';
+import { LayoutGrid, Package, Utensils, Grid, Search, Plus, Minus, Trash2, CheckCircle2, AlertCircle, ShoppingBag, ArrowLeft, ArrowRight, Table, X, CreditCard, Printer, FileText, Eye, UserCircle, Lock, Save, ChevronDown, Edit2 } from 'lucide-react';
 import { ThermalReceipt } from './ThermalReceipt';
-import { printerService } from '../lib/printer/PrinterService';
+import { managerPrinterService as printerService } from '../lib/printer/PrinterService';
 import { useRef } from 'react';
+import * as Icons from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PrinterPermissionCard } from './PrinterPermissionCard';
+import { NoodleBowlIcon } from './CustomIcons';
+
+const DynamicIcon = ({ name, className }: { name: string, className?: string }) => {
+  const cleanClassName = className?.replace(/text-\w+-\d+/, '') || '';
+
+  if (name === "NoodleBowl") return <NoodleBowlIcon className={cleanClassName} />;
+
+  let colorClass = "text-stone-300"; // default
+  if (name === "Sun") colorClass = "text-yellow-500";
+  if (name === "CupSoda") colorClass = "text-cyan-500";
+  if (name === "Soup") colorClass = "text-orange-500";
+  if (name === "ConciergeBell") colorClass = "text-stone-500";
+  if (name === "UtensilsCrossed") colorClass = "text-red-500";
+  if (name === "Pizza") colorClass = "text-amber-500";
+  if (name === "Coffee") colorClass = "text-amber-700";
+  if (name === "Utensils") colorClass = "text-stone-400";
+
+  const IconComponent = (Icons as any)[name] || Icons.Utensils;
+  return <IconComponent className={`${cleanClassName} ${colorClass}`.trim()} />;
+};
+
+const getItemFallbackIcon = (category: string) => {
+  if (!category) return "Utensils";
+  const lowerName = category.toLowerCase();
+  if (lowerName.includes("breakfast")) return "Sun";
+  if (lowerName.includes("indian") || lowerName.includes("tandoor") || lowerName.includes("bread") || lowerName.includes("roti") || lowerName.includes("naan")) return "NoodleBowl";
+  if (lowerName.includes("beverage") || lowerName.includes("drink") || lowerName.includes("shake")) return "CupSoda";
+  if (lowerName.includes("raita") || lowerName.includes("curd") || lowerName.includes("dal") || lowerName.includes("paneer") || lowerName.includes("sabzi")) return "Soup";
+  if (lowerName.includes("thali")) return "ConciergeBell";
+  if (lowerName.includes("chinese")) return "UtensilsCrossed";
+  if (lowerName.includes("pizza")) return "Pizza";
+  if (lowerName.includes("dessert") || lowerName.includes("sweet")) return "Coffee";
+  if (lowerName.includes("snack") || lowerName.includes("starter") || lowerName.includes("appetizer")) return "Utensils";
+  return "Utensils";
+};
+
+const TablePeopleIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <circle cx="5" cy="5" r="2" />
+    <circle cx="19" cy="5" r="2" />
+    <path d="M 5 9 V 15 H 8" />
+    <path d="M 2 10 V 22" />
+    <path d="M 19 9 V 15 H 16" />
+    <path d="M 22 10 V 22" />
+    <path d="M 8 13 L 16 13 L 17 21 Q 15.5 23 14 21 Q 12 23 10 21 Q 8.5 23 7 21 Z" />
+  </svg>
+)
 
 export default function ManagerBilling({ editingOrder, clearEditingOrder }: { editingOrder?: any, clearEditingOrder?: () => void }) {
   const [tableSelection, setTableSelection] = useState<number | null>(null);
   const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
   const [checkoutTable, setCheckoutTable] = useState<{ num: number, order: any } | null>(null);
-  
+
   const [categories, setCategories] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   const [cart, setCart] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedItemDetail, setSelectedItemDetail] = useState<any | null>(null);
   const [activeOrders, setActiveOrders] = useState<any[]>([]);
+
+  // Resize State
+  const [cartWidth, setCartWidth] = useState(window.innerWidth > 1280 ? 420 : window.innerWidth > 1024 ? 384 : window.innerWidth > 640 ? 320 : 256);
+  const [isResizingCart, setIsResizingCart] = useState(false);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingCart) return;
+      const newWidth = window.innerWidth - e.clientX;
+      if (newWidth >= 280 && newWidth <= 800) {
+        setCartWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isResizingCart) {
+        setIsResizingCart(false);
+        document.body.style.cursor = 'default';
+        document.body.style.userSelect = 'auto';
+      }
+    };
+
+    if (isResizingCart) {
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizingCart]);
   useEffect(() => {
     if (editingOrder) {
       let tableNum = null;
+      let newCart: any[] = [];
       try {
         const items = typeof editingOrder.items === 'string' ? JSON.parse(editingOrder.items) : editingOrder.items;
         const marker = items.find((i: any) => i.isTableMarker);
         if (marker) {
-           const numMatch = marker.name.match(/\d+/);
-           if (numMatch) tableNum = parseInt(numMatch[0]);
+          const numMatch = marker.name.match(/\d+/);
+          if (numMatch) tableNum = parseInt(numMatch[0]);
         }
-        
-        setCart(items.filter((i: any) => !i.isTableMarker));
-      } catch (e) {}
+
+        newCart = items.filter((i: any) => !i.isTableMarker);
+      } catch (e) { }
 
       if (tableNum) {
+        const saved = localStorage.getItem(`dhaba_draft_cart_${tableNum}`);
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.length > 0) newCart = parsed;
+          } catch (e) { }
+        }
+        setCart(newCart);
         setTableSelection(tableNum);
         setEditingOrderId(editingOrder.id);
       }
@@ -47,6 +138,26 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
   const [showCartReceiptPreview, setShowCartReceiptPreview] = useState(false);
   const cartReceiptRef = useRef<HTMLDivElement>(null);
+  const cartEndRef = useRef<HTMLDivElement>(null);
+  const [showGstDetails, setShowGstDetails] = useState(false);
+  const [isCustomItemModalOpen, setIsCustomItemModalOpen] = useState(false);
+  const [editingCustomItem, setEditingCustomItem] = useState<{ cartItemId: string, name: string, price: number } | null>(null);
+
+  useEffect(() => {
+    if (cart.length > 0) {
+      cartEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [cart]);
+
+  useEffect(() => {
+    if (tableSelection !== null && !isSubmitting) {
+      if (cart.length > 0) {
+        localStorage.setItem(`dhaba_draft_cart_${tableSelection}`, JSON.stringify(cart));
+      } else {
+        localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
+      }
+    }
+  }, [cart, tableSelection, isSubmitting]);
 
   const handlePrintCart = () => {
     if (cartReceiptRef.current) {
@@ -65,18 +176,18 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
       if (checkoutTable?.order) {
         if (!printerService.isConnected()) {
           try {
-             if (printerService.getConfig().type === 'webusb') {
-                await printerService.connectWebUSB();
-             } else if (printerService.getConfig().type === 'webbluetooth') {
-                await printerService.connectWebBluetooth();
-             }
+            if (printerService.getConfig().type === 'webusb') {
+              await printerService.connectWebUSB();
+            } else if (printerService.getConfig().type === 'webbluetooth') {
+              await printerService.connectWebBluetooth();
+            }
           } catch (e: any) {
-             if (e.message && !e.message.toLowerCase().includes('cancel') && !e.message.includes('permissions policy')) {
-                 toast.error(e.message);
-             } else if (e.message.includes('permissions policy')) {
-                 toast.error('Bluetooth blocked by browser. Open in a new tab.');
-             }
-             return;
+            if (e.message && !e.message.toLowerCase().includes('cancel') && !e.message.includes('permissions policy')) {
+              toast.error(e.message);
+            } else if (e.message.includes('permissions policy')) {
+              toast.error('Bluetooth blocked by browser. Open in a new tab.');
+            }
+            return;
           }
         }
         try {
@@ -96,18 +207,18 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
       if (checkoutTable?.order) {
         if (!printerService.isConnected()) {
           try {
-             if (printerService.getConfig().type === 'webusb') {
-                await printerService.connectWebUSB();
-             } else if (printerService.getConfig().type === 'webbluetooth') {
-                await printerService.connectWebBluetooth();
-             }
+            if (printerService.getConfig().type === 'webusb') {
+              await printerService.connectWebUSB();
+            } else if (printerService.getConfig().type === 'webbluetooth') {
+              await printerService.connectWebBluetooth();
+            }
           } catch (e: any) {
-             if (e.message && !e.message.toLowerCase().includes('cancel') && !e.message.includes('permissions policy')) {
-                 toast.error(e.message);
-             } else if (e.message.includes('permissions policy')) {
-                 toast.error('Bluetooth blocked by browser. Open in a new tab.');
-             }
-             return;
+            if (e.message && !e.message.toLowerCase().includes('cancel') && !e.message.includes('permissions policy')) {
+              toast.error(e.message);
+            } else if (e.message.includes('permissions policy')) {
+              toast.error('Bluetooth blocked by browser. Open in a new tab.');
+            }
+            return;
           }
         }
         try {
@@ -170,24 +281,30 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
 
   const addToCartWithOptions = (item: any, options: { isHalf?: boolean, isButter?: boolean, variantName?: string, price: number }) => {
     const cartItemId = `${item.id}-${options.isHalf ? 'half' : 'full'}-${options.isButter ? 'butter' : 'nobutter'}-${options.variantName || 'none'}`;
+
+    // Calculate new quantity for the toast
+    const existingItem = cart.find(i => i.cartItemId === cartItemId);
+    const newQuantity = existingItem ? existingItem.quantity + 1 : 1;
+
     setCart(prev => {
       const existing = prev.find(i => i.cartItemId === cartItemId);
       if (existing) {
-        return prev.map(i => i.cartItemId === cartItemId ? { ...i, quantity: i.quantity + 1 } : i);
+        return prev.map(i => i.cartItemId === cartItemId ? { ...i, quantity: existing.quantity + 1 } : i);
       }
-      return [...prev, { 
+      return [...prev, {
         cartItemId,
-        id: item.id, 
-        name: item.name, 
-        price: options.price, 
+        id: item.id,
+        name: item.name,
+        price: options.price,
         quantity: 1,
         isHalf: options.isHalf || false,
         isButter: options.isButter || false,
         variantName: options.variantName,
-        butterPrice: item.butterPrice || 0
+        butterPrice: item.butterPrice || 0,
+        isCustom: item.isCustom || false
       }];
     });
-    toast.success(`Added ${item.name}`);
+    toast.success(`Added ${item.name} x${newQuantity}`);
   };
 
   const addToCart = (item: any) => {
@@ -223,19 +340,19 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
 
 
 
-  const submitOrder = async () => {
+  const submitOrder = async (shouldPrint: boolean = true) => {
     if (cart.length === 0) return toast.error("The cart is currently empty. Please add items before proceeding.");
     if (!tableSelection) return toast.error("Please select a table to proceed");
-    
+
     setIsSubmitting(true);
     try {
       const finalTotal = generateGst ? cartTotal + (cartTotal * 0.05) : cartTotal;
-      
+
       const endpoint = editingOrderId ? `/api/admin/orders/${editingOrderId}` : '/api/admin/pos/orders';
       const method = editingOrderId ? 'PUT' : 'POST';
-      
+
       const payload: any = { total: finalTotal };
-      
+
       if (editingOrderId) {
         const posItems = [
           { name: `Table ${tableSelection}`, price: 0, quantity: 1, isTableMarker: true },
@@ -246,34 +363,39 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
         payload.tableNumber = tableSelection;
         payload.items = cart;
       }
-      
+
       const res = await fetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      
-      
+
       if (res.ok) {
-        try {
-          if (printerService.getConfig().type !== 'browser') {
-            await printerService.printReceipt(draftOrder, false, true, generateGst);
-          } else {
-            if (cartReceiptRef.current) {
-              window.print();
-            }
-          }
-        } catch (printErr: any) {
-          toast.error(printErr.message || "Failed to print bill");
-        }
+        const savedOrder = await res.json();
         
+        if (shouldPrint) {
+          try {
+            if (printerService.getConfig().type !== 'browser') {
+              await printerService.printReceipt(savedOrder, false, true, generateGst);
+            } else {
+              // Update draft order to use the real ID right before printing
+              draftOrder.id = savedOrder.id;
+              if (cartReceiptRef.current) {
+                window.print();
+              }
+            }
+          } catch (printErr: any) {
+            toast.error(printErr.message || "Failed to print bill");
+          }
+        }
+
         toast.success(editingOrderId ? `Order updated for Table ${tableSelection}` : `Order placed for Table ${tableSelection}`);
+        localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
         setCart([]);
         setEditingOrderId(null);
         setTableSelection(null);
         fetchOrders();
-      }
- else {
+      } else {
         toast.error("We were unable to save the order. Please try again.");
       }
     } catch (e) {
@@ -286,12 +408,12 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
   const filteredItems = useMemo(() => {
     return menuItems.filter(item => {
       const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       // Global search: If there is a search query, ignore the category filter
       if (searchQuery.trim() !== '') {
         return matchesSearch;
       }
-      
+
       const matchesCat = selectedCategory ? item.category === selectedCategory : true;
       return matchesCat && matchesSearch;
     });
@@ -299,154 +421,178 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
 
   if (tableSelection === null) {
     return (
-    <>
-      <div className="hidden">
-        <ThermalReceipt order={checkoutTable?.order} includeGst={generateGst} managerName="Manager" forwardedRef={receiptRef} />
-        <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName="Manager" forwardedRef={cartReceiptRef} />
-      </div>
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-        <PrinterPermissionCard onConnect={() => {}} />
-      </div>
-
-      {showCartReceiptPreview && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/80 backdrop-blur-sm" onClick={() => setShowCartReceiptPreview(false)} />
-          <div className="bg-stone-200 rounded-2xl shadow-xl w-full max-w-sm relative z-10 flex flex-col max-h-[90vh] overflow-hidden">
-            <div className="p-4 bg-white border-b flex justify-between items-center">
-              <h3 className="font-bold text-lg">Bill Preview (Draft)</h3>
-              <button onClick={() => setShowCartReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
-                <span className="font-bold">&times;</span>
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
-               <div className="shadow-2xl">
-                 <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName="Manager" />
-               </div>
-            </div>
-            <div className="p-4 bg-white border-t flex flex-col gap-2">
-               <button onClick={() => setShowCartReceiptPreview(false)} className="w-full py-3 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
-               <button onClick={handlePrint} className="w-full py-3 bg-[#2b1f15] text-[#e8ba7d] font-bold rounded-xl hover:bg-black transition-colors flex items-center justify-center shadow-md">
-                 <Printer className="w-5 h-5 mr-2" /> Print Bill
-               </button>
-               <button onClick={handlePrintKOT} className="w-full py-3 bg-stone-100 text-stone-700 border border-stone-200 font-bold rounded-xl hover:bg-stone-200 transition-colors flex items-center justify-center shadow-sm">
-                 <FileText className="w-5 h-5 mr-2" /> Print KOT
-               </button>
-            </div>
-          </div>
+      <div className="h-full overflow-y-auto p-4 sm:p-6 lg:p-8 pb-12">
+        <div className="hidden">
+          <ThermalReceipt order={checkoutTable?.order} includeGst={generateGst} managerName="Manager" forwardedRef={receiptRef} />
+          <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName="Manager" forwardedRef={cartReceiptRef} />
         </div>
-      )}
 
-      {showReceiptPreview && checkoutTable && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/80 backdrop-blur-sm" onClick={() => setShowReceiptPreview(false)} />
-          <div className="bg-stone-200 rounded-2xl shadow-xl w-full max-w-sm relative z-10 flex flex-col max-h-[90vh] overflow-hidden">
-            <div className="p-4 bg-white border-b flex justify-between items-center">
-              <h3 className="font-bold text-lg">Bill Preview</h3>
-              <button onClick={() => setShowReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
-                <span className="font-bold">&times;</span>
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
-               <div className="shadow-2xl">
-                 <ThermalReceipt order={checkoutTable.order} includeGst={generateGst} managerName="Manager" />
-               </div>
-            </div>
-            <div className="p-4 bg-white border-t flex flex-col gap-2">
-               <button onClick={() => setShowReceiptPreview(false)} className="w-full py-3 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
-               <button onClick={handlePrint} className="w-full py-3 bg-[#2b1f15] text-[#e8ba7d] font-bold rounded-xl hover:bg-black transition-colors flex items-center justify-center shadow-md">
-                 <Printer className="w-5 h-5 mr-2" /> Print Bill
-               </button>
-               <button onClick={handlePrintKOT} className="w-full py-3 bg-stone-100 text-stone-700 border border-stone-200 font-bold rounded-xl hover:bg-stone-200 transition-colors flex items-center justify-center shadow-sm">
-                 <FileText className="w-5 h-5 mr-2" /> Print KOT
-               </button>
-            </div>
-          </div>
+        <div className="max-w-7xl mx-auto mt-2 mb-6">
+          <PrinterPermissionCard role="manager" onConnect={() => { }} />
         </div>
-      )}
 
-      {checkoutTable && (
-        <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md relative z-10 flex flex-col">
-            <div className="p-6 border-b border-stone-100">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-2xl font-bold text-stone-900">
-                    Table {checkoutTable.num} Checkout
-                  </h3>
-                  <div className="text-sm text-stone-500 font-medium mt-1">Order #{checkoutTable.order.id}</div>
-                </div>
-                <button onClick={() => setCheckoutTable(null)} className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-500">
-                  <X className="w-5 h-5" />
+        {showCartReceiptPreview && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-stone-900/80 backdrop-blur-sm" onClick={() => setShowCartReceiptPreview(false)} />
+            <div className="bg-stone-200 rounded-2xl shadow-xl w-full max-w-sm relative z-10 flex flex-col max-h-[90vh] overflow-hidden">
+              <div className="p-4 bg-white border-b flex justify-between items-center">
+                <h3 className="font-bold text-lg">Bill Preview (Draft)</h3>
+                <button onClick={() => setShowCartReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
+                  <span className="font-bold">&times;</span>
                 </button>
               </div>
-              <div className="bg-stone-50 p-4 rounded-xl text-center mb-6 border border-stone-100">
-                <div className="text-sm text-stone-500 font-bold uppercase tracking-wider">Total Amount</div>
-                <div className="text-4xl font-bold text-dhaba-dark mt-1">₹{checkoutTable.order.total}</div>
+              <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
+                <div className="shadow-2xl">
+                  <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName="Manager" />
+                </div>
               </div>
-
-              <div className="space-y-3">
-                <button 
-                  onClick={() => setShowReceiptPreview(true)}
-                  className="w-full py-3 bg-white border border-stone-200 text-stone-700 font-bold rounded-xl hover:bg-stone-50 transition-colors flex items-center justify-center shadow-sm"
-                >
-                  <Eye className="w-5 h-5 mr-2" /> View Bill Preview
+              <div className="p-4 bg-white border-t flex flex-col gap-2">
+                <button onClick={() => setShowCartReceiptPreview(false)} className="w-full py-3 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
+                <button onClick={handlePrint} className="w-full py-3 bg-[#2b1f15] text-[#e8ba7d] font-bold rounded-xl hover:bg-black transition-colors flex items-center justify-center shadow-md">
+                  <Printer className="w-5 h-5 mr-2" /> Print Bill
                 </button>
-                <div className="flex gap-2 flex-wrap mb-4">
-                  <button 
-                    onClick={() => {
-                      if (checkoutTable) {
-                        try {
-                          const items = typeof checkoutTable.order.items === 'string' ? JSON.parse(checkoutTable.order.items) : checkoutTable.order.items;
-                          setCart(items.filter((i: any) => !i.isTableMarker));
-                        } catch (e) {}
-                        setTableSelection(checkoutTable.num);
-                        setEditingOrderId(checkoutTable.order.id);
-                        setCheckoutTable(null);
-                      }
-                    }}
-                    className="flex-1 py-3 px-4 bg-stone-100 text-stone-700 font-bold rounded-xl hover:bg-stone-200 transition-colors flex items-center justify-center gap-2 shadow-sm"
-                  >
-                    <Grid className="w-5 h-5" /> Edit Order
+                <button onClick={handlePrintKOT} className="w-full py-3 bg-stone-100 text-stone-700 border border-stone-200 font-bold rounded-xl hover:bg-stone-200 transition-colors flex items-center justify-center shadow-sm">
+                  <FileText className="w-5 h-5 mr-2" /> Print KOT
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showReceiptPreview && checkoutTable && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-stone-900/80 backdrop-blur-sm" onClick={() => setShowReceiptPreview(false)} />
+            <div className="bg-stone-200 rounded-2xl shadow-xl w-full max-w-sm relative z-10 flex flex-col max-h-[90vh] overflow-hidden">
+              <div className="p-4 bg-white border-b flex justify-between items-center">
+                <h3 className="font-bold text-lg">Bill Preview</h3>
+                <button onClick={() => setShowReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
+                  <span className="font-bold">&times;</span>
+                </button>
+              </div>
+              <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
+                <div className="shadow-2xl">
+                  <ThermalReceipt order={checkoutTable.order} includeGst={generateGst} managerName="Manager" />
+                </div>
+              </div>
+              <div className="p-4 bg-white border-t flex flex-col gap-2">
+                <button onClick={() => setShowReceiptPreview(false)} className="w-full py-3 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
+                <button onClick={handlePrint} className="w-full py-3 bg-[#2b1f15] text-[#e8ba7d] font-bold rounded-xl hover:bg-black transition-colors flex items-center justify-center shadow-md">
+                  <Printer className="w-5 h-5 mr-2" /> Print Bill
+                </button>
+                <button onClick={handlePrintKOT} className="w-full py-3 bg-stone-100 text-stone-700 border border-stone-200 font-bold rounded-xl hover:bg-stone-200 transition-colors flex items-center justify-center shadow-sm">
+                  <FileText className="w-5 h-5 mr-2" /> Print KOT
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {checkoutTable && (
+          <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md relative z-10 flex flex-col">
+              <div className="p-6 border-b border-stone-100">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="text-2xl font-bold text-stone-900">
+                      Table {checkoutTable.num} Checkout
+                    </h3>
+                    <div className="text-sm text-stone-500 font-medium mt-1">Order #{checkoutTable.order.id}</div>
+                  </div>
+                  <button onClick={() => setCheckoutTable(null)} className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-500">
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
-                <div className="flex gap-3">
-                  <button 
-                    onClick={() => setCheckoutTable(null)}
-                    className="flex-1 py-3 px-4 bg-white border border-stone-200 text-stone-600 font-bold rounded-xl hover:bg-stone-50 transition-colors"
+                <div className="bg-stone-50 p-4 rounded-xl text-center mb-6 border border-stone-100">
+                  <div className="text-sm text-stone-500 font-bold uppercase tracking-wider">Total Amount</div>
+                  <div className="text-4xl font-bold text-dhaba-dark mt-1">₹{checkoutTable.order.total}</div>
+                </div>
+
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setShowReceiptPreview(true)}
+                    className="w-full py-3 bg-white border border-stone-200 text-stone-700 font-bold rounded-xl hover:bg-stone-50 transition-colors flex items-center justify-center shadow-sm"
                   >
-                    Cancel
+                    <Eye className="w-5 h-5 mr-2" /> View Bill Preview
                   </button>
-                  <button 
-                    onClick={() => {
-                      fetch(`/api/admin/orders/${checkoutTable.order.id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status: 'completed' })
-                      }).then(() => {
-                        fetchOrders();
-                        setTableSelection(checkoutTable.num);
-                        setCheckoutTable(null);
-                        toast.success(`Bill for Table ${checkoutTable.num} marked as paid.`);
-                      });
-                    }}
-                    className="flex-1 py-3 px-4 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2"
-                  >
-                    <CheckCircle2 className="w-5 h-5" /> Paid
-                  </button>
+                  <div className="flex gap-2 flex-wrap mb-4">
+                    <button
+                      onClick={() => {
+                        if (checkoutTable) {
+                          let newCart: any[] = [];
+                          try {
+                            const items = typeof checkoutTable.order.items === 'string' ? JSON.parse(checkoutTable.order.items) : checkoutTable.order.items;
+                            newCart = items.filter((i: any) => !i.isTableMarker);
+                          } catch (e) { }
+
+                          const saved = localStorage.getItem(`dhaba_draft_cart_${checkoutTable.num}`);
+                          if (saved) {
+                            try {
+                              const parsed = JSON.parse(saved);
+                              if (parsed && parsed.length > 0) newCart = parsed;
+                            } catch (e) { }
+                          }
+
+                          setCart(newCart);
+                          setTableSelection(checkoutTable.num);
+                          setEditingOrderId(checkoutTable.order.id);
+                          setCheckoutTable(null);
+                        }
+                      }}
+                      className="flex-1 py-3 px-4 bg-stone-100 text-stone-700 font-bold rounded-xl hover:bg-stone-200 transition-colors flex items-center justify-center gap-2 shadow-sm"
+                    >
+                      <Grid className="w-5 h-5" /> Edit Order
+                    </button>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        if (window.confirm("Are you sure you want to cancel this order?")) {
+                          fetch(`/api/admin/orders/${checkoutTable.order.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: 'cancelled' })
+                          }).then(() => {
+                            fetchOrders();
+                            setTableSelection(checkoutTable.num);
+                            setCheckoutTable(null);
+                            toast.success(`Order for Table ${checkoutTable.num} cancelled.`);
+                          });
+                        }
+                      }}
+                      className="flex-1 py-3 px-4 bg-white border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 transition-colors shadow-sm flex items-center justify-center gap-2"
+                    >
+                      <X className="w-5 h-5" /> Cancel Order
+                    </button>
+                    <button
+                      onClick={() => {
+                        fetch(`/api/admin/orders/${checkoutTable.order.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ status: 'completed' })
+                        }).then(() => {
+                          fetchOrders();
+                          setTableSelection(checkoutTable.num);
+                          setCheckoutTable(null);
+                          toast.success(`Bill for Table ${checkoutTable.num} marked as paid.`);
+                        });
+                      }}
+                      className="flex-1 py-3 px-4 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle2 className="w-5 h-5" /> Paid
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
         <div className="bg-gradient-to-br from-[#FFFDF5] to-[#FDF8E7] p-8 sm:p-10 rounded-3xl shadow-sm border border-[#F2E5C5] text-center overflow-hidden mb-6">
           {/* Subtle background lines */}
           <svg className="absolute inset-0 w-full h-full opacity-40 pointer-events-none" viewBox="0 0 800 300" preserveAspectRatio="xMidYMid slice" fill="none">
-            <path d="M-100 350C150 150 300 250 500 -50" stroke="#E3C77D" strokeWidth="1" strokeOpacity="0.4"/>
-            <path d="M-50 400C200 200 350 300 550 0" stroke="#E3C77D" strokeWidth="1" strokeOpacity="0.2"/>
-            <path d="M200 400C450 150 600 250 900 -50" stroke="#E3C77D" strokeWidth="1" strokeOpacity="0.3"/>
-            <path d="M300 450C550 200 700 300 1000 0" stroke="#E3C77D" strokeWidth="1" strokeOpacity="0.2"/>
+            <path d="M-100 350C150 150 300 250 500 -50" stroke="#E3C77D" strokeWidth="1" strokeOpacity="0.4" />
+            <path d="M-50 400C200 200 350 300 550 0" stroke="#E3C77D" strokeWidth="1" strokeOpacity="0.2" />
+            <path d="M200 400C450 150 600 250 900 -50" stroke="#E3C77D" strokeWidth="1" strokeOpacity="0.3" />
+            <path d="M300 450C550 200 700 300 1000 0" stroke="#E3C77D" strokeWidth="1" strokeOpacity="0.2" />
           </svg>
 
           <div className="relative z-10 flex flex-col items-center justify-center">
@@ -455,13 +601,13 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
               <div className="w-12 h-[1px] bg-gradient-to-r from-transparent to-[#D4AF37]"></div>
               <svg width="32" height="16" viewBox="0 0 32 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M16 0C16 6.5 10 12 0 12C10 12 16 16 16 16C16 16 22 12 32 12C22 12 16 6.5 16 0Z" fill="currentColor" />
-                <path d="M16 3C16 7 13 10 7 10C13 10 16 13 16 13C16 13 19 10 25 10C19 10 16 7 16 3Z" fill="currentColor" opacity="0.6"/>
+                <path d="M16 3C16 7 13 10 7 10C13 10 16 13 16 13C16 13 19 10 25 10C19 10 16 7 16 3Z" fill="currentColor" opacity="0.6" />
               </svg>
               <div className="w-12 h-[1px] bg-gradient-to-l from-transparent to-[#D4AF37]"></div>
             </div>
 
             <h2 className="text-4xl md:text-5xl font-serif font-bold text-[#3B291A] mb-3 tracking-tight">Select a Table</h2>
-            
+
             {/* Bottom line */}
             <div className="flex items-center justify-center gap-2 mb-4 mt-2">
               <div className="w-16 h-[1px] bg-[#D4AF37] opacity-50"></div>
@@ -472,12 +618,12 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
             <p className="text-[#5C4D40] text-lg">Choose a table to start taking an order.</p>
           </div>
         </div>
-        
+
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
           {Array.from({ length: 20 }, (_, i) => i + 1).map(num => {
             const tableOrder = activeOrders.find(o => {
               try {
-                const items = JSON.parse(o.items);
+                const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
                 return items.some((item: any) => item.isTableMarker && item.name === `Table ${num}`);
               } catch (e) { return false; }
             });
@@ -490,18 +636,39 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
                   if (isActive) {
                     setCheckoutTable({ num, order: tableOrder });
                   } else {
+                    const saved = localStorage.getItem(`dhaba_draft_cart_${num}`);
+                    if (saved) {
+                      try {
+                        const parsed = JSON.parse(saved);
+                        if (parsed && parsed.length > 0) {
+                          setCart(parsed);
+                        } else {
+                          setCart([]);
+                        }
+                      } catch (e) { setCart([]); }
+                    } else {
+                      setCart([]);
+                    }
                     setTableSelection(num);
                   }
                 }}
-                className={`aspect-square ${isActive ? 'bg-green-50 border-green-200 ring-2 ring-green-500 shadow-[0_4px_20px_rgba(34,197,94,0.15)]' : 'bg-white border-transparent shadow-[0_4px_24px_rgba(0,0,0,0.04)]'} rounded-3xl flex flex-col items-center justify-center gap-4 transition-all hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] group relative border`}
+                className={`aspect-[4/3] rounded-3xl flex flex-col items-center justify-center gap-3 transition-all duration-300 group relative border overflow-hidden ${isActive
+                    ? 'bg-green-100 shadow-md hover:shadow-lg hover:-translate-y-1 animate-rgb-glow'
+                    : 'bg-white/80 backdrop-blur-md border-stone-200 shadow-sm hover:shadow-xl hover:border-dhaba-orange/50 hover:bg-white hover:-translate-y-1'
+                  }`}
               >
-                <div className={`w-20 h-20 rounded-full ${isActive ? 'bg-green-100 shadow-inner' : 'bg-[#FFF9EE] shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]'} flex items-center justify-center transition-colors relative before:content-[''] before:absolute before:inset-1.5 before:rounded-full before:border-2 before:border-[#F2E5C5] before:opacity-50`}>
-                  <LayoutGrid className={`w-8 h-8 ${isActive ? 'text-green-600' : 'text-[#B8860B]'} relative z-10`} />
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${isActive
+                    ? 'bg-green-200 shadow-inner'
+                    : 'bg-stone-50 group-hover:bg-dhaba-orange/10 group-hover:scale-110'
+                  }`}>
+                  <TablePeopleIcon className={`w-8 h-8 ${isActive ? 'text-green-700' : 'text-stone-400 group-hover:text-dhaba-orange'
+                    }`} />
                 </div>
-                <div className="flex flex-col items-center gap-1">
-                  <span className={`text-xl font-bold ${isActive ? 'text-green-800' : 'text-[#3B291A]'}`}>Table {num}</span>
+                <div className="flex flex-col items-center gap-0.5 relative z-10">
+                  <span className={`text-lg font-black tracking-tight ${isActive ? 'text-green-950' : 'text-stone-700'
+                    }`}>Table {num}</span>
                   {isActive && (
-                    <span className="text-sm font-bold text-green-700 bg-green-200/50 px-2.5 py-0.5 rounded-full ring-1 ring-green-300">
+                    <span className="text-sm sm:text-base font-black text-white bg-green-500 px-3 py-0.5 rounded-full shadow-md mt-1 border border-green-400">
                       ₹{tableOrder.total}
                     </span>
                   )}
@@ -510,7 +677,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
             );
           })}
         </div>
-      </>
+      </div>
     );
   }
 
@@ -524,9 +691,9 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
         <ThermalReceipt order={checkoutTable?.order} includeGst={generateGst} managerName="Manager" forwardedRef={receiptRef} />
         <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName="Manager" forwardedRef={cartReceiptRef} />
       </div>
-      
+
       <div className="px-4 sm:px-6 lg:px-8 pt-4">
-        <PrinterPermissionCard onConnect={() => {}} />
+        <PrinterPermissionCard role="manager" onConnect={() => { }} />
       </div>
 
       {showCartReceiptPreview && (
@@ -540,13 +707,13 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
               </button>
             </div>
             <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
-               <div className="shadow-2xl">
-                 <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName="Manager" />
-               </div>
+              <div className="shadow-2xl">
+                <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName="Manager" />
+              </div>
             </div>
             <div className="p-4 bg-white border-t flex justify-end gap-2">
-               <button onClick={() => setShowCartReceiptPreview(false)} className="px-4 py-2 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
-               <button onClick={handlePrintCart} className="px-4 py-2 bg-dhaba-orange text-white rounded-xl hover:bg-[#e0561b] font-bold flex items-center"><Printer className="w-4 h-4 mr-2"/> Print</button>
+              <button onClick={() => setShowCartReceiptPreview(false)} className="px-4 py-2 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
+              <button onClick={handlePrintCart} className="px-4 py-2 bg-dhaba-orange text-white rounded-xl hover:bg-[#e0561b] font-bold flex items-center"><Printer className="w-4 h-4 mr-2" /> Print</button>
             </div>
           </div>
         </div>
@@ -563,13 +730,13 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
               </button>
             </div>
             <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
-               <div className="shadow-2xl">
-                 <ThermalReceipt order={checkoutTable.order} includeGst={generateGst} managerName="Manager" />
-               </div>
+              <div className="shadow-2xl">
+                <ThermalReceipt order={checkoutTable.order} includeGst={generateGst} managerName="Manager" />
+              </div>
             </div>
             <div className="p-4 bg-white border-t flex justify-end gap-2">
-               <button onClick={() => setShowReceiptPreview(false)} className="px-4 py-2 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
-               <button onClick={handlePrint} className="px-4 py-2 bg-dhaba-orange text-white rounded-xl hover:bg-[#e0561b] font-bold flex items-center"><Printer className="w-4 h-4 mr-2"/> Print</button>
+              <button onClick={() => setShowReceiptPreview(false)} className="px-4 py-2 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
+              <button onClick={handlePrint} className="px-4 py-2 bg-dhaba-orange text-white rounded-xl hover:bg-[#e0561b] font-bold flex items-center"><Printer className="w-4 h-4 mr-2" /> Print</button>
             </div>
           </div>
         </div>
@@ -578,26 +745,26 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
         <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6" onClick={() => setSelectedItemDetail(null)}>
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             <div className="relative h-48 sm:h-56 bg-stone-100">
-               <button onClick={() => setSelectedItemDetail(null)} className="absolute top-4 right-4 w-8 h-8 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center text-stone-600 hover:text-stone-900 transition-colors z-10 shadow-sm"><X className="w-5 h-5" /></button>
-               {selectedItemDetail.image ? (
-                 <img src={selectedItemDetail.image} className="w-full h-full object-cover" />
-               ) : (
-                 <div className="w-full h-full flex items-center justify-center"><Utensils className="w-12 h-12 text-stone-300" /></div>
-               )}
+              <button onClick={() => setSelectedItemDetail(null)} className="absolute top-4 right-4 w-8 h-8 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center text-stone-600 hover:text-stone-900 transition-colors z-10 shadow-sm"><X className="w-5 h-5" /></button>
+              {selectedItemDetail.image ? (
+                <img src={selectedItemDetail.image} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center"><Utensils className="w-12 h-12 text-stone-300" /></div>
+              )}
             </div>
             <div className="p-6 sm:p-8">
               <h3 className="text-2xl font-serif font-bold text-dhaba-dark mb-2">{selectedItemDetail.name}</h3>
               <p className="text-stone-500 text-sm mb-6">{selectedItemDetail.description}</p>
-              
+
               <div className="space-y-3">
                 {selectedItemDetail.variants && selectedItemDetail.variants.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3 sm:gap-4">
                     {selectedItemDetail.variants.map((v: any, i: number) => (
-                      <button 
+                      <button
                         key={i}
                         onClick={() => {
-                           addToCartWithOptions(selectedItemDetail, { price: v.price, variantName: v.name });
-                           setSelectedItemDetail(null);
+                          addToCartWithOptions(selectedItemDetail, { price: v.price, variantName: v.name });
+                          setSelectedItemDetail(null);
                         }}
                         className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
                       >
@@ -608,14 +775,14 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
                   </div>
                 ) : selectedItemDetail.hasHalfPortion ? (
                   <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    <button 
+                    <button
                       onClick={() => { addToCartWithOptions(selectedItemDetail, { isHalf: true, price: selectedItemDetail.halfPrice }); setSelectedItemDetail(null); }}
                       className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
                     >
                       <span className="text-xs uppercase tracking-widest font-bold text-stone-500 mb-1">Half</span>
                       <span className="text-xl font-bold text-dhaba-dark">₹{selectedItemDetail.halfPrice}</span>
                     </button>
-                    <button 
+                    <button
                       onClick={() => { addToCartWithOptions(selectedItemDetail, { isHalf: false, price: selectedItemDetail.price }); setSelectedItemDetail(null); }}
                       className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
                     >
@@ -625,14 +792,14 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
                   </div>
                 ) : selectedItemDetail.hasButterOption ? (
                   <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    <button 
+                    <button
                       onClick={() => { addToCartWithOptions(selectedItemDetail, { isButter: false, price: selectedItemDetail.price }); setSelectedItemDetail(null); }}
                       className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
                     >
                       <span className="text-xs uppercase tracking-widest font-bold text-stone-500 mb-1">Normal</span>
                       <span className="text-xl font-bold text-dhaba-dark">₹{selectedItemDetail.price}</span>
                     </button>
-                    <button 
+                    <button
                       onClick={() => { addToCartWithOptions(selectedItemDetail, { isButter: true, price: selectedItemDetail.price + (selectedItemDetail.butterPrice || 0) }); setSelectedItemDetail(null); }}
                       className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
                     >
@@ -646,11 +813,58 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
           </div>
         </div>
       )}
+
+      {(isCustomItemModalOpen || editingCustomItem) && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={() => { setIsCustomItemModalOpen(false); setEditingCustomItem(null); }} />
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden relative z-10 animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50">
+              <h3 className="font-black text-xl text-stone-800">{editingCustomItem ? 'Edit Custom Item' : 'Add Custom Item'}</h3>
+              <button onClick={() => { setIsCustomItemModalOpen(false); setEditingCustomItem(null); }} className="p-2 hover:bg-stone-200 rounded-full transition-colors">
+                <X className="w-5 h-5 text-stone-500" />
+              </button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const name = (e.target as any).itemName.value;
+              const price = parseFloat((e.target as any).itemPrice.value);
+              if (name && price >= 0) {
+                if (editingCustomItem) {
+                  setCart(prev => prev.map(i => i.cartItemId === editingCustomItem.cartItemId ? { ...i, name, price } : i));
+                } else {
+                  const customItem = {
+                    id: 'custom-' + Date.now(),
+                    name,
+                    price,
+                    isCustom: true
+                  };
+                  addToCartWithOptions(customItem, { price });
+                }
+                setIsCustomItemModalOpen(false);
+                setEditingCustomItem(null);
+              }
+            }} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-stone-600 mb-1">Item Name</label>
+                <input required name="itemName" defaultValue={editingCustomItem?.name || ''} type="text" className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-dhaba-orange focus:border-dhaba-orange outline-none font-medium text-stone-800" placeholder="e.g. Extra Chutney" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-stone-600 mb-1">Amount (₹)</label>
+                <input required name="itemPrice" defaultValue={editingCustomItem?.price || ''} type="number" min="0" step="1" className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-dhaba-orange focus:border-dhaba-orange outline-none font-medium text-stone-800" placeholder="0" />
+              </div>
+              <button type="submit" className="w-full py-4 bg-stone-900 hover:bg-black text-white font-black rounded-xl transition-all shadow-md hover:shadow-lg mt-2">
+                {editingCustomItem ? 'Save Changes' : 'Add to Cart'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* POS Header — table info left, search center, manager/lock right */}
       <div className="bg-white border-b border-stone-200 px-3 sm:px-5 py-3 flex items-center justify-between gap-3 shrink-0">
         {/* Left: back + table name */}
         <div className="flex items-center gap-2 shrink-0">
-          <button 
+          <button
             onClick={() => setTableSelection(null)}
             className="p-2 hover:bg-stone-100 rounded-lg transition-colors text-stone-500"
           >
@@ -673,108 +887,103 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
         {/* Center: Search — wider and responsive */}
         <div className="hidden sm:block flex-1 max-w-md lg:max-w-lg xl:max-w-2xl relative mx-4">
           <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input 
-            type="text" 
-            placeholder="Search menu..." 
+          <input
+            type="text"
+            placeholder="Search menu..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-sm border border-stone-200 rounded-xl focus:ring-2 focus:ring-dhaba-orange outline-none bg-stone-50 transition-shadow"
           />
         </div>
 
-        {/* Right: Manager chip + Lock */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Mobile search */}
-          <div className="sm:hidden relative w-40 sm:w-48 mr-1">
+        {/* Right: Mobile search */}
+        <div className="flex items-center shrink-0 sm:hidden">
+          <div className="relative w-40 sm:w-48 mr-1">
             <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input 
-              type="text" 
-              placeholder="Search..." 
+            <input
+              type="text"
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 text-xs border border-stone-200 rounded-lg focus:ring-1 focus:ring-dhaba-orange outline-none bg-stone-50"
             />
           </div>
-          
-          <div
-            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full"
-            style={{ background: '#fff', border: '1px solid #ede8e0' }}
-          >
-            <UserCircle className="w-4 h-4" style={{ color: '#C89B3C' }} />
-            <span className="text-sm font-medium" style={{ color: '#241712' }}>Manager</span>
-          </div>
-          <button
-            onClick={() => {
-              sessionStorage.removeItem('manager_dashboard_auth');
-              window.location.reload();
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
-            style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}
-          >
-            <Lock className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Lock</span>
-          </button>
         </div>
       </div>
 
       {/* POS Body */}
       <div className="flex-1 flex overflow-hidden">
-        
-        {/* Left Column: Categories — narrow on mobile, wider on desktop */}
-        <div className="w-16 sm:w-44 bg-stone-50 border-r border-stone-200 overflow-y-auto shrink-0 flex flex-col">
+
+        {/* Left Column: Categories — floating pills look */}
+        <div className="w-20 sm:w-48 bg-stone-50 border-r border-stone-200 overflow-y-auto shrink-0 flex flex-col p-2 sm:p-4 gap-2">
           {categories.map(cat => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.name)}
-              className={`p-2 sm:p-4 text-left border-l-4 transition-all flex flex-col items-center sm:flex-row sm:items-start gap-1 sm:gap-2 ${
-                selectedCategory === cat.name 
-                  ? 'border-dhaba-orange bg-white shadow-sm' 
-                  : 'border-transparent text-stone-500 hover:bg-stone-100'
-              }`}
+              className={`p-2 sm:p-3 text-left transition-all flex flex-col items-center sm:flex-row sm:items-center gap-2 rounded-2xl ${selectedCategory === cat.name
+                  ? 'bg-white shadow-sm border border-stone-200 ring-1 ring-dhaba-orange/20'
+                  : 'border border-transparent text-stone-500 hover:bg-stone-200/50 hover:border-stone-200'
+                }`}
             >
-              <div className="w-10 h-10 rounded-full bg-stone-100 overflow-hidden shrink-0 flex items-center justify-center">
+              <div className={`w-12 h-12 rounded-xl overflow-hidden shrink-0 flex items-center justify-center transition-all ${selectedCategory === cat.name ? 'bg-dhaba-orange/10' : 'bg-stone-100'}`}>
                 {cat.image ? (
                   <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
                 ) : (
-                  <Utensils className="w-5 h-5 text-stone-400" />
+                  <Utensils className={`w-5 h-5 ${selectedCategory === cat.name ? 'text-dhaba-orange' : 'text-stone-400'}`} />
                 )}
               </div>
-              <span className="text-xs sm:text-sm font-bold text-center sm:text-left mt-1 sm:mt-0">{cat.name}</span>
+              <span className={`text-[10px] sm:text-xs font-black uppercase tracking-wider text-center sm:text-left mt-1 sm:mt-0 ${selectedCategory === cat.name ? 'text-dhaba-orange' : 'text-stone-600'}`}>{cat.name}</span>
             </button>
           ))}
+          <button
+            onClick={() => setIsCustomItemModalOpen(true)}
+            className="p-2 sm:p-3 text-left transition-all flex flex-col items-center sm:flex-row sm:items-center gap-2 rounded-2xl border border-dashed border-stone-300 text-stone-500 hover:bg-stone-100 hover:border-dhaba-orange hover:text-dhaba-orange group mt-2"
+          >
+            <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 flex items-center justify-center transition-all bg-stone-100 group-hover:bg-dhaba-orange/10">
+              <Plus className="w-5 h-5 text-stone-400 group-hover:text-dhaba-orange" />
+            </div>
+            <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-center sm:text-left mt-1 sm:mt-0 text-stone-600 group-hover:text-dhaba-orange">Custom Item</span>
+          </button>
         </div>
 
         {/* Middle Column: Items — no separate mobile search since search is in header */}
-        <div className="flex-1 bg-white overflow-y-auto p-3 sm:p-5">
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+        <div className="flex-1 bg-[#f8f9fa] overflow-y-auto p-4 sm:p-6">
+          <div
+            className="grid gap-4 sm:gap-6"
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(max(140px, calc((100% - 96px) / 5)), 1fr))' }}
+          >
             {filteredItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => addToCart(item)}
-                className="bg-white border border-stone-200 rounded-xl overflow-hidden hover:border-dhaba-orange hover:shadow-md transition-all text-left flex flex-col group h-full"
+                className="bg-white border border-stone-100 rounded-3xl overflow-hidden hover:border-dhaba-orange/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-left flex flex-col group h-full shadow-sm"
               >
-                <div className="w-full h-24 sm:h-32 bg-stone-100 relative overflow-hidden">
-                  {item.image ? (
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center"><Utensils className="w-8 h-8 text-stone-300" /></div>
-                  )}
+                <div className="w-full h-28 sm:h-32 bg-stone-50 relative overflow-hidden p-2">
+                  <div className="w-full h-full rounded-2xl overflow-hidden relative">
+                    {item.image ? (
+                      <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-stone-100 group-hover:bg-stone-200 transition-colors duration-500">
+                        <DynamicIcon name={getItemFallbackIcon(item.category)} className="w-10 h-10 text-stone-300 group-hover:scale-110 transition-transform duration-500" />
+                      </div>
+                    )}
+                  </div>
                   {item.dietaryPreference === 'veg' ? (
-                    <div className="absolute top-2 right-2 w-4 h-4 bg-white rounded flex items-center justify-center border border-stone-200 shadow-sm">
-                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    <div className="absolute top-4 right-4 w-5 h-5 bg-white/90 backdrop-blur-sm rounded-md flex items-center justify-center border border-green-200 shadow-sm">
+                      <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
                     </div>
                   ) : (
-                    <div className="absolute top-2 right-2 w-4 h-4 bg-white rounded flex items-center justify-center border border-stone-200 shadow-sm">
-                      <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                    <div className="absolute top-4 right-4 w-5 h-5 bg-white/90 backdrop-blur-sm rounded-md flex items-center justify-center border border-red-200 shadow-sm">
+                      <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
                     </div>
                   )}
                 </div>
-                <div className="p-3 sm:p-4 flex flex-col flex-1">
-                  <h3 className="text-sm font-bold text-stone-800 line-clamp-2 leading-snug">{item.name}</h3>
-                  <div className="mt-auto pt-2 flex items-center justify-between">
-                    <span className="text-dhaba-orange font-bold text-sm sm:text-base">₹{item.price}</span>
-                    <div className="w-6 h-6 rounded-full bg-stone-100 text-stone-500 flex items-center justify-center group-hover:bg-dhaba-orange group-hover:text-white transition-colors">
-                      <Plus className="w-3.5 h-3.5" />
+                <div className="p-4 sm:p-5 flex flex-col flex-1">
+                  <h3 className="text-sm sm:text-base font-black text-stone-800 leading-tight group-hover:text-dhaba-orange transition-colors">{item.name}</h3>
+                  <div className="mt-auto pt-4 flex items-center justify-between">
+                    <span className="text-stone-900 font-black text-lg">₹{item.price}</span>
+                    <div className="w-8 h-8 rounded-xl bg-stone-100 text-stone-500 flex items-center justify-center group-hover:bg-dhaba-orange group-hover:text-white transition-all duration-300 group-hover:rotate-90 shadow-sm">
+                      <Plus className="w-4 h-4" />
                     </div>
                   </div>
                 </div>
@@ -789,132 +998,188 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
           </div>
         </div>
 
-        {/* Right Column: Current Bill — wider for better usability */}
-        <div className="w-64 sm:w-80 lg:w-96 xl:w-[420px] bg-stone-50 border-l border-stone-200 flex flex-col shrink-0">
-          <div className="p-4 border-b border-stone-200 bg-white">
-            <h3 className="font-bold text-lg text-stone-800 flex items-center gap-2">
-              <ShoppingBag className="w-5 h-5 text-dhaba-orange" />
+        {/* Right Column: Current Bill */}
+        <div
+          className="bg-white border-l border-stone-100 flex flex-col shrink-0 shadow-[-4px_0_24px_rgba(0,0,0,0.02)] z-10 relative"
+          style={{ width: `${cartWidth}px` }}
+        >
+          {/* Resize Handle */}
+          <div
+            className="absolute left-0 top-0 bottom-0 w-3 hover:bg-dhaba-orange/10 cursor-col-resize z-50 flex items-center justify-center transition-colors -translate-x-1.5 group/resizer"
+            onMouseDown={() => setIsResizingCart(true)}
+          >
+            <div className={`w-1 h-12 rounded-full transition-colors ${isResizingCart ? 'bg-dhaba-orange' : 'bg-stone-300 group-hover/resizer:bg-dhaba-orange/50'}`} />
+          </div>
+
+          <div className="p-5 border-b border-stone-100 bg-white shadow-sm relative z-20 flex justify-between items-center">
+            <h3 className="font-black text-xl text-stone-800 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-dhaba-orange/10 flex items-center justify-center">
+                <ShoppingBag className="w-4 h-4 text-dhaba-orange" />
+              </div>
               Current Bill
             </h3>
+            <div className="flex items-center gap-2 pr-2">
+              <button onClick={() => setShowCartReceiptPreview(true)} disabled={cart.length === 0} title="Preview Bill" className="p-2.5 hover:bg-stone-100 rounded-xl text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
+                <Eye className="w-9 h-9" />
+              </button>
+              <button onClick={() => submitOrder(false)} disabled={cart.length === 0 || isSubmitting} title="Save Bill" className="p-2.5 hover:bg-stone-100 rounded-xl text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
+                <Save className="w-9 h-9" />
+              </button>
+            </div>
           </div>
-          
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f8f9fa] relative z-10">
             {cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-stone-400 space-y-3">
-                <ShoppingBag className="w-12 h-12 opacity-50" />
-                <p className="text-sm font-medium">Cart is empty</p>
+              <div className="h-full flex flex-col items-center justify-center text-stone-400 space-y-4">
+                <div className="w-20 h-20 rounded-full bg-white shadow-sm flex items-center justify-center mb-2">
+                  <ShoppingBag className="w-8 h-8 opacity-40" />
+                </div>
+                <p className="text-sm font-bold uppercase tracking-widest text-stone-400">Cart is empty</p>
               </div>
             ) : (
               cart.map(item => (
-                <div key={item.cartItemId} className="bg-white p-3 rounded-xl border border-stone-100 shadow-sm flex flex-col gap-2 relative group">
+                <div key={item.cartItemId} className="bg-white p-3.5 rounded-2xl border border-stone-100 shadow-sm flex flex-col gap-2 relative group hover:shadow-md hover:border-stone-200 transition-all">
                   <div className="flex justify-between items-start gap-2 pr-6">
                     <div className="flex flex-col">
-                      <span className="text-sm font-bold text-stone-800 leading-tight">{item.name}</span>
+                      <span className="text-sm font-black text-stone-800 leading-tight pr-6">{item.name}</span>
                       {(item.variantName || item.isHalf || item.isButter) && (
-                        <span className="text-[10px] text-stone-500 font-medium mt-0.5 uppercase tracking-wider">
-                          {item.variantName ? item.variantName : ''}
-                          {item.isHalf ? ' (Half)' : ''}
-                          {item.isButter ? ' (+Butter)' : ''}
-                        </span>
+                        <div className="flex gap-1.5 mt-1">
+                          {item.variantName && <span className="text-[10px] bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{item.variantName}</span>}
+                          {item.isHalf && <span className="text-[10px] bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Half</span>}
+                          {item.isButter && <span className="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">+Butter</span>}
+                        </div>
                       )}
                     </div>
-                    <span className="text-sm font-bold text-dhaba-orange shrink-0">₹{Number(item.price) * item.quantity}</span>
+                    <span className="text-base font-black text-stone-900 shrink-0">₹{Number(item.price) * (Number(item.quantity) || 1)}</span>
                   </div>
-                  
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs text-stone-500">₹{item.price} each</span>
-                    <div className="flex items-center gap-3 bg-stone-50 rounded-lg p-1 border border-stone-100">
-                      <button 
+
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-dashed border-stone-100">
+                    <span className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center">
+                      ₹{item.price} EA
+                    </span>
+                    <div className="flex items-center gap-1 bg-stone-50 rounded-xl p-1 border border-stone-100 shadow-inner">
+                      <button
                         onClick={() => updateQuantity(item.cartItemId, -1)}
-                        className="w-6 h-6 rounded bg-white text-stone-500 hover:text-stone-800 shadow-sm flex items-center justify-center"
+                        className="w-7 h-7 rounded-lg bg-white text-stone-600 hover:text-stone-900 hover:shadow shadow-sm flex items-center justify-center transition-all"
                       >
                         <Minus className="w-3.5 h-3.5" />
                       </button>
-                      <span className="text-sm font-bold w-4 text-center">{item.quantity}</span>
-                      <button 
+                      <input
+                        type="number"
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          setCart(prev => prev.map(i => i.cartItemId === item.cartItemId ? { ...i, quantity: isNaN(val) ? 1 : Math.max(1, val) } : i));
+                        }}
+                        className="w-8 text-sm font-black text-center text-stone-700 bg-transparent outline-none appearance-none"
+                        min="1"
+                      />
+                      <button
                         onClick={() => updateQuantity(item.cartItemId, 1)}
-                        className="w-6 h-6 rounded bg-white text-stone-500 hover:text-stone-800 shadow-sm flex items-center justify-center"
+                        className="w-7 h-7 rounded-lg bg-white text-stone-600 hover:text-stone-900 hover:shadow shadow-sm flex items-center justify-center transition-all"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
 
-                  <button 
-                    onClick={() => updateQuantity(item.cartItemId, -item.quantity)}
-                    className="absolute top-2 right-2 w-6 h-6 text-stone-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="absolute top-3 right-3 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                    <button
+                      onClick={() => updateQuantity(item.cartItemId, -item.quantity)}
+                      className="w-7 h-7 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white flex items-center justify-center shadow-sm"
+                      title="Remove Item"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                    {item.isCustom && (
+                      <button
+                        onClick={() => setEditingCustomItem(item)}
+                        className="w-7 h-7 bg-stone-100 text-stone-600 rounded-lg hover:bg-dhaba-orange hover:text-white flex items-center justify-center shadow-sm"
+                        title="Edit Custom Item"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))
             )}
+            <div ref={cartEndRef} />
           </div>
 
-          <div className="p-4 bg-white border-t border-stone-200 space-y-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-stone-700 justify-center">
-              <input 
-                type="checkbox" 
-                id="cart-gst-checkbox" 
-                checked={generateGst}
-                onChange={(e) => setGenerateGst(e.target.checked)}
-                className="w-4 h-4 rounded border-stone-300 text-dhaba-orange focus:ring-dhaba-orange"
-              />
-              <label htmlFor="cart-gst-checkbox" className="cursor-pointer select-none">Generate GST Bill</label>
+          <div className="p-5 bg-white border-t border-stone-100 relative z-20 shadow-[0_-4px_24px_rgba(0,0,0,0.02)] space-y-4">
+            <div className="flex items-center gap-2 text-sm font-black text-stone-600 justify-center mb-2">
+              <label className="flex items-center gap-3 cursor-pointer select-none bg-stone-50 px-4 py-2 rounded-xl border border-stone-200 hover:bg-stone-100 transition-colors w-full justify-center">
+                <input
+                  type="checkbox"
+                  checked={generateGst}
+                  onChange={(e) => setGenerateGst(e.target.checked)}
+                  className="w-4 h-4 rounded border-stone-300 text-dhaba-orange focus:ring-dhaba-orange"
+                />
+                <span className="uppercase tracking-widest text-xs">Generate GST Bill</span>
+              </label>
             </div>
-            <div className="flex gap-2 flex-wrap">
-              <button 
-                onClick={() => setShowCartReceiptPreview(true)}
-                disabled={cart.length === 0}
-                className="flex-1 py-2 px-3 bg-white border border-stone-200 text-stone-700 font-bold rounded-xl hover:bg-stone-50 transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
-              >
-                <FileText className="w-4 h-4" /> Preview
-              </button>
-              <button 
-                onClick={handlePrintCart}
-                disabled={cart.length === 0}
-                className="flex-1 py-2 px-3 bg-dhaba-dark text-[var(--color-gold)] font-bold rounded-xl hover:bg-black transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
-              >
-                <Printer className="w-4 h-4" /> Print
-              </button>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm text-stone-500">
-                <span>Subtotal</span>
-                <span>₹{cartTotal}</span>
-              </div>
-              {generateGst && (
-                <>
-                  <div className="flex justify-between text-sm text-stone-500">
-                    <span>CGST @2.5%</span>
-                    <span>₹{(cartTotal * 0.025).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-stone-500">
-                    <span>SGST @2.5%</span>
-                    <span>₹{(cartTotal * 0.025).toFixed(2)}</span>
-                  </div>
-                </>
-              )}
-              <div className="flex justify-between text-lg font-bold text-stone-800 pt-2 border-t border-stone-100">
-                <span>Total</span>
-                <span className="text-dhaba-orange">₹{generateGst ? cartTotal + (cartTotal * 0.05) : cartTotal}</span>
-              </div>
-            </div>
-            
-            <button
-              onClick={submitOrder}
-              disabled={cart.length === 0 || isSubmitting}
-              className="w-full py-3.5 bg-dhaba-orange hover:bg-[#e0561b] disabled:bg-stone-300 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2"
+
+            <div
+              className="bg-stone-900 rounded-2xl p-4 text-white shadow-lg relative mt-4 cursor-pointer transition-all hover:bg-stone-800"
+              onClick={() => setShowGstDetails(!showGstDetails)}
             >
-              {isSubmitting ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Printer className="w-5 h-5" />
-                  Print Bill
-                </>
-              )}
-            </button>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-dhaba-orange/20 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+
+              <div className="space-y-2 relative z-10 pointer-events-none">
+                <div className="flex justify-between text-sm font-medium text-stone-400">
+                  <span>Subtotal</span>
+                  <span>₹{cartTotal}</span>
+                </div>
+                {generateGst && showGstDetails && (
+                  <>
+                    <div className="flex justify-between text-xs font-medium text-stone-500">
+                      <span>CGST (2.5%)</span>
+                      <span>₹{(cartTotal * 0.025).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-medium text-stone-500">
+                      <span>SGST (2.5%)</span>
+                      <span>₹{(cartTotal * 0.025).toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
+                <div className="flex justify-between items-center pt-3 mt-1 border-t border-stone-700/50">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-black text-stone-300 uppercase tracking-widest">Total</span>
+                    {generateGst && (
+                      <ChevronDown className={`w-4 h-4 text-stone-500 transition-transform ${showGstDetails ? 'rotate-180' : ''}`} />
+                    )}
+                  </div>
+                  <span className="text-3xl font-black text-dhaba-orange drop-shadow-sm">₹{generateGst ? cartTotal + (cartTotal * 0.05) : cartTotal}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => submitOrder(true)}
+                disabled={cart.length === 0 || isSubmitting}
+                className="flex-[7] py-4 bg-gradient-to-r from-dhaba-orange to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:from-stone-300 disabled:to-stone-400 disabled:cursor-not-allowed text-white font-black rounded-xl transition-all shadow-md hover:shadow-xl flex items-center justify-center gap-2 text-lg transform hover:-translate-y-0.5"
+              >
+                {isSubmitting ? (
+                  <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <ShoppingBag className="w-5 h-5" />
+                    Save & Print Bill
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handlePrintKOT}
+                disabled={cart.length === 0}
+                className="flex-[3] py-4 bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200 font-black rounded-xl transition-all shadow-sm hover:shadow flex items-center justify-center gap-2 text-lg transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Print KOT"
+              >
+                <FileText className="w-5 h-5 text-stone-600" />
+                KOT
+              </button>
+            </div>
           </div>
         </div>
 

@@ -28,6 +28,14 @@ export class ESCPosGenerator {
     return this;
   }
 
+  size(widthMul: number, heightMul: number) {
+    // widthMul and heightMul should be between 1 and 8
+    const w = Math.max(0, Math.min(7, widthMul - 1));
+    const h = Math.max(0, Math.min(7, heightMul - 1));
+    this.buffer.push(0x1D, 0x21, (w << 4) | h);
+    return this;
+  }
+
   text(str: string) {
     for (let i = 0; i < str.length; i++) {
       this.buffer.push(str.charCodeAt(i));

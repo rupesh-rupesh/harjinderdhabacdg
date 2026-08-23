@@ -190,7 +190,7 @@ export default function AdminPasswordSettings() {
 
       <form onSubmit={handleSave} className="space-y-6">
         {/* Admin Password Form Section */}
-        <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
+        <div className="bg-white p-8 rounded-3xl border border-stone-100 shadow-sm hover:shadow-lg transition-all duration-300 space-y-6">
           <div className="flex items-center gap-2 pb-3 border-b border-stone-100">
             <Shield className="w-5 h-5 text-[var(--color-gold)]" />
             <h2 className="text-lg font-bold text-stone-800">Change Admin Dashboard Password</h2>
@@ -246,7 +246,7 @@ export default function AdminPasswordSettings() {
         </div>
 
         {/* Manager Password Form Section */}
-        <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm space-y-4">
+        <div className="bg-white p-8 rounded-3xl border border-stone-100 shadow-sm hover:shadow-lg transition-all duration-300 space-y-6">
           <div className="flex items-center gap-2 pb-3 border-b border-stone-100">
             <KeyRound className="w-5 h-5 text-blue-600" />
             <h2 className="text-lg font-bold text-stone-800">Change Manager Dashboard Password</h2>

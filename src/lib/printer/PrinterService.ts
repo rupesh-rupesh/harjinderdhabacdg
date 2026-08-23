@@ -45,36 +45,45 @@ export interface PrinterConfig {
 }
 
 class PrinterService {
-  private config: PrinterConfig = {
-    type: 'browser',
-    paperSize: 80,
-    autoCut: true,
-    cashDrawer: false,
-    ipAddress: '192.168.1.200',
-    port: 9100,
-  };
+  private config: PrinterConfig;
+  private role: 'admin' | 'manager';
   
   private usbDevice: USBDevice | null = null;
-  private endpointOut: number = 0;
+  private endpointOut: number = -1;
   private btDevice: BluetoothDevice | null = null;
   private btCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
 
-  constructor() {
-    this.loadConfig();
+  constructor(role: 'admin' | 'manager' = 'manager') {
+    this.role = role;
+    this.config = this.loadConfig();
+    this.autoConnect();
   }
 
-  loadConfig() {
+  private getStorageKey(): string {
+    return `htd_${this.role}_printer_config`;
+  }
+
+  private loadConfig(): PrinterConfig {
+    const defaultCfg: PrinterConfig = {
+      type: 'browser',
+      paperSize: 80,
+      autoCut: true,
+      cashDrawer: false,
+      ipAddress: '192.168.1.200',
+      port: 9100,
+    };
     try {
-      const stored = localStorage.getItem('printer_config');
+      const stored = localStorage.getItem(this.getStorageKey());
       if (stored) {
-        this.config = { ...this.config, ...JSON.parse(stored) };
+        return { ...defaultCfg, ...JSON.parse(stored) };
       }
     } catch(e) {}
+    return defaultCfg;
   }
 
   saveConfig(config: PrinterConfig) {
     this.config = config;
-    localStorage.setItem('printer_config', JSON.stringify(config));
+    localStorage.setItem(this.getStorageKey(), JSON.stringify(config));
   }
 
   getConfig() {
@@ -319,7 +328,9 @@ class PrinterService {
         generator.alignCenter().bold(true).textLine("*** CUSTOMER COPY ***").bold(false).alignLeft();
       }
       generator.printDivider();
-      generator.textLine(`Bill No.: #HTD-${order ? (order.id || 'DRAFT') : 'DRAFT'}`);
+      if (order && order.id && order.id !== 'DRAFT') {
+        generator.textLine(`Bill No.: #HTD-${order.id}`);
+      }
       const d = (order && order.createdAt) ? new Date(order.createdAt) : new Date();
       generator.textLine(`Date: ${d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}`);
       generator.textLine(`Time: ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`);
@@ -454,4 +465,7 @@ class PrinterService {
   }
 }
 
-export const printerService = new PrinterService();
+export const adminPrinterService = new PrinterService('admin');
+export const managerPrinterService = new PrinterService('manager');
+// Deprecated generic export for backward compatibility during transition
+export const printerService = managerPrinterService;

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { printerService, PrinterConfig } from '../lib/printer/PrinterService';
+import { adminPrinterService, managerPrinterService, PrinterConfig } from '../lib/printer/PrinterService';
 import { Printer, Settings, Usb, Bluetooth, Globe, Monitor, TestTube, CheckCircle2, AlertCircle } from 'lucide-react';
 
-export default function PrinterSettings() {
+export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' | 'manager' }) {
+  const printerService = role === 'admin' ? adminPrinterService : managerPrinterService;
   const [config, setConfig] = useState<PrinterConfig>(printerService.getConfig());
   const [status, setStatus] = useState<string>('Checking...');
   const [error, setError] = useState<string | null>(null);
@@ -49,8 +50,8 @@ export default function PrinterSettings() {
             <Printer className="w-6 h-6 text-stone-700" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-stone-900">Printer Settings</h2>
-            <p className="text-stone-500">Configure thermal receipt printer</p>
+            <h2 className="text-2xl font-bold text-stone-900">{role === 'admin' ? 'Admin Printer' : 'Printer Settings'}</h2>
+            <p className="text-stone-500">Configure thermal receipt printer for {role === 'admin' ? 'Admin' : 'Manager'} Dashboard</p>
           </div>
         </div>
 

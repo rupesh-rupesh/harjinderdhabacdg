@@ -30,12 +30,20 @@ const MODULE_TITLES: Record<Module, string> = {
 
 export default function ManagerDashboard() {
   const [authenticated, setAuthenticated] = useState<boolean>(
-    () => sessionStorage.getItem('manager_dashboard_auth') === 'true'
+    () => sessionStorage.getItem('manager_dashboard_auth') === 'true' || localStorage.getItem('manager_dashboard_auth') === 'true'
   );
   const [activeModule, setActiveModule] = useState<Module>('billing');
   const [editingOrder, setEditingOrder] = useState<any>(null);
-  // Sidebar starts CLOSED on all devices
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  // Sidebar starts open on desktop, closed on mobile
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem('manager_sidebar_open');
+    if (saved !== null) return saved === 'true';
+    return window.innerWidth >= 1024;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('manager_sidebar_open', String(isSidebarOpen));
+  }, [isSidebarOpen]);
 
   if (!authenticated) {
     return <DashboardAuthModal role="manager" onSuccess={() => setAuthenticated(true)} />;
@@ -43,33 +51,33 @@ export default function ManagerDashboard() {
 
   const handleLock = () => {
     sessionStorage.removeItem('manager_dashboard_auth');
+    localStorage.removeItem('manager_dashboard_auth');
     setAuthenticated(false);
     toast.success('Manager Dashboard locked');
   };
 
   const navigate = (key: Module) => {
     setActiveModule(key);
-    setIsSidebarOpen(false);
   };
 
   return (
     <div className="flex h-[100dvh] overflow-hidden" style={{ background: 'var(--color-dashboard-bg, #f7f4f0)', fontFamily: 'var(--font-sans)' }}>
 
-      {/* ── Sidebar Overlay (all screens) ── */}
+      {/* ── Sidebar Overlay (only on mobile) ── */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 z-40"
+          className="fixed inset-0 z-40 lg:hidden"
           style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
-      {/* ── Sidebar — always slides in/out ── */}
+      {/* ── Sidebar — fixed or relative depending on screen ── */}
       <aside
         className={`
           fixed inset-y-0 left-0 z-50 w-72 flex flex-col
-          transform transition-transform duration-300 ease-in-out
-          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          transform transition-all duration-300 ease-in-out lg:relative lg:z-auto
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:hidden'}
         `}
         style={{ background: 'linear-gradient(180deg,#1a1008 0%,#241712 65%,#1a1008 100%)' }}
       >
@@ -84,13 +92,13 @@ export default function ManagerDashboard() {
             </div>
             <p className="text-xs" style={{ color: '#7a6555' }}>Harjinder Tourist Dhaba</p>
           </div>
-          {/* Close button — always visible */}
+          {/* Close button */}
           <button
             onClick={() => setIsSidebarOpen(false)}
             className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
             style={{ color: '#7a6555' }}
           >
-            <X className="w-4 h-4" />
+            <X className="w-6 h-6" />
           </button>
         </div>
 
@@ -138,63 +146,20 @@ export default function ManagerDashboard() {
 
       {/* ── Main Area ── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        
+        {/* Floating Main Menu Toggle Button (Mobile/when closed) */}
+        {!isSidebarOpen && (
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="fixed bottom-6 right-6 z-40 p-4 rounded-full shadow-2xl bg-dhaba-dark text-white hover:bg-stone-800 transition-all active:scale-95"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+        )}
 
-        {/* Top Bar */}
-        <header
-          className="flex items-center justify-between px-3 sm:px-5 py-3 shrink-0"
-          style={{
-            background: 'rgba(247,244,240,0.97)',
-            backdropFilter: 'blur(12px)',
-            borderBottom: '1px solid #ede8e0',
-            height: '56px',
-          }}
-        >
-          {/* Left: Hamburger + Title (only show title for non-billing or small screens) */}
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="p-2 rounded-xl transition-colors shrink-0"
-              style={{ background: '#fff', border: '1px solid #ede8e0', color: '#241712' }}
-              aria-label="Open sidebar"
-            >
-              <Menu className="w-4 h-4" />
-            </button>
-            {/* Show module title only when NOT in billing mode (billing has its own header inside ManagerBilling) */}
-            {activeModule !== 'billing' && (
-              <div className="min-w-0">
-                <h1 className="font-serif font-bold text-base sm:text-lg leading-tight truncate" style={{ color: '#241712' }}>
-                  {MODULE_TITLES[activeModule]}
-                </h1>
-                <p className="text-xs hidden sm:block" style={{ color: '#9a8878' }}>Manager Dashboard</p>
-              </div>
-            )}
-          </div>
-
-          {/* Right: Manager chip + Lock — hide in billing mode as they are moved to POS header */}
-          {activeModule !== 'billing' && (
-            <div className="flex items-center gap-2 shrink-0">
-              <div
-                className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full"
-                style={{ background: '#fff', border: '1px solid #ede8e0' }}
-              >
-                <UserCircle className="w-4 h-4" style={{ color: '#C89B3C' }} />
-                <span className="text-sm font-medium" style={{ color: '#241712' }}>Manager</span>
-              </div>
-              <button
-                onClick={handleLock}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
-                style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Lock</span>
-              </button>
-            </div>
-          )}
-        </header>
-
-        {/* Content — no bottom padding since no bottom nav */}
-        <main className={`flex-1 overflow-y-auto ${activeModule === 'billing' ? 'p-0 overflow-hidden' : 'p-4 sm:p-6 lg:p-8'}`}>
-          <div className={`${activeModule === 'billing' ? 'h-full' : 'max-w-7xl mx-auto w-full fade-in-up'}`}>
+        {/* Scrollable Content */}
+        <div className={`flex-1 ${activeModule === 'billing' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-8 pb-8'}`}>
+          <div className={`${activeModule === 'billing' ? 'h-full' : 'max-w-6xl mx-auto w-full'}`}>
             {activeModule === 'billing' ? (
               <ManagerBilling editingOrder={editingOrder} clearEditingOrder={() => setEditingOrder(null)} />
             ) : activeModule === 'orders' ? (
@@ -204,10 +169,10 @@ export default function ManagerDashboard() {
             ) : activeModule === 'revenue' ? (
               <ManagerDailyRevenue />
             ) : (
-              <PrinterSettings />
+              <PrinterSettings role="manager" />
             )}
           </div>
-        </main>
+        </div>
       </div>
     </div>
   );

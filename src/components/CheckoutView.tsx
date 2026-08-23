@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, CreditCard, Banknote, MapPin, Phone, User, ShoppingBag, Clock, CheckCircle2, ChevronRight, Store, Info, ArrowRight, ClipboardList, Wallet, Receipt, Lock, ShieldCheck, Download } from 'lucide-react';
+import { ArrowLeft, CreditCard, Banknote, MapPin, Phone, User, ShoppingBag, Clock, CheckCircle2, ChevronRight, Store, Info, ArrowRight, ClipboardList, Wallet, Receipt, Lock, ShieldCheck, Download, Heart } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import domToImage from 'dom-to-image';
 import jsPDF from 'jspdf';
@@ -16,7 +16,7 @@ export default function CheckoutView({
   onBack: () => void;
   onOrderComplete: () => void;
 }) {
-  const [orderType, setOrderType] = useState<'dine-in' | 'takeaway'>('dine-in');
+  const orderType = 'takeaway';
   const [paymentMethod, setPaymentMethod] = useState<'counter' | 'online'>('counter');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -27,7 +27,6 @@ export default function CheckoutView({
   });
   const [formErrors, setFormErrors] = useState<{name?: string, phone?: string, tableNumber?: string}>({});
   const [showTakeawayModal, setShowTakeawayModal] = useState(false);
-  const [showDineInModal, setShowDineInModal] = useState(false);
   const [feelingSad, setFeelingSad] = useState(false);
   const receiptRef = useRef<HTMLDivElement>(null);
 
@@ -94,14 +93,6 @@ export default function CheckoutView({
       errors.phone = "Please enter a valid 10-digit phone number";
     }
 
-    if (orderType === 'dine-in') {
-      if (!formData.tableNumber.trim()) {
-        errors.tableNumber = "Table number is required";
-      } else if (!/^\d{1,3}$/.test(formData.tableNumber.trim())) {
-        errors.tableNumber = "Please enter a valid table number (1-999)";
-      }
-    }
-
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       return;
@@ -109,23 +100,7 @@ export default function CheckoutView({
 
     setFormErrors({});
     
-    if (orderType === 'dine-in') {
-      setShowDineInModal(true);
-      return;
-    }
-
-    setIsProcessing(true);
-
-    
-    // Simulate API call for placing order / payment
-    setTimeout(() => {
-      setIsProcessing(false);
-      setIsSuccess(true);
-      
-      setTimeout(() => {
-        onOrderComplete();
-      }, 3000);
-    }, 1500);
+    setShowTakeawayModal(true);
   };
 
   if (isSuccess) {
@@ -137,9 +112,7 @@ export default function CheckoutView({
           </div>
           <h2 className="text-3xl font-bold font-serif text-dhaba-dark mb-4">Order Confirmed!</h2>
           <p className="text-stone-600 mb-8">
-            {orderType === 'dine-in' 
-              ? "Your food is being prepared and will be brought to your table shortly."
-              : "Your takeaway order is confirmed and will be ready for pickup in 20 minutes."}
+            Your takeaway order is confirmed and will be ready for pickup in 20 minutes.
           </p>
           <div className="bg-stone-50 rounded-xl p-4 mb-8 text-left border border-stone-100">
             <div className="flex justify-between items-center mb-2">
@@ -179,44 +152,25 @@ export default function CheckoutView({
           {/* Left Column: Forms & Options */}
           <div className="flex-1 space-y-6 sm:space-y-8">
             
-            {/* Order Type Selection */}
-            <div className="bg-white rounded-[24px] shadow-sm border border-stone-100 p-5 sm:p-6">
-              <div className="flex items-start mb-6">
-                <div className="w-10 h-10 rounded-full border border-dhaba-orange/30 flex items-center justify-center mr-3 shrink-0">
-                  <ClipboardList className="w-5 h-5 text-dhaba-orange" />
+            {/* Takeaway Info Card */}
+            <div className="bg-orange-50/50 rounded-[24px] border border-orange-100 p-5 sm:p-6 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <ShoppingBag className="w-24 h-24 text-dhaba-orange" />
+              </div>
+              <div className="relative z-10 flex items-start">
+                <div className="w-12 h-12 rounded-full bg-white border border-orange-200 flex items-center justify-center mr-4 shrink-0 shadow-sm">
+                  <ShoppingBag className="w-6 h-6 text-dhaba-orange" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-serif font-bold text-dhaba-dark">Order Type</h3>
-                  <p className="text-sm text-stone-500 mt-0.5">How would you like your order?</p>
+                  <div className="inline-block px-3 py-1 bg-dhaba-orange text-white text-xs font-bold rounded-full mb-2 uppercase tracking-wide">
+                    Takeaway Order
+                  </div>
+                  <h3 className="text-xl font-serif font-bold text-dhaba-dark">Pickup at Harjinder Dhaba</h3>
+                  <div className="flex items-center text-sm text-stone-600 mt-2 font-medium">
+                    <Clock className="w-4 h-4 mr-1.5 text-dhaba-orange" />
+                    Estimated pickup in 20-30 mins
+                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <label className={`relative cursor-pointer border-2 rounded-[20px] p-5 sm:p-6 flex flex-col items-center justify-center transition-all ${orderType === 'dine-in' ? 'border-dhaba-orange bg-orange-50/50' : 'border-stone-100 hover:border-stone-200 bg-stone-50/50'}`}>
-                  <input type="radio" name="orderType" value="dine-in" checked={orderType === 'dine-in'} onChange={() => setOrderType('dine-in')} className="sr-only" />
-                  <div className={`w-14 h-14 rounded-full mb-3 flex items-center justify-center ${orderType === 'dine-in' ? 'bg-orange-100' : 'bg-white shadow-sm'}`}>
-                    <Store className={`w-7 h-7 ${orderType === 'dine-in' ? 'text-dhaba-orange' : 'text-stone-400'}`} />
-                  </div>
-                  <span className={`font-bold text-lg mb-1 ${orderType === 'dine-in' ? 'text-stone-900' : 'text-stone-700'}`}>Dine-in</span>
-                  <span className="text-xs text-stone-500 text-center">Enjoy your meal at our restaurant</span>
-                  {orderType === 'dine-in' && (
-                    <div className="absolute top-4 right-4 w-6 h-6 bg-dhaba-orange rounded-full flex items-center justify-center">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    </div>
-                  )}
-                </label>
-                <label className={`relative cursor-pointer border-2 rounded-[20px] p-5 sm:p-6 flex flex-col items-center justify-center transition-all ${orderType === 'takeaway' ? 'border-dhaba-orange bg-orange-50/50' : 'border-stone-100 hover:border-stone-200 bg-stone-50/50'}`}>
-                  <input type="radio" name="orderType" value="takeaway" checked={orderType === 'takeaway'} onChange={() => setShowTakeawayModal(true)} className="sr-only" />
-                  <div className={`w-14 h-14 rounded-full mb-3 flex items-center justify-center ${orderType === 'takeaway' ? 'bg-orange-100' : 'bg-white shadow-sm'}`}>
-                    <ShoppingBag className={`w-7 h-7 ${orderType === 'takeaway' ? 'text-dhaba-orange' : 'text-stone-400'}`} />
-                  </div>
-                  <span className={`font-bold text-lg mb-1 ${orderType === 'takeaway' ? 'text-stone-900' : 'text-stone-700'}`}>Takeaway</span>
-                  <span className="text-xs text-stone-500 text-center">Pick up your order</span>
-                  {orderType === 'takeaway' && (
-                    <div className="absolute top-4 right-4 w-6 h-6 bg-dhaba-orange rounded-full flex items-center justify-center">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    </div>
-                  )}
-                </label>
               </div>
             </div>
 
@@ -252,18 +206,6 @@ export default function CheckoutView({
                   </div>
                   {formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}
                 </div>
-                {orderType === 'dine-in' && (
-                  <div>
-                    <label className="block text-sm font-bold text-stone-800 mb-1.5">Table Number <span className="text-stone-500 font-normal">(Optional)</span></label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <Store className="h-5 w-5 text-dhaba-orange/70" />
-                      </div>
-                      <input required type="text" value={formData.tableNumber} onChange={(e) => { setFormData({...formData, tableNumber: e.target.value}); if (formErrors.tableNumber) setFormErrors({...formErrors, tableNumber: undefined}); }} className={`w-full bg-white border ${formErrors.tableNumber ? 'border-red-500 focus:ring-red-500/50 focus:border-red-500' : 'border-stone-200 focus:ring-dhaba-orange/50 focus:border-dhaba-orange'} rounded-[16px] pl-11 pr-4 py-3.5 focus:outline-none focus:ring-2 transition-colors text-stone-800 placeholder:text-stone-400`} placeholder="e.g. 12" />
-                    </div>
-                    {formErrors.tableNumber && <p className="text-red-500 text-xs mt-1">{formErrors.tableNumber}</p>}
-                  </div>
-                )}
               </form>
             </div>
 
@@ -279,23 +221,21 @@ export default function CheckoutView({
                 </div>
               </div>
               <div className="space-y-3">
-                {orderType === 'dine-in' && (
-                  <label className={`cursor-pointer border-2 rounded-[16px] p-4 flex items-center transition-all ${paymentMethod === 'counter' ? 'border-dhaba-orange bg-orange-50/50' : 'border-stone-100 hover:border-stone-200 bg-stone-50/50'}`}>
-                    <input type="radio" name="paymentMethod" value="counter" checked={paymentMethod === 'counter'} onChange={() => setPaymentMethod('counter')} className="sr-only" />
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center mr-4 shrink-0 transition-colors ${paymentMethod === 'counter' ? 'bg-orange-100/50' : 'bg-white shadow-sm border border-stone-100'}`}>
-                      <Banknote className={`w-6 h-6 ${paymentMethod === 'counter' ? 'text-dhaba-orange' : 'text-stone-400'}`} />
+                <label className={`cursor-pointer border-2 rounded-[16px] p-4 flex items-center transition-all ${paymentMethod === 'counter' ? 'border-dhaba-orange bg-orange-50/50' : 'border-stone-100 hover:border-stone-200 bg-stone-50/50'}`}>
+                  <input type="radio" name="paymentMethod" value="counter" checked={paymentMethod === 'counter'} onChange={() => setPaymentMethod('counter')} className="sr-only" />
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mr-4 shrink-0 transition-colors ${paymentMethod === 'counter' ? 'bg-orange-100/50' : 'bg-white shadow-sm border border-stone-100'}`}>
+                    <Banknote className={`w-6 h-6 ${paymentMethod === 'counter' ? 'text-dhaba-orange' : 'text-stone-400'}`} />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className={`font-bold text-base ${paymentMethod === 'counter' ? 'text-stone-900' : 'text-stone-700'}`}>Pay at Counter</h4>
+                    <p className="text-xs sm:text-sm text-stone-500">Pay via cash or card when you pickup</p>
+                  </div>
+                  <div className="ml-3 shrink-0">
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'counter' ? 'border-dhaba-orange' : 'border-stone-300'}`}>
+                      {paymentMethod === 'counter' && <div className="w-3 h-3 rounded-full bg-dhaba-orange" />}
                     </div>
-                    <div className="flex-1">
-                      <h4 className={`font-bold text-base ${paymentMethod === 'counter' ? 'text-stone-900' : 'text-stone-700'}`}>Pay at Counter</h4>
-                      <p className="text-xs sm:text-sm text-stone-500">Pay via cash or card after your meal</p>
-                    </div>
-                    <div className="ml-3 shrink-0">
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'counter' ? 'border-dhaba-orange' : 'border-stone-300'}`}>
-                        {paymentMethod === 'counter' && <div className="w-3 h-3 rounded-full bg-dhaba-orange" />}
-                      </div>
-                    </div>
-                  </label>
-                )}
+                  </div>
+                </label>
                 
                 <label className="cursor-not-allowed opacity-60 border-2 rounded-[16px] p-4 flex items-center transition-all border-stone-100 bg-stone-50/50">
                   <input type="radio" name="paymentMethod" value="online" disabled className="sr-only" />
@@ -484,64 +424,12 @@ export default function CheckoutView({
               disabled={!feelingSad}
               className={`w-full py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2 ${
                 feelingSad 
-                  ? 'bg-dhaba-orange hover:bg-dhaba-orange-light text-white shadow-lg shadow-orange-500/30' 
+                  ? 'bg-dhaba-dark text-white hover:bg-stone-800 shadow-xl shadow-stone-900/20' 
                   : 'bg-stone-100 text-stone-400 cursor-not-allowed'
               }`}
             >
-              Continue <ArrowRight className="w-5 h-5" />
+              Okay, I understand <Heart className={`w-5 h-5 ${feelingSad ? 'text-red-500 animate-pulse' : ''}`} />
             </button>
-          </div>
-        </div>
-      )}
-      {showDineInModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] w-full max-w-[28rem] shadow-2xl relative animate-in fade-in zoom-in duration-200 overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-8 pb-4 bg-white">
-              <h3 className="text-2xl font-extrabold text-stone-900 mb-4 text-center tracking-tight">Your Selection</h3>
-              
-              <div className="flex-1 overflow-y-auto pr-2 mb-6 space-y-4 max-h-[40vh]">
-                {cartItems.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center border-b border-stone-100 pb-3 last:border-0 last:pb-0">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-lg bg-stone-100 overflow-hidden flex-shrink-0">
-                        <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-stone-800 text-sm">{item.name}</h4>
-                        <p className="text-stone-500 text-xs font-medium">₹{item.numericPrice} x {item.quantity}</p>
-                      </div>
-                    </div>
-                    <div className="font-bold text-dhaba-dark">
-                      ₹{item.numericPrice * item.quantity}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="bg-orange-50 border border-orange-100 rounded-xl p-5 mb-2 text-sm text-stone-700">
-                <p className="mb-3 leading-relaxed">
-                  <span className="font-bold text-dhaba-orange">Note:</span> online ordering not implantted yet just call the waiter and ask him to bring your order RIGHT NOWW...
-                </p>
-                <p className="font-black text-dhaba-dark uppercase leading-relaxed text-[11px] sm:text-xs">
-                  IF YOU WANT YOUR ORDER DELIVER TO YOU BY DEVELOPER THEN SHOUT <a href="https://rupeshkumar.online" target="_blank" rel="noopener noreferrer" className="text-dhaba-orange underline decoration-dhaba-orange/50 underline-offset-2 hover:decoration-dhaba-orange transition-colors">Sing A Song For Us</a>
-                </p>
-              </div>
-            </div>
-            
-            <div className="p-8 pt-4 flex flex-col gap-3 bg-white">
-              <button
-                onClick={handleDownload}
-                className="w-full py-4 bg-dhaba-orange hover:bg-dhaba-orange-light text-white rounded-xl font-bold text-lg transition-all shadow-lg shadow-orange-500/20 focus:outline-none flex items-center justify-center gap-2"
-              >
-                <Download className="w-5 h-5" /> Download Preview
-              </button>
-              <button
-                onClick={() => setShowDineInModal(false)}
-                className="w-full py-4 bg-stone-900 hover:bg-black text-white rounded-xl font-bold text-lg transition-all shadow-lg focus:outline-none"
-              >
-                Close
-              </button>
-            </div>
           </div>
         </div>
       )}

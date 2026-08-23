@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm';
-import { integer, real, pgTable, serial, text, timestamp, boolean, jsonb } from 'drizzle-orm/pg-core';
+import { integer, real, pgTable, serial, text, timestamp, boolean, jsonb, index } from 'drizzle-orm/pg-core';
 
 // Define the 'users' table.
 export const users = pgTable('users', {
@@ -22,7 +22,11 @@ export const orders = pgTable('orders', {
   total: real('total').notNull(),
   status: text('status').notNull().default('pending'), // pending, completed, cancelled
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => [
+  index('orders_user_id_idx').on(table.userId),
+  index('orders_status_idx').on(table.status),
+  index('orders_created_at_idx').on(table.createdAt)
+]);
 
 export const categories = pgTable('categories', {
   id: serial('id').primaryKey(),
@@ -60,7 +64,11 @@ export const menuItems = pgTable('menu_items', {
   variants: jsonb('variants'), // Array of {name: string, price: number}
   isDeleted: boolean('is_deleted').default(false),
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => [
+  index('menu_items_category_idx').on(table.category),
+  index('menu_items_is_deleted_idx').on(table.isDeleted),
+  index('menu_items_is_popular_idx').on(table.isPopular)
+]);
 
 export const usersRelations = relations(users, ({ many }) => ({
   orders: many(orders),
@@ -130,7 +138,9 @@ export const visitors = pgTable('visitors', {
   os: text('os'),
   browser: text('browser'),
   referrer: text('referrer'),
-});
+}, (table) => [
+  index('visitors_token_idx').on(table.visitorToken)
+]);
 
 export const visits = pgTable('visits', {
   id: serial('id').primaryKey(),
@@ -142,7 +152,10 @@ export const visits = pgTable('visits', {
   exitPage: text('exit_page'),
   isActive: boolean('is_active').default(true),
   lastPingAt: timestamp('last_ping_at').defaultNow(),
-});
+}, (table) => [
+  index('visits_session_token_idx').on(table.sessionToken),
+  index('visits_visitor_id_idx').on(table.visitorId)
+]);
 
 export const reviews = pgTable('reviews', {
   id: serial('id').primaryKey(),
@@ -155,7 +168,9 @@ export const reviews = pgTable('reviews', {
   adminReply: text('admin_reply'),
   isHidden: boolean('is_hidden').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => [
+  index('reviews_is_hidden_idx').on(table.isHidden)
+]);
 
 export const dashboardAuth = pgTable('dashboard_auth', {
   id: serial('id').primaryKey(),
@@ -167,6 +182,14 @@ export const dashboardAuth = pgTable('dashboard_auth', {
 export const demoNotices = pgTable('demo_notices', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const newsTicker = pgTable('news_ticker', {
+  id: serial('id').primaryKey(),
+  text: text('text').notNull(),
+  isActive: boolean('is_active').default(true),
+  displayOrder: integer('display_order').notNull().default(0),
   createdAt: timestamp('created_at').defaultNow(),
 });
 

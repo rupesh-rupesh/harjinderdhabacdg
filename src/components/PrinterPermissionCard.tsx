@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { printerService } from '../lib/printer/PrinterService';
-import { Printer, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { adminPrinterService, managerPrinterService } from '../lib/printer/PrinterService';
+import { Printer, AlertCircle, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export function PrinterPermissionCard({ onConnect }: { onConnect: () => void }) {
+export function PrinterPermissionCard({ role = 'manager', onConnect }: { role?: 'admin' | 'manager', onConnect?: () => void }) {
+  const printerService = role === 'admin' ? adminPrinterService : managerPrinterService;
   const [status, setStatus] = useState<'checking' | 'permission_required' | 'disconnected' | 'connected'>('checking');
   
   const checkPrinter = async () => {
