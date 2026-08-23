@@ -201,32 +201,40 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
   };
 
   const handlePrintKOT = async () => {
-    if (printerService.getConfig().type === 'browser') {
-      toast.error("A direct USB printer connection is required to print a kitchen copy.");
-    } else {
-      if (checkoutTable?.order) {
-        if (!printerService.isConnected()) {
-          try {
-            if (printerService.getConfig().type === 'webusb') {
-              await printerService.connectWebUSB();
-            } else if (printerService.getConfig().type === 'webbluetooth') {
-              await printerService.connectWebBluetooth();
-            }
-          } catch (e: any) {
-            if (e.message && !e.message.toLowerCase().includes('cancel') && !e.message.includes('permissions policy')) {
-              toast.error(e.message);
-            } else if (e.message.includes('permissions policy')) {
-              toast.error('Bluetooth blocked by browser. Open in a new tab.');
-            }
-            return;
-          }
-        }
+    if (cart.length > 0) {
+      const kotOrder = {
+        id: editingOrderId || 'DRAFT',
+        tableNumber: tableSelection,
+        items: JSON.stringify(cart),
+        createdAt: new Date().toISOString()
+      };
+
+      if (!printerService.isConnected()) {
         try {
-          await printerService.printReceipt(checkoutTable.order, false, false, generateGst);
-          toast.success("KOT sent to printer");
+          if (printerService.getConfig().type === 'webusb') {
+            await printerService.connectWebUSB();
+          } else if (printerService.getConfig().type === 'webbluetooth') {
+            await printerService.connectWebBluetooth();
+          }
         } catch (e: any) {
-          if (e.message && !e.message.toLowerCase().includes('cancel') && e.message !== 'Failed to fetch') { toast.error(e.message); }
+          if (window.self !== window.top && (e.name === 'SecurityError' || e.message?.includes('permissions policy'))) {
+            toast.error((t) => (
+              <div className="flex flex-col gap-2">
+                <span>Hardware access is blocked in this preview window.</span>
+                <a href="http://localhost:3000" target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 bg-black text-white text-xs text-center rounded hover:bg-gray-800" onClick={() => toast.dismiss(t.id)}>Open in New Tab</a>
+              </div>
+            ), { duration: 10000 });
+          } else if (e.message && !e.message.toLowerCase().includes('cancel')) {
+            toast.error(e.message);
+          }
+          return;
         }
+      }
+      try {
+        await printerService.printReceipt(kotOrder, false, false, generateGst);
+        toast.success("KOT sent to printer");
+      } catch (e: any) {
+        if (e.message && !e.message.toLowerCase().includes('cancel') && e.message !== 'Failed to fetch') { toast.error(e.message); }
       }
     }
   };

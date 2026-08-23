@@ -146,6 +146,7 @@ class PrinterService {
                 for (const characteristic of characteristics) {
                   if (characteristic.properties.write || characteristic.properties.writeWithoutResponse) {
                     this.btCharacteristic = characteristic;
+                    this.setupBluetoothListeners();
                     return true;
                   }
                 }
@@ -158,6 +159,52 @@ class PrinterService {
       }
     }
     return false;
+  }
+
+  private setupBluetoothListeners() {
+    if (this.btDevice) {
+      this.btDevice.addEventListener('gattserverdisconnected', async () => {
+        console.warn("Bluetooth Printer Disconnected! Attempting auto-reconnect...");
+        try {
+          if (this.btDevice && this.btDevice.gatt) {
+            await new Promise(r => setTimeout(r, 2000)); // wait 2s before reconnecting
+            const server = await this.btDevice.gatt.connect();
+            const services = await server.getPrimaryServices();
+            for (const service of services) {
+              const characteristics = await service.getCharacteristics();
+              for (const characteristic of characteristics) {
+                if (characteristic.properties.write || characteristic.properties.writeWithoutResponse) {
+                  this.btCharacteristic = characteristic;
+                  console.log("Bluetooth Printer Reconnected Successfully!");
+                  return;
+                }
+              }
+            }
+          }
+        } catch(e) {
+          console.error("Auto-reconnect failed. User will need to manually connect.", e);
+          this.btCharacteristic = null;
+        }
+      });
+    }
+  }
+
+  private setupUSBListeners() {
+    if (navigator.usb) {
+      navigator.usb.addEventListener('disconnect', (event) => {
+        if (this.usbDevice && event.device === this.usbDevice) {
+          console.warn("USB Printer Disconnected!");
+          this.usbDevice = null;
+          this.endpointOut = -1;
+        }
+      });
+      navigator.usb.addEventListener('connect', async (event) => {
+        if (!this.usbDevice && this.config.type === 'webusb') {
+           console.log("USB Device Plugged In! Attempting auto-connect...");
+           this.autoConnect();
+        }
+      });
+    }
   }
 
   isConnected() {
@@ -185,6 +232,8 @@ class PrinterService {
       const interfaceNumber = this.usbDevice.configuration.interfaces[0].interfaceNumber;
       await this.usbDevice.claimInterface(interfaceNumber);
       
+      this.setupUSBListeners();
+      
       const endpoints = this.usbDevice.configuration.interfaces[0].alternate.endpoints;
       const outEndpoint = endpoints.find((e: any) => e.direction === 'out');
       if (outEndpoint) {
@@ -195,8 +244,8 @@ class PrinterService {
       return true;
     } catch (e: any) {
       if (e && !e.message?.toLowerCase().includes('cancel')) console.warn(e.message);
-      if (e.name === 'SecurityError' || e.message.includes('permissions policy')) {
-        throw new Error('USB access is blocked by browser permissions policy. Try opening the app in a new tab or use Browser Print.');
+      if (e.message?.includes('Access denied')) {
+        throw new Error("Access Denied: Windows is blocking direct USB access. You must either use a tool like Zadig to install the WinUSB driver for this printer, or switch to 'Browser Print' mode.");
       }
       throw new Error(e.message || 'Failed to connect USB printer');
     }
@@ -221,6 +270,7 @@ class PrinterService {
         for (const characteristic of characteristics) {
           if (characteristic.properties.write || characteristic.properties.writeWithoutResponse) {
             this.btCharacteristic = characteristic;
+            this.setupBluetoothListeners();
             return true;
           }
         }
@@ -228,9 +278,6 @@ class PrinterService {
       throw new Error("Could not find a writable characteristic on the Bluetooth device.");
     } catch (e: any) {
       if (e && !e.message?.toLowerCase().includes('cancel')) console.warn(e.message);
-      if (e.name === 'SecurityError' || e.message.includes('permissions policy')) {
-        throw new Error('Bluetooth access is blocked by browser permissions policy. Try opening the app in a new tab or use Browser Print.');
-      }
       throw new Error(e.message || 'Failed to connect Bluetooth printer');
     }
   }
@@ -263,7 +310,13 @@ class PrinterService {
 
   async printReceipt(order: any, isTest: boolean = false, isCustomerCopy: boolean = true, includeGst: boolean = true) {
     if (this.config.type === 'browser' || this.config.paperSize === 'a4') {
-      window.print();
+      if (isTest) {
+        this.printBrowserTest();
+      } else if (!isCustomerCopy) {
+        this.printBrowserKOT(order);
+      } else {
+        window.print();
+      }
       return;
     }
 
@@ -354,6 +407,8 @@ class PrinterService {
          } else {
             generator.textLine(`${item.quantity || 1}x ${itemName}`);
          }
+         // Add a single line space after every item
+         generator.newline(1);
       });
       
       generator.printDivider();
@@ -370,7 +425,7 @@ class PrinterService {
         }
         
         generator.printDivider();
-        generator.printLine("GRAND TOTAL:", `Rs. ${grandTotal.toFixed(2)}`);
+        generator.bold(true).printLine("GRAND TOTAL:", `Rs. ${grandTotal.toFixed(2)}`).bold(false);
         generator.printDivider();
         
         generator.printDivider();
@@ -448,7 +503,7 @@ class PrinterService {
            const response = await fetch(`http://${this.config.ipAddress}:${this.config.port || 9100}/print`, {
              method: 'POST',
              headers: { 'Content-Type': 'application/octet-stream' },
-             body: data,
+             body: new Blob([data as any]),
            });
            if (!response.ok) throw new Error(`Network printer responded with status ${response.status}`);
          } catch (netErr: any) {
@@ -462,6 +517,130 @@ class PrinterService {
       console.warn('Direct thermal print failed, attempting System Print fallback:', e?.message || e);
       window.print();
     }
+  }
+
+  private printBrowserKOT(order: any) {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    let items = [];
+    try {
+      items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+      if (typeof items === 'string') items = JSON.parse(items);
+    } catch(e) {}
+    
+    const realItems = items.filter((i: any) => !i.isTableMarker);
+    const orderDate = new Date(order.createdAt || Date.now());
+    const timeStr = orderDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    
+    let html = `
+      <html>
+      <head>
+        <style>
+          @media print { @page { margin: 0; } body { margin: 0; } }
+          body { font-family: monospace; padding: 10px; width: 80mm; font-size: 14px; color: black; }
+          .center { text-align: center; }
+          .divider { border-top: 1px dashed #000; margin: 10px 0; }
+          .flex { display: flex; justify-content: space-between; }
+        </style>
+      </head>
+      <body>
+        <div class="center" style="font-weight: bold; font-size: 16px;">--- K.O.T ---</div>
+        <div style="margin-top: 10px;">Order: #${(order.id || 0).toString().slice(-4)}</div>
+        <div>Time: ${timeStr}</div>
+        ${order.tableNumber ? `<div>Table: ${order.tableNumber}</div>` : ''}
+        
+        <div class="divider"></div>
+        <div style="font-weight: bold;">
+          <span style="display:inline-block; width: 30px;">Qty</span>
+          <span>Item</span>
+        </div>
+        <div class="divider"></div>
+    `;
+
+    realItems.forEach((item: any) => {
+       html += `
+         <div style="display: flex; margin-bottom: 5px;">
+           <span style="display:inline-block; width: 30px; font-weight: bold;">${item.quantity}</span>
+           <span>${item.name.substring(0, 27)}</span>
+         </div>
+       `;
+       if (item.isButter) {
+           html += `<div style="margin-left: 30px; font-style: italic;">+ Extra Butter</div>`;
+       }
+    });
+
+    html += `
+      </body>
+      </html>
+    `;
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+    }
+    
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 500);
+  }
+
+  private printBrowserTest() {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+    
+    let html = `
+      <html>
+      <head>
+        <style>
+          @media print { @page { margin: 0; } body { margin: 0; } }
+          body { font-family: monospace; padding: 10px; width: 80mm; font-size: 14px; color: black; text-align: center; }
+          .divider { border-top: 1px dashed #000; margin: 10px 0; }
+        </style>
+      </head>
+      <body>
+        <h2 style="margin:0;">Harjinder Tourist Dhaba</h2>
+        <p style="font-size: 12px;">VPO-Sahauran, Teh-Kharar,<br>Distt. Mohali (Punjab) - 140103<br>Phone: 90566-55093</p>
+        <div class="divider"></div>
+        <h3 style="margin: 10px 0;">TEST PRINT SUCCESSFUL</h3>
+        <p style="font-size: 12px;">Your printer is correctly configured for Browser Print.</p>
+        <div class="divider"></div>
+      </body>
+      </html>
+    `;
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+    }
+    
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 500);
   }
 }
 

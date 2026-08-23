@@ -160,7 +160,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({ order, includeGs
                 <div className="text-right w-12">{itemPrice.toFixed(2)}</div>
                 <div className="text-right w-16">{itemAmount.toFixed(2)}</div>
               </div>
-              <div className="border-t border-dashed border-gray-300 my-1 last:hidden"></div>
+              <div className="border-t border-dashed border-gray-300 my-3 last:hidden"></div>
             </React.Fragment>
           );
         })}
@@ -192,7 +192,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({ order, includeGs
 
       <div className="border-t-[2px] border-black my-1"></div>
 
-      <div className="flex justify-between font-bold text-xl mb-2">
+      <div className="flex justify-between font-black text-xl mb-2 py-1 uppercase">
         <span>Grand Total</span>
         <span>Rs. {grandTotal.toFixed(2)}</span>
       </div>

@@ -76,17 +76,12 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
          }
     }
 
-    if (printerService.getConfig().type === 'browser') {
-
-      toast.error("A direct USB printer connection is required to print a kitchen copy.");
-    } else {
-      if (selectedOrder) {
-        try {
-          await printerService.printReceipt(selectedOrder, false, false, generateGst);
-          toast.success("KOT sent to printer");
-        } catch (e: any) {
-          if (e.message && !e.message.toLowerCase().includes('cancel') && e.message !== 'Failed to fetch') { toast.error(e.message); }
-        }
+    if (selectedOrder) {
+      try {
+        await printerService.printReceipt(selectedOrder, false, false, generateGst);
+        toast.success("KOT sent to printer");
+      } catch (e: any) {
+        if (e.message && !e.message.toLowerCase().includes('cancel') && e.message !== 'Failed to fetch') { toast.error(e.message); }
       }
     }
   };

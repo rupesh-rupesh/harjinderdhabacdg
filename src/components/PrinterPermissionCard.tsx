@@ -52,10 +52,23 @@ export function PrinterPermissionCard({ role = 'manager', onConnect }: { role?: 
         toast.success("Printer connected successfully!");
       }
     } catch (e: any) {
-      if (e.message && !e.message.toLowerCase().includes('cancel') && !e.message.includes('permissions policy')) {
-        toast.error(`An error occurred: ${e.message}`);
-      } else if (e.message.includes('permissions policy')) {
-        toast.error('Access blocked by browser. Try opening in a new tab.');
+      if (window.self !== window.top && (e.name === 'SecurityError' || e.message?.includes('permissions policy'))) {
+        toast.error((t) => (
+          <div className="flex flex-col gap-2">
+            <span>Hardware access is blocked in this preview window.</span>
+            <a 
+              href="http://localhost:3000" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 bg-black text-white text-xs text-center rounded hover:bg-gray-800 font-medium"
+              onClick={() => toast.dismiss(t.id)}
+            >
+              Open App in New Tab to Connect
+            </a>
+          </div>
+        ), { duration: 10000 });
+      } else if (e.message && !e.message.toLowerCase().includes('cancel')) {
+        toast.error(`Error: ${e.message}`);
       }
     }
   };
