@@ -1154,6 +1154,7 @@ app.get("/api/journey-media", async (req, res) => {
     }
   });
 
+<<<<<<< HEAD
 // ─── Windows Native Print Bridge ─────────────────────────────────────────────
 // These endpoints are only registered when running locally on Windows.
 // On Vercel (serverless), they return 501 Not Implemented.
@@ -1191,6 +1192,8 @@ app.get("/api/journey-media", async (req, res) => {
     }
   });
 
+=======
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
 // Vite middleware for development
   
   (async () => {

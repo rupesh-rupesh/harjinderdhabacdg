@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { adminPrinterService, managerPrinterService, PrinterConfig } from '../lib/printer/PrinterService';
+<<<<<<< HEAD
 import { Printer, Settings, Bluetooth, Monitor, TestTube, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import WindowsPrinterModal from './WindowsPrinterModal';
+=======
+import { Printer, Settings, Usb, Bluetooth, Globe, Monitor, TestTube, CheckCircle2, AlertCircle } from 'lucide-react';
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
 
 export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' | 'manager' }) {
   const printerService = role === 'admin' ? adminPrinterService : managerPrinterService;
@@ -9,6 +13,7 @@ export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' |
   const [status, setStatus] = useState<string>('Checking...');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+<<<<<<< HEAD
   const [windowsPrinters, setWindowsPrinters] = useState<string[]>([]);
   const [loadingPrinters, setLoadingPrinters] = useState(false);
   const [showWindowsModal, setShowWindowsModal] = useState(false);
@@ -20,6 +25,10 @@ export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' |
       setConfig(migrated);
       printerService.saveConfig(migrated);
     }
+=======
+
+  useEffect(() => {
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
     checkStatus();
   }, [config.type]);
 
@@ -27,6 +36,7 @@ export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' |
     try {
       const s = await printerService.checkStatus();
       setStatus(s);
+<<<<<<< HEAD
     } catch(e: any) {
       if (e.message?.includes('Access denied')) {
         setError("Access Denied: Windows is blocking direct USB access. You must use a tool like Zadig to install the WinUSB driver for this printer, or switch to a different device.");
@@ -38,6 +48,13 @@ export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' |
 
 
 
+=======
+    } catch(e) {
+      setStatus('Status unknown');
+    }
+  };
+
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
   const handleSave = (newConfig: Partial<PrinterConfig>) => {
     const updated = { ...config, ...newConfig };
     setConfig(updated);
@@ -59,7 +76,10 @@ export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' |
   };
 
   return (
+<<<<<<< HEAD
     <>
+=======
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div className="bg-white p-8 rounded-3xl shadow-sm border border-stone-200">
         <div className="flex items-center gap-4 mb-6">
@@ -92,11 +112,36 @@ export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' |
               <label className="block text-sm font-bold text-stone-700 mb-2">Connection Method</label>
               <div className="grid grid-cols-2 gap-3">
                 <button 
+<<<<<<< HEAD
                   onClick={() => setShowWindowsModal(true)}
                   className={`p-4 rounded-xl border-2 flex flex-col items-center justify-center gap-2 transition-all ${config.type === 'windows-print' || config.type === 'webusb' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04] font-bold' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
                 >
                   <Printer className="w-6 h-6" />
                   <span className="text-sm">Wired USB Printer</span>
+=======
+                  onClick={() => handleSave({ type: 'browser' })}
+                  className={`p-3.5 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all ${config.type === 'browser' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04] ring-2 ring-[#E85D04]/20 font-bold' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
+                >
+                  <Monitor className="w-5 h-5" />
+                  <span className="text-xs text-center">System / Wi-Fi</span>
+                </button>
+
+                <button 
+                  onClick={async () => {
+                    handleSave({ type: 'webusb' });
+                    try {
+                      await printerService.connectWebUSB();
+                      const newStatus = await printerService.checkStatus();
+                      setStatus(newStatus);
+                    } catch (e: any) {
+                      setError(e.message);
+                    }
+                  }}
+                  className={`p-3.5 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all ${config.type === 'webusb' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04] ring-2 ring-[#E85D04]/20 font-bold' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
+                >
+                  <Usb className="w-5 h-5" />
+                  <span className="text-xs text-center">Wired USB</span>
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
                 </button>
 
                 <button 
@@ -110,6 +155,7 @@ export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' |
                       setError(e.message);
                     }
                   }}
+<<<<<<< HEAD
                   className={`p-4 rounded-xl border-2 flex flex-col items-center justify-center gap-2 transition-all ${config.type === 'webbluetooth' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04] font-bold' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
                 >
                   <Bluetooth className="w-6 h-6" />
@@ -121,6 +167,62 @@ export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' |
               </p>
             </div>
 
+=======
+                  className={`p-3.5 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all ${config.type === 'webbluetooth' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04] ring-2 ring-[#E85D04]/20 font-bold' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
+                >
+                  <Bluetooth className="w-5 h-5" />
+                  <span className="text-xs text-center">Wireless Bluetooth</span>
+                </button>
+
+                <button 
+                  onClick={() => handleSave({ type: 'network' })}
+                  className={`p-3.5 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all ${config.type === 'network' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04] ring-2 ring-[#E85D04]/20 font-bold' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
+                >
+                  <Globe className="w-5 h-5" />
+                  <span className="text-xs text-center">Network IP Printer</span>
+                </button>
+
+                <button 
+                  onClick={() => handleSave({ type: 'qz-tray' })}
+                  className={`col-span-2 p-3 rounded-xl border flex items-center justify-center gap-2 transition-all ${config.type === 'qz-tray' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04] font-bold' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
+                >
+                  <Globe className="w-4 h-4" />
+                  <span className="text-xs">QZ Tray / Local Spooler Bridge</span>
+                </button>
+              </div>
+              <p className="text-xs text-stone-500 mt-2">
+                * System / Wi-Fi mode prints to any system desktop, Laser, Inkjet, or AirPrint printer.
+              </p>
+            </div>
+
+            {config.type === 'network' && (
+              <div className="bg-stone-50 p-4 rounded-xl border border-stone-200 space-y-3">
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">Network Printer Settings</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <label className="text-[11px] text-stone-500 font-medium block mb-1">IP Address</label>
+                    <input 
+                      type="text" 
+                      placeholder="192.168.1.200"
+                      value={config.ipAddress || ''}
+                      onChange={(e) => handleSave({ ipAddress: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg bg-white focus:ring-2 focus:ring-[#E85D04]/30 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-stone-500 font-medium block mb-1">Port</label>
+                    <input 
+                      type="number" 
+                      placeholder="9100"
+                      value={config.port || 9100}
+                      onChange={(e) => handleSave({ port: Number(e.target.value) || 9100 })}
+                      className="w-full px-3 py-2 text-sm border border-stone-300 rounded-lg bg-white focus:ring-2 focus:ring-[#E85D04]/30 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
 
             <div>
               <label className="block text-sm font-bold text-stone-700 mb-2">Paper & Format</label>
@@ -186,6 +288,7 @@ export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' |
         </div>
       </div>
     </div>
+<<<<<<< HEAD
     <WindowsPrinterModal 
       isOpen={showWindowsModal} 
       onClose={() => setShowWindowsModal(false)}
@@ -196,5 +299,7 @@ export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' |
       }}
     />
     </>
+=======
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
   );
 }

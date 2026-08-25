@@ -33,16 +33,25 @@ const numberToWords = (num: number) => {
   return str.trim();
 };
 
+<<<<<<< HEAD
 export type PrinterType = 'webusb' | 'webbluetooth' | 'browser' | 'qz-tray' | 'network' | 'windows-print';
+=======
+export type PrinterType = 'webusb' | 'webbluetooth' | 'browser' | 'qz-tray' | 'network';
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
 
 export interface PrinterConfig {
   type: PrinterType;
   paperSize: 58 | 80 | 'a4';
   autoCut: boolean;
   cashDrawer: boolean;
+<<<<<<< HEAD
   ipAddress?: string;          // For Network/LAN printer (e.g., 192.168.1.200)
   port?: number;               // Default 9100 for RAW printing
   windowsPrinterName?: string; // For windows-print mode: exact Windows printer name
+=======
+  ipAddress?: string; // For Network/LAN printer (e.g., 192.168.1.200)
+  port?: number;      // Default 9100 for RAW printing
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
 }
 
 class PrinterService {
@@ -106,6 +115,7 @@ class PrinterService {
     return [];
   }
 
+<<<<<<< HEAD
   /**
    * Returns the list of printers installed on the local Windows machine.
    * Calls GET /api/print/windows-printers (served by the local Express server).
@@ -126,6 +136,10 @@ class PrinterService {
     if (this.config.type === 'browser') return true;
     // Windows-print uses the server bridge — no client-side hardware handshake needed
     if (this.config.type === 'windows-print') return true;
+=======
+  async autoConnect() {
+    if (this.config.type === 'browser') return true;
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
     
     if (this.config.type === 'webusb') {
       try {
@@ -233,7 +247,11 @@ class PrinterService {
     if (this.config.type === 'webbluetooth') {
        return this.btDevice && this.btDevice.gatt && this.btDevice.gatt.connected;
     }
+<<<<<<< HEAD
     return true; // browser / network / windows-print / qz-tray are always "connected"
+=======
+    return true; // Browser default is always "connected"
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
   }
 
   async connectWebUSB() {
@@ -264,7 +282,11 @@ class PrinterService {
     } catch (e: any) {
       if (e && !e.message?.toLowerCase().includes('cancel')) console.warn(e.message);
       if (e.message?.includes('Access denied')) {
+<<<<<<< HEAD
         throw new Error("Access Denied: Windows is blocking direct USB access. You must use a tool like Zadig to install the WinUSB driver for this printer, or switch to a different device.");
+=======
+        throw new Error("Access Denied: Windows is blocking direct USB access. You must either use a tool like Zadig to install the WinUSB driver for this printer, or switch to 'Browser Print' mode.");
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
       }
       throw new Error(e.message || 'Failed to connect USB printer');
     }
@@ -323,12 +345,15 @@ class PrinterService {
     if (this.config.type === 'qz-tray') {
        return 'Configured (QZ Tray Bridge)';
     }
+<<<<<<< HEAD
 
     if (this.config.type === 'windows-print') {
        return this.config.windowsPrinterName
          ? `Connected (${this.config.windowsPrinterName})`
          : 'No Printer Selected';
     }
+=======
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
     
     return 'Status ready';
   }
@@ -402,6 +427,7 @@ class PrinterService {
       generator.alignLeft();
       if (!isCustomerCopy) {
         generator.alignCenter().bold(true).textLine("*** KITCHEN COPY ***").bold(false).alignLeft();
+<<<<<<< HEAD
         generator.printBoldDivider();
       }
       
@@ -423,6 +449,26 @@ class PrinterService {
       }
       
       realItems.forEach((item: any, index: number) => {
+=======
+      } else {
+        generator.alignCenter().bold(true).textLine("*** CUSTOMER COPY ***").bold(false).alignLeft();
+      }
+      generator.printDivider();
+      if (order && order.id && order.id !== 'DRAFT') {
+        generator.textLine(`Bill No.: #HTD-${order.id}`);
+      }
+      const d = (order && order.createdAt) ? new Date(order.createdAt) : new Date();
+      generator.textLine(`Date: ${d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}`);
+      generator.textLine(`Time: ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`);
+      generator.printDivider();
+      
+      if (isCustomerCopy) {
+         generator.print4Columns("Item Name", "Qty", "Rate", "Amount");
+         generator.printDivider();
+      }
+      
+      realItems.forEach((item: any) => {
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
          let itemName = item.name || 'Unknown';
          if (item.isHalf) itemName += ' (Half)';
          if (item.isButter) itemName += ' (Butter)';
@@ -435,6 +481,7 @@ class PrinterService {
          } else {
             generator.textLine(`${item.quantity || 1}x ${itemName}`);
          }
+<<<<<<< HEAD
          // Add 1 line space after every item except the last one
          if (index < realItems.length - 1) {
              generator.newline(1);
@@ -442,6 +489,13 @@ class PrinterService {
       });
       
       generator.printBoldDivider();
+=======
+         // Add a single line space after every item
+         generator.newline(1);
+      });
+      
+      generator.printDivider();
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
       
       if (isCustomerCopy) {
         const totalQty = realItems.reduce((acc: number, item: any) => acc + (item.quantity || 1), 0);
@@ -454,6 +508,7 @@ class PrinterService {
             generator.printLine("SGST @2.5%:", `Rs. ${sgst.toFixed(2)}`);
         }
         
+<<<<<<< HEAD
         generator.printBoldDivider();
         generator.size(1, 2).bold(true).printLine("GRAND TOTAL:", `Rs. ${grandTotal.toFixed(2)}`).size(1, 1).bold(false);
         generator.printBoldDivider();
@@ -463,6 +518,18 @@ class PrinterService {
         generator.textLine("This bill was generated by the");
         generator.textLine("Manager.");
         generator.printBoldDivider();
+=======
+        generator.printDivider();
+        generator.bold(true).printLine("GRAND TOTAL:", `Rs. ${grandTotal.toFixed(2)}`).bold(false);
+        generator.printDivider();
+        
+        generator.printDivider();
+        generator.alignCenter().textLine("Remark:");
+        generator.textLine("This bill was generated by the");
+        generator.textLine("Manager.");
+        generator.printDivider();
+        generator.newline(1);
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
         
         generator.textLine("Thank You!");
         generator.textLine("Visit Again");
@@ -470,7 +537,12 @@ class PrinterService {
         generator.alignLeft();
       }
     }
+<<<<<<< HEAD
     generator.newline(2);
+=======
+    
+    generator.newline(4);
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
     if (this.config.autoCut) {
       generator.cut();
     }
@@ -538,6 +610,7 @@ class PrinterService {
            console.warn('Direct RAW socket send failed, falling back to System Print dialog...', netErr);
            window.print();
          }
+<<<<<<< HEAD
       } else if (this.config.type === 'windows-print') {
          if (!this.config.windowsPrinterName) {
            throw new Error('No Windows printer selected. Please choose a printer in Printer Settings.');
@@ -558,6 +631,8 @@ class PrinterService {
            const body = await response.json().catch(() => ({}));
            throw new Error(body.error || `Windows print bridge responded with status ${response.status}`);
          }
+=======
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
       } else {
          window.print();
       }

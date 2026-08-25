@@ -289,6 +289,7 @@ export class ESCPosGenerator {
     this.textLine('-'.repeat(width));
     return this;
   }
+<<<<<<< HEAD
 
   printBoldDivider() {
     const width = this.paperSize === 58 ? 32 : 48;
@@ -302,4 +303,6 @@ export class ESCPosGenerator {
     this.textLine('- '.repeat(width / 2));
     return this;
   }
+=======
+>>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
 }
