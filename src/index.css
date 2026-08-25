@@ -443,15 +443,26 @@ html {
 }
 
 .animate-marquee {
-  animation: marquee 40S linear infinite;
+  animation: marquee 60s linear infinite;
 }
 
 /* ─── RGB Border Glow Animation ──────────────────── */
 @keyframes rgbGlow {
-  0% { border-color: #4285F4; }
-  33% { border-color: #9b72cb; }
-  66% { border-color: #d96570; }
-  100% { border-color: #4285F4; }
+  0% {
+    border-color: #4285F4;
+  }
+
+  33% {
+    border-color: #9b72cb;
+  }
+
+  66% {
+    border-color: #d96570;
+  }
+
+  100% {
+    border-color: #4285F4;
+  }
 }
 
 .animate-rgb-glow {

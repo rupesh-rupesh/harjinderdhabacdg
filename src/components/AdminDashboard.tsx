@@ -61,16 +61,13 @@ export default function AdminDashboard() {
   );
   const [items, setItems] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  const [activeModule, setActiveModule] = useState<'menu' | 'features' | 'journey' | 'recover' | 'analytics' | 'reviews' | 'managers' | 'stats' | 'orders' | 'billing' | 'passwords' | 'ticker' | 'printer'>('analytics');
+  const [activeModule, setActiveModule] = useState<'menu' | 'features' | 'journey' | 'recover' | 'analytics' | 'reviews' | 'managers' | 'stats' | 'orders' | 'billing' | 'passwords' | 'printer'>('analytics');
   const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
 
   const [features, setFeatures] = useState<any[]>([]);
   const [journeyMedia, setJourneyMedia] = useState<any[]>([]);
   const [journeySettings, setJourneySettings] = useState({ header: '', description: '', signature: '', subSignature: '' });
   const [deletedData, setDeletedData] = useState<{categories: any[], menuItems: any[]}>({categories: [], menuItems: []});
-  const [newsTickers, setNewsTickers] = useState<any[]>([]);
-  const [isTickerFormOpen, setIsTickerFormOpen] = useState(false);
-  const [tickerForm, setTickerForm] = useState({ id: null as number|null, text: '', isActive: true, displayOrder: 0 });
   const [isFeatureFormOpen, setIsFeatureFormOpen] = useState(false);
   const [featureForm, setFeatureForm] = useState({ id: null as number|null, title: '', description: '', videoUrl: '', iconName: 'Sparkles', isActive: true });
 
@@ -158,7 +155,6 @@ export default function AdminDashboard() {
         if (data.features) setFeatures(data.features);
         if (data.deletedData) setDeletedData(data.deletedData);
         if (data.journeySettings) setJourneySettings(data.journeySettings);
-        if (data.newsTickers) setNewsTickers(data.newsTickers);
       } else if (retryCount < 3) {
         // Retry on server error (e.g. Vite not ready yet)
         setTimeout(() => fetchData(retryCount + 1), 600);
@@ -334,24 +330,20 @@ export default function AdminDashboard() {
   }, [items, activeCategoryName, searchQuery]);
 
   const renderCategoryCards = () => {
-    const filteredCategories = React.useMemo(() => {
-      return categories.filter(cat => {
-        const matchCat = cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase());
-        const matchItems = items.some(item => 
-          item.category === cat.name && 
-          (item.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) || 
-           item.description?.toLowerCase().includes(categorySearchQuery.toLowerCase()))
-        );
-        return matchCat || matchItems;
-      });
-    }, [categories, items, categorySearchQuery]);
+    const filteredCategories = categories.filter(cat => {
+      const matchCat = (cat.name || '').toLowerCase().includes(categorySearchQuery.toLowerCase());
+      const matchItems = items.some(item => 
+        item.category === cat.name && 
+        ((item.name || '').toLowerCase().includes(categorySearchQuery.toLowerCase()) || 
+         (item.description || '').toLowerCase().includes(categorySearchQuery.toLowerCase()))
+      );
+      return matchCat || matchItems;
+    });
 
-    const matchingItems = React.useMemo(() => {
-      return categorySearchQuery ? items.filter(item => 
-        item.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) || 
-        item.description?.toLowerCase().includes(categorySearchQuery.toLowerCase())
-      ) : [];
-    }, [items, categorySearchQuery]);
+    const matchingItems = categorySearchQuery ? items.filter(item => 
+      (item.name || '').toLowerCase().includes(categorySearchQuery.toLowerCase()) || 
+      (item.description || '').toLowerCase().includes(categorySearchQuery.toLowerCase())
+    ) : [];
 
     return (
       <div className="space-y-6">
@@ -753,200 +745,6 @@ export default function AdminDashboard() {
       console.error(err);
     }
   };
-
-  const handleSaveTicker = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tickerForm.id) {
-      const texts = tickerForm.text.split(/[,\n]+/).map(t => t.trim()).filter(Boolean);
-      if (texts.length === 0) return;
-      try {
-        await Promise.all(texts.map(async (text, index) => {
-          const body = {
-            text,
-            isActive: tickerForm.isActive,
-            displayOrder: newsTickers.length + index
-          };
-          const res = await fetch('/api/news-ticker', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-          });
-          if (!res.ok) throw new Error(`Failed to add: ${text}`);
-        }));
-        toast.success(texts.length > 1 ? 'Tickers added!' : 'Ticker added!');
-        setIsTickerFormOpen(false);
-        setTickerForm({ id: null, text: '', isActive: true, displayOrder: 0 });
-        fetchData();
-      } catch (err: any) {
-        toast.error('Failed to add ticker: ' + err.message);
-      }
-    } else {
-      const url = `/api/news-ticker/${tickerForm.id}`;
-      const body = {
-        ...tickerForm,
-        displayOrder: newsTickers.find(t => t.id === tickerForm.id)?.displayOrder || 0
-      };
-      try {
-        const res = await fetch(url, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        if (res.ok) {
-          toast.success('Ticker updated!');
-          setIsTickerFormOpen(false);
-          setTickerForm({ id: null, text: '', isActive: true, displayOrder: 0 });
-          fetchData();
-        } else {
-          const errData = await res.json().catch(() => ({}));
-          toast.error('Failed to update ticker: ' + (errData.error || res.statusText));
-        }
-      } catch (err: any) {
-        toast.error('Failed to update ticker: ' + err.message);
-      }
-    }
-  };
-
-  const handleToggleTicker = async (ticker: any) => {
-    try {
-      await fetch(`/api/news-ticker/${ticker.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...ticker, isActive: !ticker.isActive })
-      });
-      fetchData();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleDeleteTicker = async (id: number) => {
-    setConfirmDialog({
-      isOpen: true,
-      title: "Delete Ticker",
-      message: "Are you sure you want to delete this ticker?",
-      onConfirm: async () => {
-        try {
-          await fetch(`/api/news-ticker/${id}`, { method: 'DELETE' });
-          fetchData();
-        } catch (err) {
-          console.error(err);
-        }
-      }
-    });
-  };
-
-  const handleReorderTicker = async (index: number, direction: 'up' | 'down') => {
-    if (direction === 'up' && index === 0) return;
-    if (direction === 'down' && index === newsTickers.length - 1) return;
-    const newTickers = [...newsTickers];
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    const tempOrder = newTickers[index].displayOrder;
-    newTickers[index].displayOrder = newTickers[targetIndex].displayOrder;
-    newTickers[targetIndex].displayOrder = tempOrder;
-    const temp = newTickers[index];
-    newTickers[index] = newTickers[targetIndex];
-    newTickers[targetIndex] = temp;
-    setNewsTickers(newTickers);
-    try {
-      await Promise.all([
-        fetch(`/api/news-ticker/${newTickers[index].id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newTickers[index]) }),
-        fetch(`/api/news-ticker/${newTickers[targetIndex].id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newTickers[targetIndex]) })
-      ]);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const renderTickerModule = () => (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-stone-100">
-        <div>
-          <h2 className="text-2xl font-serif font-bold text-dhaba-dark">News Ticker</h2>
-          <p className="text-stone-500">Manage scrolling announcements displayed below the hero section.</p>
-        </div>
-        <button onClick={() => { setTickerForm({ id: null, text: '', isActive: true, displayOrder: 0 }); setIsTickerFormOpen(true); }} className="bg-dhaba-orange hover:bg-dhaba-orange/90 text-white px-5 py-2.5 rounded-xl font-medium transition-colors flex items-center shadow-sm">
-          <Plus className="w-5 h-5 mr-2" /> Add Ticker
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="bg-white rounded-2xl h-40 animate-pulse border border-stone-100 shadow-sm"></div>
-      ) : newsTickers.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-2xl border border-stone-100 shadow-sm">
-          <MessageCircle className="w-16 h-16 text-stone-200 mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-stone-800 mb-2">No Tickers Added</h3>
-          <p className="text-stone-500 mb-6">Add scrolling announcements to inform customers about latest news.</p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
-          <ul className="divide-y divide-stone-100">
-            {newsTickers.map((ticker, idx) => (
-              <li key={ticker.id} className={`p-4 flex items-center justify-between gap-4 transition-colors hover:bg-stone-50 ${!ticker.isActive ? 'opacity-50' : ''}`}>
-                <div className="flex-1 min-w-0">
-                  <p className="text-stone-800 font-medium truncate">{ticker.text}</p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button onClick={() => handleToggleTicker(ticker)} className="text-stone-400 hover:text-dhaba-orange transition-colors px-2 py-1" title={ticker.isActive ? 'Disable' : 'Enable'}>
-                    {ticker.isActive ? <ToggleRight className="w-6 h-6 text-green-500" /> : <ToggleLeft className="w-6 h-6" />}
-                  </button>
-                  <div className="flex flex-col gap-0.5">
-                    <button onClick={() => handleReorderTicker(idx, 'up')} disabled={idx === 0} className="text-stone-400 hover:text-stone-600 disabled:opacity-30">
-                      <ArrowUp className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => handleReorderTicker(idx, 'down')} disabled={idx === newsTickers.length - 1} className="text-stone-400 hover:text-stone-600 disabled:opacity-30">
-                      <ArrowDown className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <button onClick={() => { setTickerForm(ticker); setIsTickerFormOpen(true); }} className="text-stone-400 hover:text-dhaba-orange p-1 ml-2">
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => handleDeleteTicker(ticker.id)} className="text-stone-400 hover:text-red-500 p-1">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {isTickerFormOpen && (
-        <ModalPortal>
-          <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm flex justify-center items-center p-4 z-[9999] opacity-100 transition-opacity">
-            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden transform transition-all scale-100">
-              <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
-                <h3 className="text-xl font-bold font-serif text-stone-800">
-                  {tickerForm.id ? 'Edit Ticker' : 'Add Ticker'}
-                </h3>
-                <button onClick={() => setIsTickerFormOpen(false)} className="text-stone-400 hover:text-stone-600 bg-white p-1.5 rounded-lg shadow-sm border border-stone-100">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <form onSubmit={handleSaveTicker} className="p-6">
-                <div className="space-y-5">
-                  <div>
-                    <label className="block text-sm font-medium text-stone-700 mb-1">Ticker Text *</label>
-                    <textarea required value={tickerForm.text} onChange={(e) => setTickerForm({ ...tickerForm, text: e.target.value })} className="w-full p-2.5 border border-stone-200 rounded-lg focus:ring-2 focus:ring-dhaba-orange focus:border-dhaba-orange outline-none transition-all resize-y min-h-[100px]" placeholder="E.g. Now open 24/7!, Try our new Kulcha... (Separate multiple items with commas or new lines)" />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <input type="checkbox" id="ticker-active" checked={tickerForm.isActive} onChange={(e) => setTickerForm({ ...tickerForm, isActive: e.target.checked })} className="w-4 h-4 text-dhaba-orange focus:ring-dhaba-orange border-stone-300 rounded cursor-pointer" />
-                    <label htmlFor="ticker-active" className="text-sm font-medium text-stone-700 cursor-pointer">Active</label>
-                  </div>
-                </div>
-                <div className="mt-8 flex justify-end gap-3">
-                  <button type="button" onClick={() => setIsTickerFormOpen(false)} className="px-5 py-2.5 text-stone-600 bg-stone-100 hover:bg-stone-200 rounded-xl font-medium transition-colors">Cancel</button>
-                  <button type="submit" className="bg-dhaba-orange hover:bg-dhaba-orange-light text-white px-6 py-2.5 rounded-xl font-medium transition-colors shadow-sm">
-                    {tickerForm.id ? 'Save Changes' : 'Add Ticker'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </ModalPortal>
-      )}
-    </div>
-  );
 
   const renderFeaturesModule = () => (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -1400,7 +1198,6 @@ export default function AdminDashboard() {
 
   const MODULE_LABELS: Record<string, string> = {
     menu: 'Menu Content', features: 'Why Stop Here?', journey: 'Our Journey',
-    ticker: 'News Ticker',
     analytics: 'Analytics', reviews: 'Reviews', passwords: 'Password Security', printer: 'Printer Settings',
     managers: 'Managers', stats: 'Revenue Stats', orders: 'Orders Control',
     billing: 'Make Bills', recover: 'Recycle Bin',
@@ -1445,7 +1242,6 @@ export default function AdminDashboard() {
             { key: 'menu',      label: 'Menu Content',      icon: <LayoutDashboard className="w-5 h-5" /> },
             { key: 'features',  label: 'Why Stop Here?',    icon: <Star className="w-5 h-5" /> },
             { key: 'journey',   label: 'Our Journey',       icon: <ImageIcon className="w-5 h-5" /> },
-            { key: 'ticker',    label: 'News Ticker',       icon: <MessageCircle className="w-5 h-5" /> },
             { key: 'analytics', label: 'Analytics',         icon: <Activity className="w-5 h-5" /> },
             { key: 'reviews',   label: 'Reviews',           icon: <Star className="w-5 h-5" /> },
             { key: 'passwords', label: 'Password Security', icon: <Shield className="w-5 h-5" /> },
@@ -2051,8 +1847,6 @@ export default function AdminDashboard() {
       
           
           </>
-        ) : activeModule === 'ticker' ? (
-          renderTickerModule()
         ) : activeModule === 'features' ? (
           renderFeaturesModule()
         ) : activeModule === 'recover' ? (

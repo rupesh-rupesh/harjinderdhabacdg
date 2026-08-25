@@ -16,9 +16,9 @@ import { NoodleBowlIcon } from './components/CustomIcons';
 
 const DynamicIcon = ({ name, className }: { name: string, className?: string }) => {
   const cleanClassName = className?.replace(/text-\w+-\d+/, '') || '';
-  
+
   if (name === "NoodleBowl") return <NoodleBowlIcon className={cleanClassName} />;
-  
+
   let colorClass = "text-stone-300"; // default
   if (name === "Sun") colorClass = "text-yellow-500";
   if (name === "CupSoda") colorClass = "text-cyan-500";
@@ -28,7 +28,7 @@ const DynamicIcon = ({ name, className }: { name: string, className?: string }) 
   if (name === "Pizza") colorClass = "text-amber-500";
   if (name === "Coffee") colorClass = "text-amber-700";
   if (name === "Utensils") colorClass = "text-stone-400";
-  
+
   const IconComponent = (Icons as any)[name] || Icons.Sparkles;
   return <IconComponent className={`${cleanClassName} ${colorClass}`.trim()} />;
 };
@@ -144,7 +144,11 @@ const BackgroundVideo = ({ src }: { src: string }) => {
 export default function Storefront() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [features, setFeatures] = useState<any[]>([]);
-  const [newsTickers, setNewsTickers] = useState<any[]>([]);
+  const newsTickers = [
+    { text: 'Now open 24/7!' },
+    { text: 'Try our new special Kulcha!' },
+    { text: 'Best Dhaba on the Highway!' }
+  ];
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [selectedItemDetail, setSelectedItemDetail] = useState<any | null>(null);
@@ -217,7 +221,7 @@ export default function Storefront() {
         setDbCategories(data.categories || []);
         setFeatures(data.features || []);
         if (data.journeySettings) setJourneySettings(data.journeySettings);
-        if (data.newsTickers) setNewsTickers(data.newsTickers);
+
       } else if (!data || data.length === 0) {
         setApiError("Received empty response from API");
       }
@@ -572,8 +576,8 @@ export default function Storefront() {
             <div className="relative z-30 bg-dhaba-orange border-y border-[rgba(255,255,255,0.1)] py-3 overflow-hidden flex items-center shadow-lg -mt-6">
               <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-dhaba-orange to-transparent z-10 pointer-events-none"></div>
               <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-dhaba-orange to-transparent z-10 pointer-events-none"></div>
-              <div className="flex animate-marquee whitespace-nowrap">
-                {[...Array(2)].map((_, i) => (
+              <div className="flex w-max animate-marquee whitespace-nowrap hover:[animation-play-state:paused]">
+                {[...Array(10)].map((_, i) => (
                   <div key={i} className="flex items-center space-x-8 px-4">
                     {newsTickers.map((ticker, idx) => (
                       <React.Fragment key={`${i}-${idx}`}>
@@ -763,8 +767,8 @@ export default function Storefront() {
                       key={cat}
                       onClick={() => setSelectedCategory(cat)}
                       className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 shadow-sm ${selectedCategory === cat
-                          ? 'bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold)]/80 text-white border-transparent shadow-lg transform scale-105'
-                          : 'bg-white/5 text-stone-300 border border-white/10 hover:bg-white/10 hover:text-white hover:border-white/20 backdrop-blur-md'
+                        ? 'bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold)]/80 text-white border-transparent shadow-lg transform scale-105'
+                        : 'bg-white/5 text-stone-300 border border-white/10 hover:bg-white/10 hover:text-white hover:border-white/20 backdrop-blur-md'
                         }`}
                     >
                       {cat}
@@ -1011,8 +1015,8 @@ export default function Storefront() {
                       ))
                     ) : (
                       <img
-                        src="https://images.unsplash.com/photo-1552566626-52f8b828add9?q=80&w=2070&auto=format&fit=crop"
-                        alt="Dhaba Cooking"
+                        src=""
+                        alt="Harjinder Tourist Dhaba"
                         className="absolute inset-0 w-full h-full object-cover transform hover:scale-[1.02] transition-transform duration-1000"
                       />
                     )}
@@ -1361,8 +1365,8 @@ export default function Storefront() {
               <div className="absolute bottom-6 left-6 right-6">
                 <div className="flex flex-wrap gap-2 mb-3">
                   <span className={`bg-white/20 backdrop-blur-md text-white text-xs font-semibold tracking-wide px-3 py-1 rounded-full border border-white/30 uppercase ${selectedItemDetail.category?.toLowerCase() === 'indian cuisine' || selectedItemDetail.category?.toLowerCase().includes('indian')
-                      ? 'indian-tricolour-badge font-bold'
-                      : ''
+                    ? 'indian-tricolour-badge font-bold'
+                    : ''
                     }`}>
                     {selectedItemDetail.category}
                   </span>
@@ -1485,8 +1489,8 @@ export default function Storefront() {
       {/* Floating Bottom Cart Banner */}
       <div
         className={`fixed bottom-16 md:bottom-0 left-0 right-0 p-4 pb-4 sm:p-6 z-[90] transition-all duration-300 text-center text-[16px] ${cartCount > 0 && !isCartOpen && currentView !== 'checkout' && !selectedItemDetail
-            ? 'translate-y-0 opacity-100 scale-100 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]'
-            : 'translate-y-12 opacity-0 scale-95 ease-in pointer-events-none'
+          ? 'translate-y-0 opacity-100 scale-100 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]'
+          : 'translate-y-12 opacity-0 scale-95 ease-in pointer-events-none'
           }`}
       >
         <div className="max-w-3xl mx-auto flex justify-center">
@@ -1519,8 +1523,8 @@ export default function Storefront() {
         target="_blank"
         rel="noopener noreferrer"
         className={`fixed left-4 z-[95] bg-emerald-600 hover:bg-emerald-500 text-white p-3.5 sm:px-4 sm:py-3 rounded-full shadow-2xl flex items-center gap-2.5 transition-all duration-300 hover:scale-105 active:scale-95 border-2 border-white/20 ${cartCount > 0 && !isCartOpen && currentView !== 'checkout' && !selectedItemDetail
-            ? 'bottom-36 md:bottom-28'
-            : 'bottom-20 md:bottom-6'
+          ? 'bottom-36 md:bottom-28'
+          : 'bottom-20 md:bottom-6'
           }`}
         title="Quick Chat on WhatsApp (+91 90566 55093)"
       >
