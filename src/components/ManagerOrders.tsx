@@ -229,11 +229,7 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
 
   return (
     <>
-<<<<<<< HEAD
       <div className="hidden print:block">
-=======
-      <div className="hidden">
->>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
         <ThermalReceipt order={selectedOrder} includeGst={generateGst} managerName="Manager" forwardedRef={receiptRef} />
       </div>
       

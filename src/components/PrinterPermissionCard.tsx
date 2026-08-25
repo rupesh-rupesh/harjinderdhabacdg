@@ -8,15 +8,10 @@ export function PrinterPermissionCard({ role = 'manager', onConnect }: { role?: 
   const [status, setStatus] = useState<'checking' | 'permission_required' | 'disconnected' | 'connected'>('checking');
   
   const checkPrinter = async () => {
-<<<<<<< HEAD
     const type = printerService.getConfig().type;
     // These modes use server-side or OS bridges — no hardware permission needed
     if (type !== 'webusb' && type !== 'webbluetooth') {
       setStatus('connected');
-=======
-    if (printerService.getConfig().type === 'browser') {
-      setStatus('connected'); // Browser print is always "connected"
->>>>>>> d7cd6b48561640a4d0a249eab41c72a03a6cbfcf
       return;
     }
     
