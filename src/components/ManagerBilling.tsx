@@ -958,7 +958,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
         <div className="flex-1 bg-[#f8f9fa] overflow-y-auto p-4 sm:p-6">
           <div
             className="grid gap-4 sm:gap-6"
-            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(max(140px, calc((100% - 96px) / 5)), 1fr))' }}
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(max(140px, calc((100% - 48px) / 3)), 1fr))' }}
           >
             {filteredItems.map(item => (
               <button
