@@ -112,7 +112,11 @@ class PrinterService {
    */
   async getWindowsPrinters(): Promise<string[]> {
     try {
-      const res = await fetch('/api/print/windows-printers');
+      const baseUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+         ? '' 
+         : 'http://localhost:3000';
+         
+      const res = await fetch(`${baseUrl}/api/print/windows-printers`);
       if (!res.ok) throw new Error(`Server responded ${res.status}`);
       const json = await res.json();
       return (json.printers as string[]) || [];
@@ -542,11 +546,17 @@ class PrinterService {
          if (!this.config.windowsPrinterName) {
            throw new Error('No Windows printer selected. Please choose a printer in Printer Settings.');
          }
+         
+         // If we are on the deployed website, route to the local daemon at localhost:3000
+         const baseUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+            ? '' 
+            : 'http://localhost:3000';
+            
          // Convert Uint8Array → base64 safely (loop avoids call-stack overflow on large payloads)
          let binary = '';
          for (let i = 0; i < data.byteLength; i++) binary += String.fromCharCode(data[i]);
          const base64 = btoa(binary);
-         const response = await fetch('/api/print/raw', {
+         const response = await fetch(`${baseUrl}/api/print/raw`, {
            method: 'POST',
            headers: { 'Content-Type': 'application/json' },
            body: JSON.stringify({
