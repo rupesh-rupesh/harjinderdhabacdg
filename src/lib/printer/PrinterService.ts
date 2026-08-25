@@ -1,5 +1,5 @@
 import { ESCPosGenerator } from './ESCPosGenerator';
-
+import qz from 'qz-tray';
 const numberToWords = (num: number) => {
   const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
   const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
@@ -43,6 +43,7 @@ export interface PrinterConfig {
   ipAddress?: string;          // For Network/LAN printer (e.g., 192.168.1.200)
   port?: number;               // Default 9100 for RAW printing
   windowsPrinterName?: string; // For windows-print mode: exact Windows printer name
+  qzPrinterName?: string;      // For QZ Tray mode: exact QZ printer name
 }
 
 class PrinterService {
@@ -104,6 +105,22 @@ class PrinterService {
       return await navigator.usb.getDevices();
     }
     return [];
+  }
+
+  /**
+   * Returns the list of printers available via QZ Tray.
+   */
+  async getQZPrinters(): Promise<string[]> {
+    try {
+      if (!qz.websocket.isActive()) {
+        await qz.websocket.connect({ retries: 2, delay: 1 });
+      }
+      const list = await qz.printers.find();
+      return Array.isArray(list) ? list : typeof list === 'string' ? [list] : [];
+    } catch (e: any) {
+      console.warn('[PrinterService] getQZPrinters failed:', e.message);
+      throw new Error(e.message || 'Failed to connect to QZ Tray');
+    }
   }
 
   /**
@@ -325,7 +342,9 @@ class PrinterService {
     }
 
     if (this.config.type === 'qz-tray') {
-       return 'Configured (QZ Tray Bridge)';
+       return this.config.qzPrinterName 
+         ? `Connected (QZ: ${this.config.qzPrinterName})` 
+         : 'No QZ Printer Selected';
     }
 
     if (this.config.type === 'windows-print') {
@@ -568,6 +587,22 @@ class PrinterService {
            const body = await response.json().catch(() => ({}));
            throw new Error(body.error || `Windows print bridge responded with status ${response.status}`);
          }
+      } else if (this.config.type === 'qz-tray') {
+         if (!this.config.qzPrinterName) {
+           throw new Error('No QZ Tray printer selected. Please choose a printer in Printer Settings.');
+         }
+         
+         if (!qz.websocket.isActive()) {
+           await qz.websocket.connect({ retries: 2, delay: 1 });
+         }
+         
+         const qzConfig = qz.configs.create(this.config.qzPrinterName);
+         
+         let binary = '';
+         for (let i = 0; i < data.byteLength; i++) binary += String.fromCharCode(data[i]);
+         const base64 = btoa(binary);
+         
+         await qz.print(qzConfig, [{ type: 'raw', format: 'command', flavor: 'base64', data: base64 }]);
       } else {
          window.print();
       }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { adminPrinterService, managerPrinterService, PrinterConfig } from '../lib/printer/PrinterService';
 import { Printer, Settings, Bluetooth, Monitor, TestTube, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import WindowsPrinterModal from './WindowsPrinterModal';
+import QZPrinterModal from './QZPrinterModal';
 
 export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' | 'manager' }) {
   const printerService = role === 'admin' ? adminPrinterService : managerPrinterService;
@@ -12,6 +13,7 @@ export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' |
   const [windowsPrinters, setWindowsPrinters] = useState<string[]>([]);
   const [loadingPrinters, setLoadingPrinters] = useState(false);
   const [showWindowsModal, setShowWindowsModal] = useState(false);
+  const [showQZModal, setShowQZModal] = useState(false);
 
   useEffect(() => {
     // Auto-migrate legacy webusb config → windows-print (no Zadig required)
@@ -90,13 +92,13 @@ export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' |
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-bold text-stone-700 mb-2">Connection Method</label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <button 
                   onClick={() => setShowWindowsModal(true)}
                   className={`p-4 rounded-xl border-2 flex flex-col items-center justify-center gap-2 transition-all ${config.type === 'windows-print' || config.type === 'webusb' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04] font-bold' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
                 >
                   <Printer className="w-6 h-6" />
-                  <span className="text-sm">Wired USB Printer</span>
+                  <span className="text-sm text-center">Wired USB</span>
                 </button>
 
                 <button 
@@ -113,7 +115,15 @@ export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' |
                   className={`p-4 rounded-xl border-2 flex flex-col items-center justify-center gap-2 transition-all ${config.type === 'webbluetooth' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04] font-bold' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
                 >
                   <Bluetooth className="w-6 h-6" />
-                  <span className="text-sm">Wireless Bluetooth</span>
+                  <span className="text-sm text-center">Bluetooth</span>
+                </button>
+
+                <button 
+                  onClick={() => setShowQZModal(true)}
+                  className={`p-4 rounded-xl border-2 flex flex-col items-center justify-center gap-2 transition-all ${config.type === 'qz-tray' ? 'bg-[#fdf5f0] border-[#E85D04] text-[#E85D04] font-bold' : 'bg-white border-stone-200 text-stone-600 hover:bg-stone-50'}`}
+                >
+                  <Monitor className="w-6 h-6" />
+                  <span className="text-sm text-center">QZ Tray App</span>
                 </button>
               </div>
               <p className="text-xs text-stone-500 mt-2">
@@ -189,6 +199,15 @@ export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' |
     <WindowsPrinterModal 
       isOpen={showWindowsModal} 
       onClose={() => setShowWindowsModal(false)}
+      role={role}
+      onConnect={() => {
+        setConfig(printerService.getConfig());
+        checkStatus();
+      }}
+    />
+    <QZPrinterModal
+      isOpen={showQZModal}
+      onClose={() => setShowQZModal(false)}
       role={role}
       onConnect={() => {
         setConfig(printerService.getConfig());
