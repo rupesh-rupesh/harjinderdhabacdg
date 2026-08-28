@@ -37,6 +37,7 @@ export const categories = pgTable('categories', {
   startTime: text('start_time'),
   endTime: text('end_time'),
   isDeleted: boolean('is_deleted').default(false),
+  isHidden: boolean('is_hidden').default(false),
   createdAt: timestamp('created_at').defaultNow(),
 });
 

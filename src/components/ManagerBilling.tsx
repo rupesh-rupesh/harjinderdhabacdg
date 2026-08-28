@@ -57,7 +57,7 @@ const TablePeopleIcon = ({ className }: { className?: string }) => (
   </svg>
 )
 
-export default function ManagerBilling({ editingOrder, clearEditingOrder }: { editingOrder?: any, clearEditingOrder?: () => void }) {
+export default function ManagerBilling({ editingOrder, clearEditingOrder, managerName = "Manager" }: { editingOrder?: any, clearEditingOrder?: () => void, managerName?: string }) {
   const [isOnline, setIsOnline] = useState(syncManager.isOnline());
   useEffect(() => {
     // Initial check
@@ -159,6 +159,15 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
   const cartEndRef = useRef<HTMLDivElement>(null);
   const [showGstDetails, setShowGstDetails] = useState(false);
   const [isCustomItemModalOpen, setIsCustomItemModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (selectedItemDetail || isCustomItemModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => { document.body.style.overflow = 'unset'; };
+  }, [selectedItemDetail, isCustomItemModalOpen]);
   const [editingCustomItem, setEditingCustomItem] = useState<{ cartItemId: string, name: string, price: number } | null>(null);
 
   useEffect(() => {
@@ -177,9 +186,44 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
     }
   }, [cart, tableSelection, isSubmitting]);
 
-  const handlePrintCart = () => {
-    if (cartReceiptRef.current) {
-      window.print();
+  const handlePrintCart = async () => {
+    if (printerService.getConfig().type === 'browser') {
+      if (cartReceiptRef.current) {
+        window.print();
+      }
+    } else {
+      if (cart.length > 0) {
+        const draftOrder = {
+          id: editingOrderId || 'DRAFT',
+          tableNumber: tableSelection,
+          items: JSON.stringify(cart),
+          createdAt: new Date().toISOString()
+        };
+        if (!printerService.isConnected()) {
+          try {
+            if (printerService.getConfig().type === 'webusb') {
+              await printerService.connectWebUSB();
+            } else if (printerService.getConfig().type === 'webbluetooth') {
+              await printerService.connectWebBluetooth();
+            }
+          } catch (e: any) {
+            if (e.message && !e.message.toLowerCase().includes('cancel') && !e.message.includes('permissions policy')) {
+              toast.error(e.message);
+            } else if (e.message.includes('permissions policy')) {
+              toast.error('Bluetooth blocked by browser. Open in a new tab.');
+            }
+            return;
+          }
+        }
+        try {
+          await printerService.printReceipt(draftOrder, false, true, generateGst);
+          toast.success("Receipt sent to printer");
+        } catch (e: any) {
+          if (e.message && !e.message.toLowerCase().includes('cancel') && e.message !== 'Failed to fetch') { toast.error(e.message); }
+        }
+      } else {
+        toast.error("Cart is empty!");
+      }
     }
   };
 
@@ -219,14 +263,19 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
   };
 
   const handlePrintKOT = async () => {
-    if (cart.length > 0) {
-      const kotOrder = {
+    let orderToPrint = null;
+    if (checkoutTable?.order) {
+      orderToPrint = checkoutTable.order;
+    } else if (cart.length > 0) {
+      orderToPrint = {
         id: editingOrderId || 'DRAFT',
         tableNumber: tableSelection,
         items: JSON.stringify(cart),
         createdAt: new Date().toISOString()
       };
+    }
 
+    if (orderToPrint) {
       if (!printerService.isConnected()) {
         try {
           if (printerService.getConfig().type === 'webusb') {
@@ -249,11 +298,13 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
         }
       }
       try {
-        await printerService.printReceipt(kotOrder, false, false, generateGst);
+        await printerService.printReceipt(orderToPrint, false, false, generateGst);
         toast.success("KOT sent to printer");
       } catch (e: any) {
         if (e.message && !e.message.toLowerCase().includes('cancel') && e.message !== 'Failed to fetch') { toast.error(e.message); }
       }
+    } else {
+      toast.error("Nothing to print!");
     }
   };
 
@@ -363,7 +414,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
         isCustom: item.isCustom || false
       }];
     });
-    toast.success(`Added ${item.name} x${newQuantity}`);
+    toast.success(`Added ${item.name} x${newQuantity}`, { id: cartItemId });
   };
 
   const addToCart = (item: any) => {
@@ -423,6 +474,19 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
         
         if (res.ok) {
           toast.success(`Order updated for Table ${tableSelection}`);
+          if (shouldPrint) {
+            try {
+              const printOrder = { id: editingOrderId, items: JSON.stringify(posItems), tableNumber: tableSelection, createdAt: new Date().toISOString() };
+              if (printerService.getConfig().type !== 'browser') {
+                await printerService.printReceipt(printOrder, false, true, generateGst);
+              } else {
+                 draftOrder.id = String(printOrder.id);
+                 if (cartReceiptRef.current) window.print();
+              }
+            } catch (printErr: any) {
+              toast.error(printErr.message || "Failed to print bill");
+            }
+          }
           localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
           setCart([]);
           setEditingOrderId(null);
@@ -506,8 +570,8 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
     return (
       <div className="h-full overflow-y-auto p-4 sm:p-6 lg:p-8 pb-12">
         <div className="hidden print:block">
-          <ThermalReceipt order={checkoutTable?.order} includeGst={generateGst} managerName="Manager" forwardedRef={receiptRef} />
-          <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName="Manager" forwardedRef={cartReceiptRef} />
+          <ThermalReceipt order={checkoutTable?.order} includeGst={generateGst} managerName={managerName} forwardedRef={receiptRef} />
+          <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName={managerName} forwardedRef={cartReceiptRef} />
         </div>
 
         {confirmDialog && (
@@ -536,7 +600,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
               </div>
               <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
                 <div className="shadow-2xl">
-                  <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName="Manager" />
+                  <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName={managerName} />
                 </div>
               </div>
               <div className="p-4 bg-white border-t flex flex-col gap-2">
@@ -564,7 +628,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
               </div>
               <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
                 <div className="shadow-2xl">
-                  <ThermalReceipt order={checkoutTable.order} includeGst={generateGst} managerName="Manager" />
+                  <ThermalReceipt order={checkoutTable.order} includeGst={generateGst} managerName={managerName} />
                 </div>
               </div>
               <div className="p-4 bg-white border-t flex flex-col gap-2">
@@ -648,7 +712,10 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
                               method: 'PUT',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ status: 'cancelled' })
-                            }).then(() => {
+                            }).then(async () => {
+                              if (checkoutTable.order.localBillId) {
+                                await offlineDbService.updateBillStatus(checkoutTable.order.localBillId, 'cancelled');
+                              }
                               fetchOrders();
                               setTableSelection(checkoutTable.num);
                               setCheckoutTable(null);
@@ -672,7 +739,10 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
                               method: 'PUT',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ status: 'completed' })
-                            }).then(() => {
+                            }).then(async () => {
+                              if (checkoutTable.order.localBillId) {
+                                await offlineDbService.updateBillStatus(checkoutTable.order.localBillId, 'completed');
+                              }
                               fetchOrders();
                               setTableSelection(checkoutTable.num);
                               setCheckoutTable(null);
@@ -793,8 +863,8 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
   return (
     <div className="flex" style={{ height: 'calc(100dvh - 56px)', margin: '0', padding: '0' }}>
       <div className="hidden print:block">
-        <ThermalReceipt order={checkoutTable?.order} includeGst={generateGst} managerName="Manager" forwardedRef={receiptRef} />
-        <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName="Manager" forwardedRef={cartReceiptRef} />
+        <ThermalReceipt order={checkoutTable?.order} includeGst={generateGst} managerName={managerName} forwardedRef={receiptRef} />
+        <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName={managerName} forwardedRef={cartReceiptRef} />
       </div>
 
       {confirmDialog && (
@@ -822,7 +892,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
             </div>
             <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
               <div className="shadow-2xl">
-                <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName="Manager" />
+                <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName={managerName} />
               </div>
             </div>
             <div className="p-4 bg-white border-t flex justify-end gap-2">
@@ -845,7 +915,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
             </div>
             <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
               <div className="shadow-2xl">
-                <ThermalReceipt order={checkoutTable.order} includeGst={generateGst} managerName="Manager" />
+                <ThermalReceipt order={checkoutTable.order} includeGst={generateGst} managerName={managerName} />
               </div>
             </div>
             <div className="p-4 bg-white border-t flex justify-end gap-2">
@@ -856,8 +926,8 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
         </div>
       )}
       {selectedItemDetail && (
-        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6" onClick={() => setSelectedItemDetail(null)}>
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6" onClick={() => setSelectedItemDetail(null)} data-lenis-prevent="true">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
             <div className="relative h-48 sm:h-56 bg-stone-100">
               <button onClick={() => setSelectedItemDetail(null)} className="absolute top-4 right-4 w-8 h-8 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center text-stone-600 hover:text-stone-900 transition-colors z-10 shadow-sm"><X className="w-5 h-5" /></button>
               {selectedItemDetail.image ? (
@@ -866,7 +936,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
                 <div className="w-full h-full flex items-center justify-center"><Utensils className="w-12 h-12 text-stone-300" /></div>
               )}
             </div>
-            <div className="p-6 sm:p-8">
+            <div className="p-6 sm:p-8 overflow-y-auto flex-1" data-lenis-prevent="true">
               <h3 className="text-2xl font-serif font-bold text-dhaba-dark mb-2">{selectedItemDetail.name}</h3>
               <p className="text-stone-500 text-sm mb-6">{selectedItemDetail.description}</p>
 
@@ -974,32 +1044,33 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
         </div>
       )}
 
-      {/* POS Header — table info left, search center, manager/lock right */}
-      <div className="bg-white border-b border-stone-200 px-3 sm:px-5 py-3 flex items-center justify-between gap-3 shrink-0 relative">
+      {/* POS Header — responsive layout ensuring icons are always visible */}
+      <div className="bg-white border-b border-stone-200 px-2 sm:px-5 py-2 sm:py-3 flex items-center justify-between gap-1 sm:gap-3 shrink-0 relative w-full overflow-hidden">
         {/* Left: back + table name */}
-        <div className="flex items-center gap-2 shrink-0 w-1/4 sm:w-1/4 lg:w-1/5">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <button
             onClick={() => setTableSelection(null)}
-            className="p-2 hover:bg-stone-100 rounded-lg transition-colors text-stone-500"
+            className="p-1.5 sm:p-2 hover:bg-stone-100 rounded-lg transition-colors text-stone-500"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
-              <Table className="w-4 h-4 text-dhaba-orange" />
+          <div className="flex items-center gap-1.5 sm:gap-3">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
+              <Table className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-dhaba-orange" />
             </div>
             <div className="flex flex-col">
-              <h2 className="text-base sm:text-xl font-bold text-dhaba-dark leading-none">Table {tableSelection}</h2>
-              <div className="flex items-center gap-1.5 mt-1">
+              <h2 className="text-sm sm:text-xl font-bold text-dhaba-dark leading-none truncate max-w-[70px] sm:max-w-[200px]">Table {tableSelection}</h2>
+              <div className="flex items-center gap-1 sm:gap-1.5 mt-0.5 sm:mt-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                <span className="text-[10px] text-green-600 font-bold uppercase tracking-wider">Active Table</span>
+                <span className="text-[9px] sm:text-[10px] text-green-600 font-bold uppercase tracking-wider hidden sm:inline">Active Table</span>
+                <span className="text-[9px] text-green-600 font-bold uppercase tracking-wider sm:hidden">Active</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Center: Search */}
-        <div className="hidden sm:flex justify-center flex-1 px-4 lg:px-12">
+        {/* Center: Search (Flexible width) */}
+        <div className="flex-1 flex justify-center min-w-[32px] max-w-md px-1 sm:px-4">
           <style dangerouslySetInnerHTML={{__html: `
             @keyframes border-dance {
               0% { background-position: 0% 50%; }
@@ -1015,39 +1086,27 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
             }
           `}} />
           <div className="relative w-full rgb-border-wrapper">
-            <div className="relative bg-stone-50 rounded-[11px] h-full flex items-center">
-              <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
+            <div className="relative bg-stone-50 rounded-[11px] h-full flex items-center min-w-[30px]">
+              <Search className="w-4 h-4 text-stone-400 absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search menu..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 text-sm bg-transparent outline-none rounded-[11px]"
+                className="w-full pl-7 sm:pl-9 pr-1 sm:pr-4 py-1.5 sm:py-2.5 text-xs sm:text-sm bg-transparent outline-none rounded-[11px] placeholder-stone-400 focus:w-full transition-all duration-300 truncate"
               />
             </div>
           </div>
         </div>
 
-        {/* Right: Mobile search / spacing */}
-        <div className="flex items-center justify-end shrink-0 w-1/4 sm:hidden">
-          <div className="relative w-40">
-            <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs border border-stone-200 rounded-lg focus:ring-1 focus:ring-dhaba-orange outline-none bg-stone-50"
-            />
-          </div>
-        </div>
-        <div className="hidden sm:flex items-center justify-end gap-2 w-1/4 lg:w-1/5 pr-2">
+        {/* Right: Actions */}
+        <div className="flex items-center justify-end gap-1 sm:gap-2 shrink-0">
           {/* Network Status Indicator */}
-          <div className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black mr-2 ${
+          <div className={`flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-black ${
             isOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
           }`}>
             {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-            {isOnline ? 'ONLINE' : 'OFFLINE'}
+            <span className="hidden sm:inline">{isOnline ? 'ONLINE' : 'OFFLINE'}</span>
           </div>
 
           <button
@@ -1056,18 +1115,37 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
                 setConfirmDialog({
                   isOpen: true,
                   title: 'Clear Bill',
-                  message: 'Are you sure you want to clear the entire bill?',
+                  message: editingOrderId ? 'Are you sure you want to clear this bill? This will cancel the active order for this table.' : 'Are you sure you want to clear the entire bill?',
                   onConfirm: () => {
-                    setCart([]);
+                    if (editingOrderId) {
+                      fetch(`/api/admin/orders/${editingOrderId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'cancelled' })
+                      }).then(async () => {
+                        const existingLocal = activeOrders.find(o => o.id === editingOrderId);
+                        if (existingLocal && existingLocal.localBillId) {
+                          await offlineDbService.updateBillStatus(existingLocal.localBillId, 'cancelled');
+                        }
+                        fetchOrders();
+                        setCart([]);
+                        setEditingOrderId(null);
+                        setTableSelection(null);
+                        localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
+                        toast.success(`Bill cleared and order cancelled.`);
+                      });
+                    } else {
+                      setCart([]);
+                    }
                   }
                 });
               }
             }}
             disabled={cart.length === 0}
             title="Clear Bill"
-            className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50"
+            className="p-1.5 sm:p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50"
           >
-            <Trash2 className="w-5 h-5" />
+            <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
           <button
             onClick={() => {
@@ -1078,9 +1156,9 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
               }
             }}
             title="Toggle Fullscreen"
-            className="p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-xl transition-colors"
+            className="p-1.5 sm:p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-xl transition-colors"
           >
-            <Icons.Maximize className="w-5 h-5" />
+            <Icons.Maximize className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
       </div>

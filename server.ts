@@ -264,12 +264,26 @@ app.use(compression());
   app.put("/api/categories/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, image, startTime, endTime } = req.body;
-      const updatedCategory = await db.update(categories).set({ name, image, startTime: startTime || null, endTime: endTime || null }).where(eq(categories.id, Number(id))).returning();
+      const { name, image, startTime, endTime, isHidden } = req.body;
+      const updateData: any = { name, image, startTime: startTime || null, endTime: endTime || null };
+      if (isHidden !== undefined) updateData.isHidden = isHidden;
+      
+      const updatedCategory = await db.update(categories).set(updateData).where(eq(categories.id, Number(id))).returning();
       res.json(updatedCategory[0]);
     } catch (error: any) {
       console.error("Failed to update category:", error);
       res.status(500).json({ error: "Failed to update category: " + (error.message || error) });
+    }
+  });
+
+  app.post("/api/categories/:id/toggle-visibility", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isHidden } = req.body;
+      const updated = await db.update(categories).set({ isHidden }).where(eq(categories.id, Number(id))).returning();
+      res.json(updated[0]);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to toggle category visibility: " + (error.message || error) });
     }
   });
 
@@ -1220,7 +1234,7 @@ app.get("/api/journey-media", async (req, res) => {
         });
       }
       app.listen(PORT, "0.0.0.0", () => {
-        console.log(`Server running on http://0.0.0.0:${PORT}`);
+        console.log(`Server running on http://localhost:${PORT}`);
       });
     }
   })();

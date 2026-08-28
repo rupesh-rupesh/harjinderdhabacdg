@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, TrendingUp, TrendingDown, Users, Package, ShoppingBag, Banknote, Calendar, BarChart3, Clock, ArrowRight, X, ChevronRight, CheckCircle2 } from 'lucide-react';
 
-export default function ManagerStats() {
+export default function ManagerStats({ role = 'manager' }: { role?: 'admin' | 'manager' }) {
   const [stats, setStats] = useState({
     dailyRevenue: 0,
     totalOrders: 0,
@@ -160,31 +160,35 @@ export default function ManagerStats() {
             <h2 className="text-4xl sm:text-5xl font-serif font-bold mb-3 tracking-tight">Revenue Insights</h2>
             <p className="text-stone-300 text-lg max-w-xl">Track your dhaba's financial performance, daily trends, and order volumes all in one place.</p>
           </div>
-          <div className="flex-shrink-0 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 text-right">
-            <p className="text-stone-300 text-sm font-medium mb-1">Today's Revenue</p>
-            <p className="text-4xl font-bold text-dhaba-orange">₹{stats.dailyRevenue.toLocaleString()}</p>
-          </div>
+          {role === 'admin' && (
+            <div className="flex-shrink-0 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 text-right">
+              <p className="text-stone-300 text-sm font-medium mb-1">Today's Revenue</p>
+              <p className="text-4xl font-bold text-dhaba-orange">₹{stats.dailyRevenue.toLocaleString()}</p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Primary Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-${role === 'admin' ? '4' : '3'} gap-4 sm:gap-6`}>
         
         {/* Today Card */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-stone-100 hover:shadow-lg transition-shadow group">
-          <div className="flex justify-between items-start mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Banknote className="w-6 h-6 text-dhaba-orange" />
+        {role === 'admin' && (
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-stone-100 hover:shadow-lg transition-shadow group">
+            <div className="flex justify-between items-start mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Banknote className="w-6 h-6 text-dhaba-orange" />
+              </div>
+              <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${calculated.trendPercent >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                {calculated.trendPercent >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                {Math.abs(calculated.trendPercent).toFixed(1)}%
+              </div>
             </div>
-            <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${calculated.trendPercent >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-              {calculated.trendPercent >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-              {Math.abs(calculated.trendPercent).toFixed(1)}%
-            </div>
+            <p className="text-stone-500 text-sm font-medium mb-1">Today's Sales</p>
+            <h3 className="text-3xl font-bold text-dhaba-dark">₹{stats.dailyRevenue.toLocaleString()}</h3>
+            <p className="text-stone-400 text-xs mt-3">vs yesterday (₹{calculated.yesterdayRevenue.toLocaleString()})</p>
           </div>
-          <p className="text-stone-500 text-sm font-medium mb-1">Today's Sales</p>
-          <h3 className="text-3xl font-bold text-dhaba-dark">₹{stats.dailyRevenue.toLocaleString()}</h3>
-          <p className="text-stone-400 text-xs mt-3">vs yesterday (₹{calculated.yesterdayRevenue.toLocaleString()})</p>
-        </div>
+        )}
 
         {/* Weekly Card */}
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-stone-100 hover:shadow-lg transition-shadow group">
@@ -328,6 +332,54 @@ export default function ManagerStats() {
               </button>
             </div>
             
+            {selectedDateFilter && !isFetchingOrders && (
+              <div className="bg-stone-50 border-b border-stone-100 p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 shrink-0">
+                {(() => {
+                  const dayOrders = allOrders.filter(o => o.createdAt.startsWith(selectedDateFilter) && o.status !== 'cancelled');
+                  const totalSales = dayOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+                  const totalOrdersCount = dayOrders.length;
+                  const avgOrderValue = totalOrdersCount > 0 ? Math.round(totalSales / totalOrdersCount) : 0;
+                  const gstCollected = totalSales > 0 ? Math.round(totalSales - (totalSales / 1.05)) : 0;
+                  
+                  const selectedDateObj = new Date(selectedDateFilter);
+                  const yesterdayObj = new Date(selectedDateObj);
+                  yesterdayObj.setDate(yesterdayObj.getDate() - 1);
+                  const yesterdayStr = yesterdayObj.toISOString().split('T')[0];
+                  const yesterdayOrders = allOrders.filter(o => o.createdAt.startsWith(yesterdayStr) && o.status !== 'cancelled');
+                  const yesterdayTotalSales = yesterdayOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+                  const trendPercent = yesterdayTotalSales > 0 ? ((totalSales - yesterdayTotalSales) / yesterdayTotalSales) * 100 : 0;
+
+                  return (
+                    <>
+                      <div className="bg-white p-3 rounded-xl border border-stone-100 shadow-sm flex flex-col justify-center">
+                        <p className="text-[10px] text-stone-400 uppercase font-bold tracking-wider mb-0.5">Total Sales</p>
+                        <p className="text-lg font-black text-dhaba-dark">₹{totalSales.toLocaleString()}</p>
+                        <p className={`text-[10px] mt-0.5 font-bold flex items-center gap-1 ${trendPercent >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          {trendPercent >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                          {trendPercent >= 0 ? '+' : ''}{trendPercent.toFixed(1)}% vs y'day
+                        </p>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-stone-100 shadow-sm flex flex-col justify-center">
+                        <p className="text-[10px] text-stone-400 uppercase font-bold tracking-wider mb-0.5">GST (5%)</p>
+                        <p className="text-lg font-black text-dhaba-dark">₹{gstCollected.toLocaleString()}</p>
+                        <p className="text-[10px] mt-0.5 text-stone-400 font-medium">Included in sales</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-stone-100 shadow-sm flex flex-col justify-center">
+                        <p className="text-[10px] text-stone-400 uppercase font-bold tracking-wider mb-0.5">Total Orders</p>
+                        <p className="text-lg font-black text-dhaba-dark">{totalOrdersCount}</p>
+                        <p className="text-[10px] mt-0.5 text-stone-400 font-medium">Completed</p>
+                      </div>
+                      <div className="bg-white p-3 rounded-xl border border-stone-100 shadow-sm flex flex-col justify-center">
+                        <p className="text-[10px] text-stone-400 uppercase font-bold tracking-wider mb-0.5">Avg Order</p>
+                        <p className="text-lg font-black text-dhaba-dark">₹{avgOrderValue.toLocaleString()}</p>
+                        <p className="text-[10px] mt-0.5 text-stone-400 font-medium">Value per order</p>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+
             <div className="flex-1 overflow-y-auto p-6 bg-stone-50/50">
               {isFetchingOrders ? (
                 <div className="flex justify-center items-center h-32">

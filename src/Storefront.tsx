@@ -172,6 +172,44 @@ export default function Storefront() {
     }
   }, [selectedItemDetail]);
   const [currentView, setCurrentView] = useState<'home' | 'order' | 'menu' | 'checkout'>('home');
+  const [activeSection, setActiveSection] = useState('home');
+
+  useEffect(() => {
+    if (currentView !== 'home') {
+      setActiveSection(currentView);
+      return;
+    }
+
+    const handleScroll = () => {
+      const sections = ['home', 'specials', 'about'];
+      let current = 'home';
+      
+      for (const id of sections) {
+        const el = document.getElementById(id);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= 150) {
+            current = id;
+          }
+        }
+      }
+      setActiveSection(current);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [currentView]);
+
+  useEffect(() => {
+    if (selectedItemDetail || isCartOpen || currentView === 'checkout') {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => { document.body.style.overflow = 'unset'; };
+  }, [selectedItemDetail, isCartOpen, currentView]);
   const [orderViewStatus, setOrderViewStatus] = useState<'categories' | 'items'>('categories');
   const [orderCategory, setOrderCategory] = useState('All');
 
@@ -430,11 +468,11 @@ export default function Storefront() {
 
 
                 {/* Centered Desktop Menu */}
-                <div className="hidden xl:flex absolute left-1/2 transform -translate-x-1/2 space-x-1 items-center">
-                  <a href="#" onClick={(e) => { e.preventDefault(); setCurrentView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-stone-300 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300 font-medium text-sm tracking-wide whitespace-nowrap">Home</a>
-                  <button onClick={(e) => { e.preventDefault(); setCurrentView('menu'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="text-stone-300 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300 font-medium text-sm tracking-wide whitespace-nowrap">Menu</button>
-                  <a href="#about" onClick={(e) => { e.preventDefault(); if (currentView !== 'home') { setCurrentView('home'); setTimeout(() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }), 100); } else { document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }); } }} className="text-stone-300 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300 font-medium text-sm tracking-wide whitespace-nowrap">About Us</a>
-                  <a href="#specials" onClick={(e) => { e.preventDefault(); if (currentView !== 'home') { setCurrentView('home'); setTimeout(() => document.getElementById('specials')?.scrollIntoView({ behavior: 'smooth' }), 100); } else { document.getElementById('specials')?.scrollIntoView({ behavior: 'smooth' }); } }} className="text-stone-300 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300 font-medium text-sm tracking-wide whitespace-nowrap">Dhaba Specials</a>
+                <div className="hidden xl:flex absolute left-1/2 transform -translate-x-1/2 space-x-2 items-center">
+                  <a href="#" onClick={(e) => { e.preventDefault(); setCurrentView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`relative px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300 whitespace-nowrap after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:h-[2px] after:bg-[var(--color-gold)] after:rounded-full after:transition-all after:duration-300 hover:text-[var(--color-gold)] hover:after:w-1/2 ${activeSection === 'home' ? 'text-[var(--color-gold)] after:w-1/2' : 'text-stone-300 after:w-0'}`}>Home</a>
+                  <a href="#specials" onClick={(e) => { e.preventDefault(); if (currentView !== 'home') { setCurrentView('home'); setTimeout(() => document.getElementById('specials')?.scrollIntoView({ behavior: 'smooth' }), 100); } else { document.getElementById('specials')?.scrollIntoView({ behavior: 'smooth' }); } }} className={`relative px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300 whitespace-nowrap after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:h-[2px] after:bg-[var(--color-gold)] after:rounded-full after:transition-all after:duration-300 hover:text-[var(--color-gold)] hover:after:w-1/2 ${activeSection === 'specials' ? 'text-[var(--color-gold)] after:w-1/2' : 'text-stone-300 after:w-0'}`}>Dhaba Specials</a>
+                  <button onClick={(e) => { e.preventDefault(); setCurrentView('menu'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`relative px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300 whitespace-nowrap after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:h-[2px] after:bg-[var(--color-gold)] after:rounded-full after:transition-all after:duration-300 hover:text-[var(--color-gold)] hover:after:w-1/2 ${activeSection === 'menu' ? 'text-[var(--color-gold)] after:w-1/2' : 'text-stone-300 after:w-0'}`}>Menu</button>
+                  <a href="#about" onClick={(e) => { e.preventDefault(); if (currentView !== 'home') { setCurrentView('home'); setTimeout(() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }), 100); } else { document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }); } }} className={`relative px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300 whitespace-nowrap after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:h-[2px] after:bg-[var(--color-gold)] after:rounded-full after:transition-all after:duration-300 hover:text-[var(--color-gold)] hover:after:w-1/2 ${activeSection === 'about' ? 'text-[var(--color-gold)] after:w-1/2' : 'text-stone-300 after:w-0'}`}>About Us</a>
                 </div>
 
                 <div className="flex items-center justify-end flex-1 space-x-2 md:space-x-4">
@@ -473,33 +511,28 @@ export default function Storefront() {
           {/* Mobile Menu Sidebar Drawer */}
           <div className={`fixed inset-0 z-[110] xl:hidden transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>
-            <div className={`absolute top-0 left-0 w-4/5 max-w-sm h-full bg-gradient-to-b from-dhaba-dark to-black shadow-2xl transition-transform duration-500 ease-in-out flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-              <div className="p-5 flex justify-between items-center border-b border-white/10 mt-2">
-                <span className="text-2xl font-bold font-serif text-[var(--color-gold)] tracking-widest drop-shadow-sm">Harjinder Dhaba</span>
+            <div className={`absolute top-0 left-0 w-4/5 max-w-sm h-full bg-[#16100B] shadow-2xl transition-transform duration-500 ease-in-out flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+              <div className="p-6 flex justify-between items-center border-b border-white/5 mt-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex flex-col items-center justify-center gap-[3px]">
+                    <span className="block w-[2px] h-2 bg-[var(--color-gold)] opacity-70 rounded-full"></span>
+                    <span className="block w-[4px] h-[4px] rounded-full bg-[var(--color-gold)]"></span>
+                    <span className="block w-[2px] h-2 bg-[var(--color-gold)] opacity-70 rounded-full"></span>
+                  </span>
+                  <span className="text-xl font-bold font-serif text-white tracking-widest">Harjinder</span>
+                </div>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 rounded-full bg-white/5 text-stone-300 hover:text-white hover:bg-white/10 transition-colors focus:outline-none"
+                  className="p-2 rounded-full bg-white/5 text-stone-400 hover:text-white hover:bg-white/10 transition-colors focus:outline-none border border-white/5"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto py-6 px-4 flex flex-col gap-2">
-                <a href="#" onClick={(e) => { e.preventDefault(); setIsMobileMenuOpen(false); setCurrentView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="flex items-center px-5 py-4 text-stone-300 hover:text-white hover:bg-white/10 rounded-2xl font-medium transition-all duration-300 group">
-                  <span className="w-2 h-2 rounded-full bg-dhaba-orange mr-4 opacity-0 group-hover:opacity-100 transition-opacity"></span> Home
-                </a>
-                <button onClick={(e) => { e.preventDefault(); setIsMobileMenuOpen(false); setCurrentView('menu'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="w-full text-left flex items-center px-5 py-4 text-stone-300 hover:text-white hover:bg-white/10 rounded-2xl font-medium transition-all duration-300 group">
-                  <span className="w-2 h-2 rounded-full bg-dhaba-orange mr-4 opacity-0 group-hover:opacity-100 transition-opacity"></span> Menu
-                </button>
-                <a href="#about" onClick={(e) => {
-                  setIsMobileMenuOpen(false);
-                  if (currentView !== 'home') {
-                    e.preventDefault();
-                    setCurrentView('home');
-                    setTimeout(() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }), 100);
-                  }
-                }} className="flex items-center px-5 py-4 text-stone-300 hover:text-white hover:bg-white/10 rounded-2xl font-medium transition-all duration-300 group">
-                  <span className="w-2 h-2 rounded-full bg-dhaba-orange mr-4 opacity-0 group-hover:opacity-100 transition-opacity"></span> About Us
+              <div className="flex-1 overflow-y-auto py-8 px-4 flex flex-col gap-2">
+                <a href="#" onClick={(e) => { e.preventDefault(); setIsMobileMenuOpen(false); setCurrentView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group ${activeSection === 'home' ? 'text-[var(--color-gold)] bg-white/10' : 'text-stone-400 hover:text-[var(--color-gold)] hover:bg-white/5'}`}>
+                  <span className={`text-lg tracking-wide transition-all duration-300 ${activeSection === 'home' ? 'pl-2' : 'group-hover:pl-2'}`}>Home</span>
+                  <ChevronRight className={`w-5 h-5 transition-all duration-300 ${activeSection === 'home' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'}`} />
                 </a>
                 <a href="#specials" onClick={(e) => {
                   setIsMobileMenuOpen(false);
@@ -508,8 +541,24 @@ export default function Storefront() {
                     setCurrentView('home');
                     setTimeout(() => document.getElementById('specials')?.scrollIntoView({ behavior: 'smooth' }), 100);
                   }
-                }} className="flex items-center px-5 py-4 text-stone-300 hover:text-white hover:bg-white/10 rounded-2xl font-medium transition-all duration-300 group">
-                  <span className="w-2 h-2 rounded-full bg-dhaba-orange mr-4 opacity-0 group-hover:opacity-100 transition-opacity"></span> Dhaba Specials
+                }} className={`flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group ${activeSection === 'specials' ? 'text-[var(--color-gold)] bg-white/10' : 'text-stone-400 hover:text-[var(--color-gold)] hover:bg-white/5'}`}>
+                  <span className={`text-lg tracking-wide transition-all duration-300 ${activeSection === 'specials' ? 'pl-2' : 'group-hover:pl-2'}`}>Dhaba Specials</span>
+                  <ChevronRight className={`w-5 h-5 transition-all duration-300 ${activeSection === 'specials' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'}`} />
+                </a>
+                <button onClick={(e) => { e.preventDefault(); setIsMobileMenuOpen(false); setCurrentView('menu'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`w-full text-left flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group ${activeSection === 'menu' ? 'text-[var(--color-gold)] bg-white/10' : 'text-stone-400 hover:text-[var(--color-gold)] hover:bg-white/5'}`}>
+                  <span className={`text-lg tracking-wide transition-all duration-300 ${activeSection === 'menu' ? 'pl-2' : 'group-hover:pl-2'}`}>Menu</span>
+                  <ChevronRight className={`w-5 h-5 transition-all duration-300 ${activeSection === 'menu' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'}`} />
+                </button>
+                <a href="#about" onClick={(e) => {
+                  setIsMobileMenuOpen(false);
+                  if (currentView !== 'home') {
+                    e.preventDefault();
+                    setCurrentView('home');
+                    setTimeout(() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }), 100);
+                  }
+                }} className={`flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group ${activeSection === 'about' ? 'text-[var(--color-gold)] bg-white/10' : 'text-stone-400 hover:text-[var(--color-gold)] hover:bg-white/5'}`}>
+                  <span className={`text-lg tracking-wide transition-all duration-300 ${activeSection === 'about' ? 'pl-2' : 'group-hover:pl-2'}`}>About Us</span>
+                  <ChevronRight className={`w-5 h-5 transition-all duration-300 ${activeSection === 'about' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'}`} />
                 </a>
               </div>
 
@@ -528,7 +577,7 @@ export default function Storefront() {
           </div>
 
           {/* Hero Section */}
-          <section className="relative min-h-[100dvh] flex items-center justify-center pt-16 pb-12 overflow-hidden">
+          <section id="home" className="relative min-h-[100dvh] flex items-center justify-center pt-16 pb-12 overflow-hidden">
             <div
               className="absolute inset-0 z-0"
               style={{
@@ -996,11 +1045,11 @@ export default function Storefront() {
           <section id="about" className="py-24 md:py-32 bg-[var(--color-ivory)] relative overflow-hidden">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
-                <div className="lg:w-5/12 w-full relative">
-                  {/* Decorative elements behind the image */}
-                  <div className="absolute -left-12 -top-12 w-64 h-64 bg-[var(--color-gold)]/10 rounded-full blur-3xl"></div>
+                <div className="lg:w-5/12 w-full relative group">
+                  {/* Glowing Animated Backdrop */}
+                  <div className="absolute inset-0 rounded-[2.5rem] bg-[var(--color-gold)] opacity-30 blur-[40px] animate-pulse group-hover:opacity-50 transition-opacity duration-700 mt-4"></div>
 
-                  <div className="relative w-full aspect-[4/5] sm:h-[600px] rounded-[2rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.1)] border-[8px] border-white z-10">
+                  <div className="relative w-full aspect-[4/5] sm:h-[600px] rounded-[2rem] overflow-hidden border-[2px] border-[var(--color-gold)] shadow-[0_0_25px_rgba(212,175,55,0.4)] group-hover:shadow-[0_0_50px_rgba(212,175,55,0.6)] transition-shadow duration-700 z-10 bg-stone-900">
                     {journeyMedia.length > 0 ? (
                       journeyMedia.map((media, index) => (
                         media.type === 'video' ? (
@@ -1340,7 +1389,7 @@ export default function Storefront() {
       </div>
       {/* Item Details Modal */}
       {selectedItemDetail && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm sm:transition-opacity">
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm sm:transition-opacity" data-lenis-prevent="true">
           <div className="bg-white sm:rounded-[2.5rem] rounded-t-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl relative flex flex-col max-h-[95vh] sm:max-h-[85vh] animate-in slide-in-from-bottom-10 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-500 border border-stone-100">
             <button
               onClick={() => setSelectedItemDetail(null)}
@@ -1378,7 +1427,7 @@ export default function Storefront() {
                   </span>
                   {selectedItemDetail.spiceLevel && selectedItemDetail.spiceLevel !== 'None' && (
                     <span className="bg-red-500/90 backdrop-blur-md text-white text-xs font-semibold tracking-wide px-3 py-1 rounded-full uppercase">
-                      🔥 {selectedItemDetail.spiceLevel}
+                      🌶️ {selectedItemDetail.spiceLevel}
                     </span>
                   )}
                   {selectedItemDetail.isDhabaSpecial && (
@@ -1396,7 +1445,7 @@ export default function Storefront() {
               </div>
             </div>
 
-            <div className="p-6 sm:p-8 overflow-y-auto flex-grow flex flex-col">
+            <div className="p-6 sm:p-8 overflow-y-auto flex-grow flex flex-col" data-lenis-prevent="true">
               <div className="prose prose-stone max-w-none mb-8 flex-grow">
                 <p className="text-stone-500 text-base sm:text-lg leading-relaxed whitespace-pre-line font-light">
                   {selectedItemDetail.description}

@@ -93,6 +93,9 @@ export default function OrderView({
   
 
   const orderMenuFiltered = menuItems.filter(item => {
+    const categoryObj = dbCategories.find(c => c.name === item.category);
+    if (categoryObj && categoryObj.isHidden) return false;
+
     const matchesCategory = orderCategory === 'All' || item.category === orderCategory;
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           item.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -189,7 +192,7 @@ export default function OrderView({
                     <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
                 </button>
-                {dbCategories.map(category => {
+                {dbCategories.filter(category => !category.isHidden).map(category => {
                   const meta = getCategoryMetadata(category.name);
                   const Icon = meta.icon;
                   return (

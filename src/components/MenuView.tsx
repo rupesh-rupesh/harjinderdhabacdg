@@ -138,7 +138,11 @@ export default function MenuView({
 
   const filters = ['All', 'Veg', 'Non-Veg', 'Popular', 'Best Seller', 'Specials'];
 
+  const visibleCategories = dbCategories.filter(cat => !cat.isHidden).map(cat => cat.name);
+
   const filteredItems = menuItems.filter(item => {
+    if (!visibleCategories.includes(item.category)) return false;
+
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           item.description.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
@@ -215,45 +219,50 @@ export default function MenuView({
       {/* Main Content Area (Two Columns) */}
       <div className="flex flex-1 overflow-hidden relative max-w-7xl mx-auto w-full">
         {/* Left Sidebar */}
-        <div className="w-[28%] md:w-64 flex-shrink-0 bg-stone-100/50 border-r border-stone-200 overflow-y-auto flex flex-col hide-scrollbar" data-lenis-prevent="true">
-          <div className="p-2 sm:p-3 space-y-1 sm:space-y-2">
+        <div className="w-[28%] md:w-64 flex-shrink-0 bg-white border-r border-stone-100 overflow-y-auto flex flex-col hide-scrollbar shadow-[2px_0_15px_-3px_rgba(0,0,0,0.02)] z-10" data-lenis-prevent="true">
+          <div className="p-3 sm:p-4 space-y-2">
             <button
               onClick={() => handleCategoryClick('All')}
-              className={`relative w-full text-left flex items-center p-2.5 rounded-2xl transition-all duration-500 overflow-hidden group ${
+              className={`relative w-full text-left flex items-center p-3 rounded-xl transition-all duration-300 group ${
                 activeCategory === 'All' 
-                ? 'bg-gradient-to-r from-dhaba-dark to-dhaba-coffee text-white shadow-xl transform scale-[1.02] shadow-dhaba-orange/10 ring-1 ring-dhaba-orange/30' 
-                : 'bg-stone-100 text-stone-600 border border-transparent hover:bg-stone-200 hover:shadow-md'
+                ? 'bg-orange-50 text-dhaba-orange font-bold shadow-sm ring-1 ring-orange-100/50' 
+                : 'bg-transparent text-stone-500 font-medium hover:bg-stone-50 hover:text-stone-800'
               }`}
             >
-              {activeCategory === 'All' && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-dhaba-orange to-dhaba-yellow rounded-r-full"></div>}
-              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-stone-200 mr-3 flex items-center justify-center">
-                <span className="text-stone-500 font-bold text-xs uppercase">All</span>
+              {activeCategory === 'All' && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-dhaba-orange rounded-r-full"></div>}
+              <div className={`w-10 h-10 rounded-full flex-shrink-0 mr-3 flex items-center justify-center transition-colors duration-300 ${
+                 activeCategory === 'All' ? 'bg-white shadow-sm' : 'bg-stone-100 group-hover:bg-white group-hover:shadow-sm'
+              }`}>
+                <span className={`text-[10px] uppercase tracking-wider ${activeCategory === 'All' ? 'text-dhaba-orange font-bold' : 'text-stone-400'}`}>All</span>
               </div>
-              <span className="font-bold text-sm tracking-wide line-clamp-2">All Items</span>
+              <span className="text-sm tracking-wide line-clamp-2">All Items</span>
             </button>
-            {dbCategories.map((category) => {
+
+            <div className="w-full h-px bg-gradient-to-r from-transparent via-stone-200 to-transparent my-4 opacity-70"></div>
+
+            {dbCategories.filter(cat => !cat.isHidden).map((category) => {
               const isActive = activeCategory === category.name;
               return (
                 <button
                   key={category.id}
                   onClick={() => handleCategoryClick(category.name)}
-                  className={`relative w-full text-left flex items-center p-2.5 rounded-2xl transition-all duration-500 overflow-hidden group ${
+                  className={`relative w-full text-left flex items-center p-3 rounded-xl transition-all duration-300 group ${
                     isActive 
-                    ? 'bg-gradient-to-r from-dhaba-dark to-dhaba-coffee text-white shadow-xl transform scale-[1.02] shadow-dhaba-orange/10 ring-1 ring-dhaba-orange/30' 
-                    : 'bg-stone-100 text-stone-600 border border-transparent hover:bg-stone-200 hover:shadow-md'
+                    ? 'bg-orange-50 text-dhaba-orange font-bold shadow-sm ring-1 ring-orange-100/50' 
+                    : 'bg-transparent text-stone-500 font-medium hover:bg-stone-50 hover:text-stone-800'
                   }`}
                 >
-                  {category.image && (
-                    <div className="relative">
-                      {isActive && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-dhaba-orange to-dhaba-yellow rounded-r-full"></div>}
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden flex-shrink-0 mr-2 sm:mr-3 shadow-sm bg-stone-200">
-                        <img src={category.image || undefined} alt={category.name} className="w-full h-full object-cover" />
+                  {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-dhaba-orange rounded-r-full"></div>}
+                  {category.image ? (
+                      <div className={`w-10 h-10 rounded-full overflow-hidden flex-shrink-0 mr-3 transition-transform duration-300 ${isActive ? 'ring-2 ring-white shadow-md transform scale-105' : 'ring-1 ring-stone-200 group-hover:ring-stone-300 group-hover:shadow-sm'}`}>
+                        <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
                       </div>
-                    </div>
+                  ) : (
+                      <div className={`w-10 h-10 rounded-full flex-shrink-0 mr-3 flex items-center justify-center transition-colors duration-300 ${isActive ? 'bg-white shadow-sm' : 'bg-stone-100 group-hover:bg-white group-hover:shadow-sm'}`}>
+                         <span className={`text-[10px] uppercase tracking-wider ${isActive ? 'text-dhaba-orange font-bold' : 'text-stone-400'}`}>C</span>
+                      </div>
                   )}
-                  <div className="flex flex-col overflow-hidden">
-                    <span className={`text-xs sm:text-sm font-bold truncate ${isActive ? 'text-white' : 'text-stone-800'}`}>{category.name}</span>
-                  </div>
+                  <span className="text-sm tracking-wide line-clamp-2">{category.name}</span>
                 </button>
               );
             })}

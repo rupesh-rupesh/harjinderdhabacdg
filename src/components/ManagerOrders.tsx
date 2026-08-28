@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { PrinterPermissionCard } from './PrinterPermissionCard';
 import { offlineDbService } from '../lib/offlineDb';
 
-export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: any) => void }) {
+export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: { onEditOrder?: (order: any) => void, managerName?: string }) {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -352,7 +352,7 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
   return (
     <>
       <div className="hidden print:block">
-        <ThermalReceipt order={selectedOrder} includeGst={generateGst} managerName="Manager" forwardedRef={receiptRef} />
+        <ThermalReceipt order={selectedOrder} includeGst={generateGst} managerName={managerName} forwardedRef={receiptRef} />
       </div>
       
       {showReceiptPreview && selectedOrder && (
@@ -367,7 +367,7 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
             </div>
             <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
                <div className="shadow-2xl">
-                 <ThermalReceipt order={selectedOrder} includeGst={generateGst} managerName="Manager" />
+                 <ThermalReceipt order={selectedOrder} includeGst={generateGst} managerName={managerName} />
                </div>
             </div>
             <div className="p-4 bg-white border-t flex flex-col gap-2">

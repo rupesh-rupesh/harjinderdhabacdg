@@ -14,7 +14,7 @@ import { createPortal } from 'react-dom';
 import { DevEmptyStateText } from './DevEmptyStateText';
 import { TimePicker } from './TimePicker';
 
-import { Menu, Plus, Activity, Trash2, Edit, Save, X, Image as ImageIcon, Layers, Search, MoreVertical, ArrowLeft, ChevronRight, Video, LayoutDashboard, Star, ToggleLeft, ToggleRight, ArrowUp, ArrowDown, ShieldCheck, Zap, Wifi, Snowflake, MapPin, Coffee, Utensils, ChefHat, Fuel, TreePine, BatteryCharging, Clock, Car, Users, Leaf, Droplets, Package, ShoppingCart, Lock, KeyRound, Shield, MessageCircle, Upload, FileText, Printer } from 'lucide-react';
+import { Menu, Plus, Activity, Trash2, Edit, Save, X, Image as ImageIcon, Layers, Search, MoreVertical, ArrowLeft, ChevronRight, Video, LayoutDashboard, Star, ToggleLeft, ToggleRight, ArrowUp, ArrowDown, ShieldCheck, Zap, Wifi, Snowflake, MapPin, Coffee, Utensils, ChefHat, Fuel, TreePine, BatteryCharging, Clock, Car, Users, Leaf, Droplets, Package, ShoppingCart, Lock, KeyRound, Shield, MessageCircle, Upload, FileText, Printer, Eye, EyeOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -135,8 +135,8 @@ export default function AdminDashboard() {
     return {};
   };
 
-  const fetchData = async (retryCount = 0) => {
-    setLoading(true);
+  const fetchData = async (retryCount = 0, showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const [res, journeyRes] = await Promise.all([
         fetch('/api/admin-data'),
@@ -297,8 +297,37 @@ export default function AdminDashboard() {
   };
 
   const handleConfirmDeleteCategory = (cat: any) => {
-    const itemCount = items.filter(i => i.category === cat.name).length;
-    setCategoryToDelete({ ...cat, itemCount });
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Delete Category',
+      message: `Are you sure you want to delete "${cat.name}"? This will also delete all items inside this category.`,
+      onConfirm: () => handleDeleteCategory(cat.id)
+    });
+  };
+
+  const handleToggleCategoryVisibility = async (cat: any) => {
+    // Optimistically update the UI so it doesn't flicker
+    setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, isHidden: !c.isHidden } : c));
+    try {
+      const res = await fetch(`/api/categories/${cat.id}/toggle-visibility`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isHidden: !cat.isHidden })
+      });
+      if (res.ok) {
+        toast.success(`Category ${!cat.isHidden ? 'hidden' : 'visible'}`);
+        // Fetch data quietly in background without showing the loading spinner
+        fetchData(0, false);
+      } else {
+        // Revert on error
+        setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, isHidden: cat.isHidden } : c));
+        toast.error(`Server error: Please restart your terminal/dev server.`);
+      }
+    } catch (e) {
+      // Revert on error
+      setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, isHidden: cat.isHidden } : c));
+      toast.error('Failed to toggle visibility');
+    }
   };
 
   const handleDeleteCategory = async (id: number) => {
@@ -388,28 +417,37 @@ export default function AdminDashboard() {
                           )}
                           
                           <div className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>
-                            <button 
-                              onClick={() => setIsDropdownOpenFor(isDropdownOpenFor === cat.id ? null : cat.id)}
-                              className="bg-white/90 backdrop-blur text-stone-700 p-2 rounded-lg shadow-sm hover:bg-white hover:text-dhaba-orange transition-colors border border-stone-200/50"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-                            {isDropdownOpenFor === cat.id && (
-                              <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-stone-100 overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); setIsDropdownOpenFor(null); handleEditCategory(cat); }}
-                                  className="w-full text-left px-4 py-3 text-sm hover:bg-stone-50 flex items-center text-stone-700 font-medium transition-colors"
-                                >
-                                  <Edit className="w-4 h-4 mr-3 text-stone-400" /> Edit Category
-                                </button>
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); setIsDropdownOpenFor(null); handleConfirmDeleteCategory(cat); }}
-                                  className="w-full text-left px-4 py-3 text-sm hover:bg-red-50 flex items-center text-red-600 font-medium transition-colors"
-                                >
-                                  <Trash2 className="w-4 h-4 mr-3" /> Delete Category
-                                </button>
-                              </div>
-                            )}
+                            <div className="flex flex-col gap-2 relative">
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleToggleCategoryVisibility(cat); }}
+                                title={cat.isHidden ? "Show Category" : "Hide Category"}
+                                className={`bg-white/90 backdrop-blur p-2 rounded-lg shadow-sm hover:bg-white transition-colors border border-stone-200/50 ${cat.isHidden ? 'text-stone-400 hover:text-stone-600' : 'text-green-600 hover:text-green-700'}`}
+                              >
+                                {cat.isHidden ? <ToggleLeft className="w-5 h-5" /> : <ToggleRight className="w-5 h-5" />}
+                              </button>
+                              <button 
+                                onClick={() => setIsDropdownOpenFor(isDropdownOpenFor === cat.id ? null : cat.id)}
+                                className="bg-white/90 backdrop-blur text-stone-700 p-2 rounded-lg shadow-sm hover:bg-white hover:text-dhaba-orange transition-colors border border-stone-200/50"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                              {isDropdownOpenFor === cat.id && (
+                                <div className="absolute right-0 top-20 mt-2 w-48 bg-white rounded-xl shadow-xl border border-stone-100 overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); setIsDropdownOpenFor(null); handleEditCategory(cat); }}
+                                    className="w-full text-left px-4 py-3 text-sm hover:bg-stone-50 flex items-center text-stone-700 font-medium transition-colors"
+                                  >
+                                    <Edit className="w-4 h-4 mr-3 text-stone-400" /> Edit Category
+                                  </button>
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); setIsDropdownOpenFor(null); handleConfirmDeleteCategory(cat); }}
+                                    className="w-full text-left px-4 py-3 text-sm hover:bg-red-50 flex items-center text-red-600 font-medium transition-colors"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-3" /> Delete Category
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                         
@@ -1308,11 +1346,11 @@ export default function AdminDashboard() {
         ) : activeModule === 'managers' ? (
           <AdminManagers />
         ) : activeModule === 'stats' ? (
-          <ManagerStats />
+          <ManagerStats role="admin" />
         ) : activeModule === 'orders' ? (
-          <ManagerOrders />
+          <ManagerOrders managerName="Admin" />
         ) : activeModule === 'billing' ? (
-          <ManagerBilling />
+          <ManagerBilling managerName="Admin" />
         ) : activeModule === 'reviews' ? (
 
           <AdminReviews />
@@ -1584,7 +1622,7 @@ export default function AdminDashboard() {
 
               <div className="space-y-4">
                 
-                {formData.category?.toLowerCase().includes('drink') && (
+                {true && (
                 <div className="space-y-4 mb-8">
                   <div className="flex justify-between items-end border-b border-stone-100 pb-2">
                     <h3 className="text-sm font-bold text-stone-400 uppercase tracking-wider">Quantities & Rates (Optional)</h3>
@@ -1658,7 +1696,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               )}
-              {!formData.category?.toLowerCase().includes('drink') && (
+              {true && (
                 <>
               <h3 className="text-sm font-bold text-stone-400 uppercase tracking-wider border-b border-stone-100 pb-2">Pricing</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-stone-50 rounded-xl border border-stone-100">

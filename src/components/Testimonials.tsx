@@ -107,13 +107,13 @@ export default function Testimonials() {
         </div>
         
         <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mb-16">
-          <div className="flex items-center gap-6 bg-[var(--color-brown)] text-white px-8 py-5 rounded-[1.5rem] shadow-xl shadow-stone-900/10">
-            <div className="text-5xl md:text-6xl font-bold tracking-tighter">{avgRating}</div>
+          <div className="flex items-center gap-6 bg-gradient-to-r from-[var(--color-brown)] to-[#3A2A20] border border-[var(--color-gold)]/30 text-white px-8 py-5 rounded-[1.5rem] shadow-[0_10px_30px_rgba(212,175,55,0.15)]">
+            <div className="text-5xl md:text-6xl font-bold tracking-tighter text-[var(--color-gold)]">{avgRating}</div>
             <div className="w-px h-16 bg-white/20"></div>
             <div className="flex flex-col items-start">
               <div className="flex text-[var(--color-gold)] mb-1">
                 {[...Array(5)].map((_, i) => (
-                  <Star key={i} className={`w-5 h-5 md:w-6 md:h-6 ${i < Math.round(Number(avgRating)) ? 'fill-current' : 'text-white/20'}`} />
+                  <Star key={i} className={`w-5 h-5 md:w-6 md:h-6 drop-shadow-sm ${i < Math.round(Number(avgRating)) ? 'fill-current' : 'text-white/20'}`} />
                 ))}
               </div>
               <span className="text-sm font-medium text-white/80">Based on {reviews.length} authentic reviews</span>
@@ -122,9 +122,9 @@ export default function Testimonials() {
           
           <button
             onClick={() => setShowForm(!showForm)}
-            className="w-full sm:w-auto px-8 py-[1.4rem] bg-transparent text-[var(--color-brown)] border border-[var(--color-brown)]/20 rounded-[1.5rem] hover:bg-[var(--color-brown)]/5 transition-all font-medium flex items-center justify-center gap-3 group hover:-translate-y-0.5"
+            className="w-full sm:w-auto px-8 py-[1.4rem] bg-gradient-to-r from-[var(--color-gold)] to-[#C19B2E] text-white rounded-[1.5rem] shadow-lg shadow-[var(--color-gold)]/20 hover:shadow-xl hover:shadow-[var(--color-gold)]/30 hover:-translate-y-1 transition-all duration-300 font-bold tracking-wide flex items-center justify-center gap-3 group"
           >
-            <MessageSquare className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
+            <MessageSquare className="w-5 h-5 text-white group-hover:scale-110 transition-transform" />
             Share Your Experience
           </button>
         </div>
@@ -212,16 +212,16 @@ const ReviewCard = ({ review, voteReview }: { review: Review, voteReview: (id: n
   const isLong = review.comment.length > maxLength;
   
   return (
-    <div className="bg-white rounded-[2rem] p-8 transition-all hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex-none w-[85vw] sm:w-[420px] snap-center flex flex-col h-full min-h-[340px] relative group border border-stone-100/80">
+    <div className="bg-[#FFFCF8] rounded-[2rem] p-8 transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_rgba(212,175,55,0.1)] flex-none w-[85vw] sm:w-[420px] snap-center flex flex-col h-full min-h-[340px] relative group border-t-4 border-t-[var(--color-gold)] border-x border-b border-stone-200/60">
       
-      <div className="absolute top-8 right-8 text-[var(--color-gold)]/20 group-hover:text-[var(--color-gold)]/30 transition-colors pointer-events-none">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <div className="absolute top-8 right-8 text-[var(--color-gold)]/10 group-hover:text-[var(--color-gold)]/20 group-hover:scale-110 transition-all duration-500 pointer-events-none">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
           <path d="M14.017 21L16.417 14.591V3H23V14.591L20.583 21H14.017ZM3.017 21L5.417 14.591V3H12V14.591L9.583 21H3.017Z" />
         </svg>
       </div>
 
       <div className="flex items-center gap-4 relative z-10 shrink-0 mb-6">
-        <div className="w-14 h-14 bg-[var(--color-gold)]/10 text-[var(--color-brown)] rounded-full flex items-center justify-center font-bold text-xl shrink-0 border border-[var(--color-gold)]/20">
+        <div className="w-14 h-14 bg-gradient-to-br from-[var(--color-gold)] to-[#C19B2E] text-white rounded-full flex items-center justify-center font-bold text-xl shrink-0 shadow-[0_4px_10px_rgba(212,175,55,0.4)]">
           {review.name.charAt(0).toUpperCase()}
         </div>
         <div>
@@ -229,7 +229,7 @@ const ReviewCard = ({ review, voteReview }: { review: Review, voteReview: (id: n
           <div className="flex items-center gap-2 text-sm text-stone-500 mt-1">
             <div className="flex text-[var(--color-gold)] shrink-0">
               {[...Array(5)].map((_, i) => (
-                <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'fill-current' : 'text-stone-300'}`} />
+                <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'fill-current drop-shadow-sm' : 'text-stone-300'}`} />
               ))}
             </div>
             <span className="text-stone-300 shrink-0">•</span>
@@ -239,14 +239,14 @@ const ReviewCard = ({ review, voteReview }: { review: Review, voteReview: (id: n
       </div>
       
       <div className="flex-1 mt-2 relative z-10 flex flex-col justify-between">
-        <div className="text-stone-700 leading-relaxed text-[15px] sm:text-base">
+        <div className="text-[#5A4A42] leading-relaxed text-[15px] sm:text-base font-medium">
           <p className={`${!isExpanded && isLong ? 'line-clamp-4' : ''}`}>
             "{review.comment}"
           </p>
           {isLong && (
             <button 
               onClick={() => setIsExpanded(!isExpanded)} 
-              className="text-stone-500 hover:text-stone-800 font-semibold mt-2 focus:outline-none transition-colors text-sm inline-flex items-center border-b border-stone-300 hover:border-stone-800 pb-0.5"
+              className="text-[var(--color-gold)] hover:text-[var(--color-brown)] font-bold mt-2 focus:outline-none transition-colors text-sm inline-flex items-center border-b border-[var(--color-gold)] hover:border-[var(--color-brown)] pb-0.5"
             >
               {isExpanded ? 'Read less' : 'Read more'}
             </button>
@@ -256,14 +256,14 @@ const ReviewCard = ({ review, voteReview }: { review: Review, voteReview: (id: n
         <div className="flex-1"></div>
 
         {review.adminReply && (
-          <div className="bg-white p-4 rounded-2xl border border-stone-100 mt-6 shadow-sm">
+          <div className="bg-gradient-to-r from-[var(--color-gold)]/10 to-transparent p-5 rounded-r-2xl border-l-4 border-[var(--color-gold)] mt-6 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center">
-                <MessageSquare className="w-3 h-3 text-amber-600" />
+              <div className="w-6 h-6 rounded-full bg-[var(--color-gold)] flex items-center justify-center shadow-sm">
+                <MessageSquare className="w-3 h-3 text-white" />
               </div>
               <p className="text-sm font-bold text-[var(--color-brown)]">Owner's Reply</p>
             </div>
-            <p className={`text-sm text-stone-600 leading-relaxed ${!isExpanded ? 'line-clamp-2' : ''}`}>{review.adminReply}</p>
+            <p className={`text-sm text-[#5A4A42] font-medium leading-relaxed ${!isExpanded ? 'line-clamp-2' : ''}`}>{review.adminReply}</p>
           </div>
         )}
       </div>
