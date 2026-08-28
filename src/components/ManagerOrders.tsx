@@ -1,18 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DevEmptyStateText } from './DevEmptyStateText';
-import { Package, Clock, CheckCircle2, XCircle, Search, Trash2, Edit, FileText, X, Plus, Minus, Printer, Bell, ClipboardCheck, Filter, ChevronDown, ShoppingBag, Eye, Grid } from 'lucide-react';
+import { Package, Clock, CheckCircle2, XCircle, Search, Trash2, Edit, FileText, X, Plus, Minus, Printer, Bell, ClipboardCheck, Filter, ChevronDown, ShoppingBag, Eye, Grid, Cloud, CloudOff, RefreshCw } from 'lucide-react';
 import { ThermalReceipt } from './ThermalReceipt';
 import { managerPrinterService as printerService } from '../lib/printer/PrinterService';
 import toast from 'react-hot-toast';
 import { PrinterPermissionCard } from './PrinterPermissionCard';
+import { offlineDbService } from '../lib/offlineDb';
 
 export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: any) => void }) {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'cancelled'>('active');
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'yesterday' | 'custom'>('all');
+  const [customDate, setCustomDate] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | string | null>(null);
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [showAddItem, setShowAddItem] = useState(false);
   const [generateGst, setGenerateGst] = useState(true);
@@ -88,14 +91,43 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch('/api/admin/orders');
-      if (res.ok) {
-        const ct = res.headers.get('content-type');
-        if (ct && ct.includes('application/json')) {
-          const data = await res.json();
-          setOrders(data);
+      // 1. Get from offline DB first
+      const localBills = await offlineDbService.getBills();
+      
+      // 2. Fetch from network
+      let serverOrders: any[] = [];
+      try {
+        const res = await fetch('/api/admin/orders');
+        if (res.ok) {
+          const ct = res.headers.get('content-type');
+          if (ct && ct.includes('application/json')) {
+            serverOrders = await res.json();
+          }
         }
+      } catch (e: any) {
+        if (e.message !== 'Failed to fetch') console.error(e);
       }
+      
+      // 3. Merge: prefer local pending over server, and server over local synced
+      const mergedMap = new Map();
+      
+      // Add server orders first
+      serverOrders.forEach(o => {
+        mergedMap.set(o.localBillId || o.id.toString(), o);
+      });
+      
+      // Override/Add with local bills
+      localBills.forEach(local => {
+        const key = local.localBillId;
+        if (local.syncStatus === 'pending' || local.syncStatus === 'failed' || !mergedMap.has(key)) {
+           // Adapt local bill to the structure UI expects
+           mergedMap.set(key, { ...local, id: local.serverBillId || local.localBillId.substring(0, 8), _isLocal: true });
+        }
+      });
+      
+      const merged = Array.from(mergedMap.values()).sort((a: any, b: any) => new Date(b.createdAt || b.created_at).getTime() - new Date(a.createdAt || a.created_at).getTime());
+      
+      setOrders(merged);
     } catch (e: any) {
       if (e.message !== 'Failed to fetch') {
         console.error(e);
@@ -116,19 +148,57 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
     return () => clearInterval(interval);
   }, []);
 
-  const handleUpdateStatus = async (id: number, status: string, e?: React.MouseEvent) => {
+  const handleUpdateStatus = async (id: number | string, status: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     try {
-      const res = await fetch(`/api/admin/orders/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
-      if (res.ok) {
-        fetchOrders();
-        if (selectedOrder && selectedOrder.id === id) {
-          setSelectedOrder({ ...selectedOrder, status });
+      const order = orders.find(o => o.id === id || o.localBillId === id);
+      if (!order) return;
+
+      // Optimistically update UI
+      if (selectedOrder && (selectedOrder.id === id || selectedOrder.localBillId === id)) {
+        setSelectedOrder({ ...selectedOrder, status });
+      }
+      
+      // Update local db
+      if (order.localBillId) {
+        await offlineDbService.updateBillStatus(order.localBillId, status);
+      }
+
+      // If it's fully local and hasn't synced at all, updating it locally is enough,
+      // as the CREATE_BILL payload is static or we can just update the DB and the CREATE_BILL
+      // payload isn't strictly used for status because pending status is default, wait...
+      // the CREATE_BILL payload has status: 'pending'. If they mark it 'completed' offline before it syncs,
+      // we need to make sure the server gets 'completed'.
+      // So we enqueue an UPDATE_BILL for it regardless.
+
+      const isServerId = typeof id === 'number' || (typeof id === 'string' && !id.includes('-')); // UUIDs have hyphens
+
+      if (navigator.onLine && isServerId) {
+        const res = await fetch(`/api/admin/orders/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        if (res.ok) {
+          fetchOrders();
         }
+      } else {
+        // Enqueue update
+        const serverId = order.serverBillId || (isServerId ? id : null);
+        if (serverId) {
+          await offlineDbService.enqueueSync('UPDATE_BILL', { id: serverId, status });
+        } else if (order.localBillId) {
+           // It's a pure offline bill. If we just update local DB, when it syncs we want the 
+           // SyncManager to know. SyncManager's CREATE_BILL uses the payload it saved.
+           // Let's modify SyncManager.ts to fetch latest status from DB when creating? 
+           // No, we can just enqueue an UPDATE_BILL with the localBillId, but UPDATE_BILL needs server ID!
+           // Ah! We can rely on the SyncManager. Process queue handles CREATE_BILL first, gets serverId,
+           // but UPDATE_BILL is queued AFTER CREATE_BILL. When UPDATE_BILL runs, it needs serverId.
+           // To fix this simply, let's just push it with localBillId, but SyncManager needs to know to map it.
+           // It's easier if we just enqueue it, and SyncManager looks up the local bill to find serverId if missing!
+           await offlineDbService.enqueueSync('UPDATE_BILL', { id: order.localBillId, status, isLocalRef: true });
+        }
+        fetchOrders(); // Refresh local UI
       }
     } catch (e) {
       console.error(e);
@@ -145,7 +215,7 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
         items.splice(index, 1);
       }
       
-      const newTotal = items.reduce((acc, item) => acc + ((Number(item.price) || 0) + (item.isButter ? Number(item.butterPrice) || 0 : 0)) * item.quantity, 0);
+      const newTotal = items.reduce((acc, item) => acc + (Number(item.price) || 0) * item.quantity, 0);
       
       const newOrder = { ...selectedOrder, items: JSON.stringify(items), total: newTotal };
       setSelectedOrder(newOrder);
@@ -175,7 +245,7 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
         });
       }
       
-      const newTotal = items.reduce((acc, item) => acc + ((Number(item.price) || 0) + (item.isButter ? Number(item.butterPrice) || 0 : 0)) * item.quantity, 0);
+      const newTotal = items.reduce((acc, item) => acc + (Number(item.price) || 0) * item.quantity, 0);
       const newOrder = { ...selectedOrder, items: JSON.stringify(items), total: newTotal };
       setSelectedOrder(newOrder);
       
@@ -189,7 +259,7 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
     } catch(e) {}
   };
 
-  const handleDelete = async (id: number, e?: React.MouseEvent) => {
+  const handleDelete = async (id: number | string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setDeleteConfirm(id);
   };
@@ -197,27 +267,79 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
   const confirmDelete = async () => {
     if (!deleteConfirm) return;
     try {
-      const res = await fetch(`/api/admin/orders/${deleteConfirm}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) {
+      const order = orders.find(o => o.id === deleteConfirm || o.localBillId === deleteConfirm);
+      if (!order) return;
+
+      // Update local db
+      if (order.localBillId) {
+        await offlineDbService.deleteLocalBill(order.localBillId);
+      }
+
+      const isServerId = typeof deleteConfirm === 'number' || (typeof deleteConfirm === 'string' && !deleteConfirm.includes('-'));
+
+      if (navigator.onLine && isServerId) {
+        const res = await fetch(`/api/admin/orders/${deleteConfirm}`, {
+          method: 'DELETE'
+        });
+        if (res.ok) {
+          fetchOrders();
+          if (selectedOrder && selectedOrder.id === deleteConfirm) {
+            setSelectedOrder(null);
+          }
+        }
+      } else {
+        // Enqueue delete
+        const serverId = order.serverBillId || (isServerId ? deleteConfirm : null);
+        if (serverId) {
+          await offlineDbService.enqueueSync('DELETE_BILL', { id: serverId });
+        } else if (order.localBillId) {
+           await offlineDbService.enqueueSync('DELETE_BILL', { id: order.localBillId, isLocalRef: true });
+        }
+        
         fetchOrders();
-        if (selectedOrder && selectedOrder.id === deleteConfirm) {
+        if (selectedOrder && (selectedOrder.id === deleteConfirm || selectedOrder.localBillId === deleteConfirm)) {
           setSelectedOrder(null);
         }
-        setDeleteConfirm(null);
       }
-    } catch (e) {
+    } catch(e) {
       console.error(e);
+    } finally {
+      setDeleteConfirm(null);
     }
   };
+
+  const activeCount = React.useMemo(() => orders.filter(o => ['pending', 'processing'].includes(o.status) || o.status === 'pending').length, [orders]);
+  const completedCount = React.useMemo(() => orders.filter(o => o.status === 'completed').length, [orders]);
+  const cancelledCount = React.useMemo(() => orders.filter(o => o.status === 'cancelled').length, [orders]);
 
   const filteredOrders = React.useMemo(() => {
     return orders.filter(order => {
       let matchesTab = false;
-      if (activeTab === 'active') matchesTab = ['pending', 'processing'].includes(order.status) || order.status === 'pending';
-      else if (activeTab === 'completed') matchesTab = order.status === 'completed';
-      else if (activeTab === 'cancelled') matchesTab = order.status === 'cancelled';
+      if (activeTab === 'active') {
+        matchesTab = ['pending', 'processing'].includes(order.status) || order.status === 'pending';
+      } else if (activeTab === 'completed') {
+        if (order.status !== 'completed') return false;
+        
+        if (dateFilter === 'all') matchesTab = true;
+        else if (dateFilter === 'today') {
+          const orderDate = new Date(order.createdAt).setHours(0,0,0,0);
+          const today = new Date().setHours(0,0,0,0);
+          matchesTab = orderDate === today;
+        } else if (dateFilter === 'yesterday') {
+          const orderDate = new Date(order.createdAt).setHours(0,0,0,0);
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          matchesTab = orderDate === yesterday.setHours(0,0,0,0);
+        } else if (dateFilter === 'custom' && customDate) {
+          const orderDate = new Date(order.createdAt).setHours(0,0,0,0);
+          const cDate = new Date(customDate).setHours(0,0,0,0);
+          matchesTab = orderDate === cDate;
+        } else {
+          matchesTab = true;
+        }
+      } else if (activeTab === 'cancelled') {
+        matchesTab = order.status === 'cancelled';
+      }
 
       const itemsText = typeof order.items === 'string' ? order.items.toLowerCase() : JSON.stringify(order.items).toLowerCase();
       const matchesSearch = itemsText.includes(searchQuery.toLowerCase()) || 
@@ -225,7 +347,7 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
 
       return matchesTab && matchesSearch;
     });
-  }, [orders, activeTab, searchQuery]);
+  }, [orders, activeTab, searchQuery, dateFilter, customDate]);
 
   return (
     <>
@@ -265,26 +387,59 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
         <PrinterPermissionCard role="manager" onConnect={() => {}} />
         
         {/* Floating Segmented Navigation */}
-        <div className="bg-stone-100/80 backdrop-blur-sm p-1.5 rounded-2xl flex gap-1 shadow-inner border border-stone-200/50">
+        <div className="bg-stone-100/80 backdrop-blur-sm p-1.5 rounded-2xl flex flex-col sm:flex-row gap-1 shadow-inner border border-stone-200/50">
           {[
-            { id: 'active', label: 'Live Orders', icon: Bell },
+            { id: 'active', label: 'Live Orders', icon: Bell, count: activeCount },
             { id: 'completed', label: 'Completed Orders', icon: CheckCircle2 },
-            { id: 'cancelled', label: 'Cancelled Orders', icon: XCircle }
+            { id: 'cancelled', label: 'Cancelled Orders', icon: XCircle, count: cancelledCount }
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex-1 py-3 px-4 flex items-center justify-center gap-2 font-bold text-sm rounded-xl transition-all duration-300 ${
+              className={`flex-1 py-3 px-2 sm:px-4 flex items-center justify-center gap-2 font-bold text-xs sm:text-sm rounded-xl transition-all duration-300 ${
                 activeTab === tab.id
                   ? 'bg-white text-dhaba-orange shadow-sm scale-100 ring-1 ring-stone-200/50'
                   : 'text-stone-500 hover:text-stone-700 hover:bg-stone-200/50 scale-95 opacity-80 hover:opacity-100'
               }`}
             >
-              <tab.icon className={`w-5 h-5 ${activeTab === tab.id ? 'animate-bounce-slight' : ''}`} />
-              {tab.label}
+              <tab.icon className={`w-4 h-4 sm:w-5 sm:h-5 shrink-0 ${activeTab === tab.id ? 'animate-bounce-slight' : ''}`} />
+              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+              {tab.count !== undefined && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black bg-green-100 text-green-700">
+                  {tab.count}
+                </span>
+              )}
             </button>
           ))}
         </div>
+
+        {/* Date Filter for Completed Orders */}
+        {activeTab === 'completed' && (
+          <div className="flex flex-col sm:flex-row items-center justify-between bg-white p-3 rounded-2xl shadow-sm border border-stone-100 gap-3">
+             <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0 scrollbar-hide">
+                {['all', 'today', 'yesterday', 'custom'].map(filter => (
+                   <button 
+                     key={filter} 
+                     onClick={() => setDateFilter(filter as any)}
+                     className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${dateFilter === filter ? 'bg-dhaba-orange text-white shadow-sm' : 'bg-stone-50 border border-stone-200 text-stone-600 hover:bg-stone-100'}`}
+                   >
+                     {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                   </button>
+                ))}
+             </div>
+             {dateFilter === 'custom' && (
+               <div className="w-full sm:w-auto flex animate-in slide-in-from-right-4 duration-300">
+                 <input 
+                   type="date" 
+                   value={customDate} 
+                   onChange={(e) => setCustomDate(e.target.value)}
+                   className="px-4 py-2 w-full sm:w-48 rounded-xl border border-stone-200 bg-stone-50 text-sm font-bold text-stone-700 focus:outline-none focus:ring-2 focus:ring-dhaba-orange focus:bg-white transition-all shadow-inner"
+                 />
+               </div>
+             )}
+          </div>
+        )}
 
         <div className="bg-white/50 backdrop-blur-md rounded-3xl p-4 sm:p-6 border border-stone-100 shadow-sm min-h-[500px]">
           {loading ? (
@@ -304,7 +459,7 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
               <p className="text-stone-500 font-medium max-w-sm">We couldn't find any orders matching this status. Fresh orders will appear here automatically.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4">
+            <div className="flex flex-col gap-4 sm:gap-6">
               {filteredOrders.map(order => {
                 let items = [];
                 try { items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items; } catch (e) {}
@@ -316,56 +471,72 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
                   <button
                     key={order.id}
                     onClick={() => setSelectedOrder(order)}
-                    className={`p-6 rounded-3xl border text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group ${
+                    className={`p-6 rounded-3xl border text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group flex flex-col h-full ${
                       order.status === 'completed' ? 'bg-gradient-to-br from-green-50 to-emerald-50/30 border-green-100' :
                       order.status === 'cancelled' ? 'bg-gradient-to-br from-red-50 to-rose-50/30 border-red-100' :
                       'bg-white border-stone-100 shadow-sm hover:border-dhaba-orange/30'
                     }`}
                   >
-                    <div className="flex justify-between items-start mb-4">
+                    <div className="flex justify-between items-start mb-4 w-full">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
                           order.status === 'completed' ? 'bg-green-100 text-green-700' :
                           order.status === 'cancelled' ? 'bg-red-100 text-red-700' :
                           'bg-[#FFF9EE] text-[#D4AF37]'
                         }`}>
-                          {tableNum ? <Grid className="w-5 h-5" /> : <Package className="w-5 h-5" />}
+                          {tableNum ? <Grid className="w-6 h-6" /> : <Package className="w-6 h-6" />}
                         </div>
                         <div>
-                          <div className="text-sm font-bold text-stone-800">
+                          <div className="text-base font-black text-stone-800">
                             {tableNum ? `Table ${tableNum}` : `Order #${order.id}`}
                           </div>
-                          <div className="text-xs text-stone-500">
-                            {new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          <div className="text-xs text-stone-500 font-medium flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            {new Date(order.createdAt || order.created_at).toLocaleString('en-GB', {day:'2-digit', month:'short', hour: '2-digit', minute:'2-digit'})}
                           </div>
                         </div>
                       </div>
-                      <div className={`px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase ${
-                        order.status === 'completed' ? 'bg-green-500 text-white shadow-sm shadow-green-500/20' :
-                        order.status === 'cancelled' ? 'bg-red-500 text-white shadow-sm shadow-red-500/20' :
-                        'bg-dhaba-orange text-white shadow-sm shadow-orange-500/20 animate-pulse'
-                      }`}>
-                        {order.status}
+                      <div className="flex flex-col gap-2 shrink-0 items-end">
+                        <div className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase ${
+                          order.status === 'completed' ? 'bg-green-100 text-green-700' :
+                          order.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                          'bg-orange-100 text-dhaba-orange animate-pulse'
+                        }`}>
+                          {order.status}
+                        </div>
+                        {order._isLocal && order.syncStatus === 'pending' && (
+                           <div className="flex items-center gap-1 text-[9px] font-bold text-stone-400 uppercase tracking-widest bg-stone-100 px-2 py-0.5 rounded-full" title="Waiting for network">
+                             <RefreshCw className="w-3 h-3 animate-spin" /> Pending Sync
+                           </div>
+                        )}
+                        {order._isLocal && order.syncStatus === 'failed' && (
+                           <div className="flex items-center gap-1 text-[9px] font-bold text-red-500 uppercase tracking-widest bg-red-50 px-2 py-0.5 rounded-full" title="Sync failed, will retry">
+                             <CloudOff className="w-3 h-3" /> Sync Failed
+                           </div>
+                        )}
                       </div>
                     </div>
                     
-                    <div className="space-y-1 mb-4">
+                    <div className="space-y-2 mb-4 flex-1 w-full">
                       {displayItems.slice(0, 3).map((item: any, idx: number) => (
-                        <div key={idx} className="text-sm text-stone-600 flex justify-between">
-                          <span>{item.quantity}x {item.name}</span>
+                        <div key={idx} className="text-sm text-stone-600 flex justify-between items-center bg-white/40 p-2 rounded-xl">
+                          <span className="font-medium flex items-center gap-2">
+                            <span className="w-6 h-6 bg-stone-100 rounded-md flex items-center justify-center text-xs text-stone-500">{item.quantity}x</span>
+                            {item.name}
+                          </span>
                         </div>
                       ))}
                       {displayItems.length > 3 && (
-                        <div className="text-xs text-stone-400 font-medium pt-1">
+                        <div className="text-xs text-stone-400 font-bold pt-1 px-2">
                           +{displayItems.length - 3} more items
                         </div>
                       )}
                     </div>
                     
-                    <div className="pt-4 border-t border-stone-100/50 flex justify-between items-center">
-                      <div className="text-sm text-stone-500 font-medium">Total</div>
-                      <div className={`text-lg font-bold ${order.status === 'completed' ? 'text-green-700' : order.status === 'cancelled' ? 'text-red-700' : 'text-dhaba-dark'}`}>
-                        ₹{order.total}
+                    <div className="pt-4 border-t border-stone-200/60 flex justify-between items-center w-full mt-auto">
+                      <div className="text-sm text-stone-500 font-bold uppercase tracking-wider">Total Amount</div>
+                      <div className={`text-xl font-black ${order.status === 'completed' ? 'text-green-700' : order.status === 'cancelled' ? 'text-red-700' : 'text-dhaba-dark'}`}>
+                        ₹{Number(order.total).toFixed(2)}
                       </div>
                     </div>
                   </button>
@@ -437,7 +608,7 @@ export default function ManagerOrders({ onEditOrder }: { onEditOrder?: (order: a
                         <div className="flex items-center gap-4">
                           <div className="text-sm font-black text-stone-400 bg-stone-100 w-8 h-8 flex items-center justify-center rounded-lg">{item.quantity}x</div>
                           <div className="font-black text-stone-900 w-16 text-right">
-                            ₹{((Number(item.price) || 0) + (item.isButter ? (Number(item.butterPrice) || 0) : 0)) * item.quantity}
+                            ₹{(Number(item.price) || 0) * item.quantity}
                           </div>
                         </div>
                       </div>

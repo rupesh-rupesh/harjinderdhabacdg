@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { KeyRound, Shield, Eye, EyeOff, Save, RefreshCw, CheckCircle, Lock } from 'lucide-react';
+import { KeyRound, Shield, Eye, EyeOff, Save, RefreshCw, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { ConfirmDialog } from './ConfirmDialog';
 
 export default function AdminPasswordSettings() {
   const [adminPassword, setAdminPassword] = useState('');
@@ -18,6 +19,12 @@ export default function AdminPasswordSettings() {
 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   const fetchPasswords = async () => {
     setFetching(true);
@@ -94,35 +101,38 @@ export default function AdminPasswordSettings() {
   };
 
   const handleResetDefaults = async () => {
-    if (!window.confirm('Reset both Admin and Manager passwords back to default values (ADMIN2043W / MANAGER2043W)?')) {
-      return;
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Reset to Defaults',
+      message: 'Reset both Admin and Manager passwords back to default values (ADMIN2043W / MANAGER2043W)?',
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          const res = await fetch('/api/auth/update-dashboard-passwords', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              adminPassword: 'ADMIN2043W',
+              managerPassword: 'MANAGER2043W',
+            }),
+          });
 
-    setLoading(true);
-    try {
-      const res = await fetch('/api/auth/update-dashboard-passwords', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          adminPassword: 'ADMIN2043W',
-          managerPassword: 'MANAGER2043W',
-        }),
-      });
-
-      if (res.ok) {
-        setAdminPassword('ADMIN2043W');
-        setConfirmAdminPassword('ADMIN2043W');
-        setManagerPassword('MANAGER2043W');
-        setConfirmManagerPassword('MANAGER2043W');
-        setCurrentAdminPassword('ADMIN2043W');
-        setCurrentManagerPassword('MANAGER2043W');
-        toast.success('Passwords reset to defaults!');
+          if (res.ok) {
+            setAdminPassword('ADMIN2043W');
+            setConfirmAdminPassword('ADMIN2043W');
+            setManagerPassword('MANAGER2043W');
+            setConfirmManagerPassword('MANAGER2043W');
+            setCurrentAdminPassword('ADMIN2043W');
+            setCurrentManagerPassword('MANAGER2043W');
+            toast.success('Passwords reset to defaults!');
+          }
+        } catch (e) {
+          toast.error('An error occurred while attempting to reset the passwords.');
+        } finally {
+          setLoading(false);
+        }
       }
-    } catch (e) {
-      toast.error('An error occurred while attempting to reset the passwords.');
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   if (fetching) {
@@ -159,7 +169,6 @@ export default function AdminPasswordSettings() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Admin Current Status Card */}
         <div className="p-5 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-4">
           <div className="p-3 bg-amber-500/20 text-amber-800 rounded-xl">
             <Lock className="w-6 h-6" />
@@ -173,7 +182,6 @@ export default function AdminPasswordSettings() {
           </div>
         </div>
 
-        {/* Manager Current Status Card */}
         <div className="p-5 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-start gap-4">
           <div className="p-3 bg-blue-500/20 text-blue-800 rounded-xl">
             <KeyRound className="w-6 h-6" />
@@ -189,7 +197,6 @@ export default function AdminPasswordSettings() {
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
-        {/* Admin Password Form Section */}
         <div className="bg-white p-8 rounded-3xl border border-stone-100 shadow-sm hover:shadow-lg transition-all duration-300 space-y-6">
           <div className="flex items-center gap-2 pb-3 border-b border-stone-100">
             <Shield className="w-5 h-5 text-[var(--color-gold)]" />
@@ -245,7 +252,6 @@ export default function AdminPasswordSettings() {
           </div>
         </div>
 
-        {/* Manager Password Form Section */}
         <div className="bg-white p-8 rounded-3xl border border-stone-100 shadow-sm hover:shadow-lg transition-all duration-300 space-y-6">
           <div className="flex items-center gap-2 pb-3 border-b border-stone-100">
             <KeyRound className="w-5 h-5 text-blue-600" />
@@ -301,7 +307,6 @@ export default function AdminPasswordSettings() {
           </div>
         </div>
 
-        {/* Submit Actions */}
         <div className="flex items-center justify-end gap-3 pt-2">
           <button
             type="submit"
@@ -317,6 +322,16 @@ export default function AdminPasswordSettings() {
           </button>
         </div>
       </form>
+
+      {confirmDialog && (
+        <ConfirmDialog
+          isOpen={confirmDialog.isOpen}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }}
+          onCancel={() => setConfirmDialog(null)}
+        />
+      )}
     </div>
   );
 }

@@ -15,6 +15,7 @@ export const users = pgTable('users', {
 // Define the 'orders' table.
 export const orders = pgTable('orders', {
   id: serial('id').primaryKey(),
+  localBillId: text('local_bill_id').unique(), // For offline-first idempotency
   userId: integer('user_id')
     .references(() => users.id)
     .notNull(),
@@ -23,6 +24,7 @@ export const orders = pgTable('orders', {
   status: text('status').notNull().default('pending'), // pending, completed, cancelled
   createdAt: timestamp('created_at').defaultNow(),
 }, (table) => [
+  index('orders_local_bill_id_idx').on(table.localBillId),
   index('orders_user_id_idx').on(table.userId),
   index('orders_status_idx').on(table.status),
   index('orders_created_at_idx').on(table.createdAt)

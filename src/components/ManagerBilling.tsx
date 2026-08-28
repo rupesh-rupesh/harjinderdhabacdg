@@ -1,12 +1,15 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { LayoutGrid, Package, Utensils, Grid, Search, Plus, Minus, Trash2, CheckCircle2, AlertCircle, ShoppingBag, ArrowLeft, ArrowRight, Table, X, CreditCard, Printer, FileText, Eye, UserCircle, Lock, Save, ChevronDown, Edit2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { LayoutGrid, Package, Utensils, Grid, Search, Plus, Minus, Trash2, CheckCircle2, AlertCircle, ShoppingBag, ArrowLeft, ArrowRight, Table, X, CreditCard, Printer, FileText, Eye, UserCircle, Lock, Save, ChevronDown, Edit2, Wifi, WifiOff } from 'lucide-react';
 import { ThermalReceipt } from './ThermalReceipt';
 import { managerPrinterService as printerService } from '../lib/printer/PrinterService';
-import { useRef } from 'react';
 import * as Icons from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PrinterPermissionCard } from './PrinterPermissionCard';
 import { NoodleBowlIcon } from './CustomIcons';
+import { offlineDbService } from '../lib/offlineDb';
+import { syncManager } from '../lib/SyncManager';
+import { v4 as uuidv4 } from 'uuid';
+import { ConfirmDialog } from './ConfirmDialog';
 
 const DynamicIcon = ({ name, className }: { name: string, className?: string }) => {
   const cleanClassName = className?.replace(/text-\w+-\d+/, '') || '';
@@ -55,9 +58,24 @@ const TablePeopleIcon = ({ className }: { className?: string }) => (
 )
 
 export default function ManagerBilling({ editingOrder, clearEditingOrder }: { editingOrder?: any, clearEditingOrder?: () => void }) {
+  const [isOnline, setIsOnline] = useState(syncManager.isOnline());
+  useEffect(() => {
+    // Initial check
+    setIsOnline(syncManager.isOnline());
+    
+    // Subscribe to events
+    const handleStatusChange = (e: Event) => {
+      setIsOnline((e as CustomEvent).detail.isOnline);
+    };
+    
+    syncManager.addEventListener('networkStatus', handleStatusChange);
+    return () => syncManager.removeEventListener('networkStatus', handleStatusChange);
+  }, []);
+
   const [tableSelection, setTableSelection] = useState<number | null>(null);
   const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
   const [checkoutTable, setCheckoutTable] = useState<{ num: number, order: any } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void; } | null>(null);
 
   const [categories, setCategories] = useState<any[]>([]);
   const [menuItems, setMenuItems] = useState<any[]>([]);
@@ -242,14 +260,33 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch('/api/admin/orders');
-      if (res.ok) {
-        const ct = res.headers.get('content-type');
-        if (ct && ct.includes('application/json')) {
-          const data = await res.json();
-          setActiveOrders(data.filter((o: any) => o.status === 'pending' || o.status === 'processing'));
+      const localBills = await offlineDbService.getBills();
+      let serverOrders: any[] = [];
+      
+      try {
+        const res = await fetch('/api/admin/orders');
+        if (res.ok) {
+          const ct = res.headers.get('content-type');
+          if (ct && ct.includes('application/json')) {
+            serverOrders = await res.json();
+          }
         }
+      } catch (e: any) {
+        if (e.message !== 'Failed to fetch') console.error(e);
       }
+
+      const mergedMap = new Map();
+      serverOrders.forEach((o: any) => mergedMap.set(o.localBillId || o.id.toString(), o));
+      
+      localBills.forEach(local => {
+        const key = local.localBillId;
+        if (local.syncStatus === 'pending' || local.syncStatus === 'failed' || !mergedMap.has(key)) {
+           mergedMap.set(key, { ...local, id: local.serverBillId || local.localBillId.substring(0, 8), _isLocal: true });
+        }
+      });
+      
+      const merged = Array.from(mergedMap.values());
+      setActiveOrders(merged.filter((o: any) => o.status === 'pending' || o.status === 'processing'));
     } catch (e) {
       console.error(e);
     }
@@ -264,6 +301,17 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // 1. Try to load offline menu first for instant render
+        const localMenu = await offlineDbService.getMenu();
+        if (localMenu && localMenu.length > 0) {
+          setMenuItems(localMenu);
+          const catSet = new Set(localMenu.map(i => i.category));
+          const cats = Array.from(catSet).map(name => ({ name }));
+          setCategories(cats);
+          if (cats.length > 0 && !selectedCategory) setSelectedCategory(cats[0].name as string);
+        }
+
+        // 2. Fetch from server and sync
         const res = await fetch('/api/pos-data');
         if (res.ok) {
           const ct = res.headers.get('content-type');
@@ -271,8 +319,11 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
             const data = await res.json();
             setCategories(data.categories || []);
             setMenuItems(data.menuItems || []);
-            if (data.categories && data.categories.length > 0) {
+            if (data.categories && data.categories.length > 0 && (!localMenu || localMenu.length === 0)) {
               setSelectedCategory(data.categories[0].name);
+            }
+            if (data.menuItems) {
+              await offlineDbService.cacheMenu(data.menuItems);
             }
           }
         }
@@ -355,56 +406,80 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
     setIsSubmitting(true);
     try {
       const finalTotal = generateGst ? cartTotal + (cartTotal * 0.05) : cartTotal;
-
-      const endpoint = editingOrderId ? `/api/admin/orders/${editingOrderId}` : '/api/admin/pos/orders';
-      const method = editingOrderId ? 'PUT' : 'POST';
-
-      const payload: any = { total: finalTotal };
+      
+      const posItems = [
+        { name: `Table ${tableSelection}`, price: 0, quantity: 1, isTableMarker: true },
+        ...cart
+      ];
 
       if (editingOrderId) {
-        const posItems = [
-          { name: `Table ${tableSelection}`, price: 0, quantity: 1, isTableMarker: true },
-          ...cart
-        ];
-        payload.items = JSON.stringify(posItems);
-      } else {
-        payload.tableNumber = tableSelection;
-        payload.items = cart;
-      }
-
-      const res = await fetch(endpoint, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        const savedOrder = await res.json();
+        // Editing existing order -> use network (for now)
+        const endpoint = `/api/admin/orders/${editingOrderId}`;
+        const res = await fetch(endpoint, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ total: finalTotal, items: JSON.stringify(posItems) })
+        });
         
+        if (res.ok) {
+          toast.success(`Order updated for Table ${tableSelection}`);
+          localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
+          setCart([]);
+          setEditingOrderId(null);
+          setTableSelection(null);
+          fetchOrders();
+        } else {
+          toast.error("Failed to update order");
+        }
+      } else {
+        // New order -> Offline-first workflow
+        const localBillId = uuidv4();
+        const localBill: any = {
+          localBillId,
+          tableNumber: tableSelection.toString(),
+          items: posItems, // Keep the structure with marker for printing
+          total: finalTotal,
+          syncStatus: 'pending',
+          createdAt: new Date().toISOString(),
+          status: 'pending'
+        };
+
+        // 1. Save completely to IndexedDB first
+        await offlineDbService.saveBill(localBill);
+        
+        // 2. Queue it for sync
+        await offlineDbService.enqueueSync('CREATE_BILL', {
+           localBillId,
+           tableNumber: tableSelection,
+           items: cart, // Items without table marker for server route
+           total: finalTotal
+        });
+
+        // 3. Immediately show success to user
+        toast.success(`Order placed offline for Table ${tableSelection}`);
+        
+        // 4. Trigger print with local bill
         if (shouldPrint) {
           try {
+            const printOrder = { ...localBill, id: localBillId.substring(0, 8), items: JSON.stringify(posItems) };
             if (printerService.getConfig().type !== 'browser') {
-              await printerService.printReceipt(savedOrder, false, true, generateGst);
+              await printerService.printReceipt(printOrder, false, true, generateGst);
             } else {
-              // Update draft order to use the real ID right before printing
-              draftOrder.id = savedOrder.id;
-              if (cartReceiptRef.current) {
-                window.print();
-              }
+               draftOrder.id = printOrder.id;
+               if (cartReceiptRef.current) window.print();
             }
           } catch (printErr: any) {
             toast.error(printErr.message || "Failed to print bill");
           }
         }
 
-        toast.success(editingOrderId ? `Order updated for Table ${tableSelection}` : `Order placed for Table ${tableSelection}`);
+        // 5. Trigger sync in background
+        syncManager.triggerSync();
+
         localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
         setCart([]);
-        setEditingOrderId(null);
         setTableSelection(null);
-        fetchOrders();
-      } else {
-        toast.error("We were unable to save the order. Please try again.");
+        fetchOrders(); // This fetches server orders; in a fully offline UI we'd merge local orders too
       }
     } catch (e) {
       toast.error("A connection error occurred. Please verify your network and try again.");
@@ -434,6 +509,16 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
           <ThermalReceipt order={checkoutTable?.order} includeGst={generateGst} managerName="Manager" forwardedRef={receiptRef} />
           <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName="Manager" forwardedRef={cartReceiptRef} />
         </div>
+
+        {confirmDialog && (
+          <ConfirmDialog
+            isOpen={confirmDialog.isOpen}
+            title={confirmDialog.title}
+            message={confirmDialog.message}
+            onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }}
+            onCancel={() => setConfirmDialog(null)}
+          />
+        )}
 
         <div className="max-w-7xl mx-auto mt-2 mb-6">
           <PrinterPermissionCard role="manager" onConnect={() => { }} />
@@ -554,18 +639,23 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
                   <div className="flex gap-3">
                     <button
                       onClick={() => {
-                        if (window.confirm("Are you sure you want to cancel this order?")) {
-                          fetch(`/api/admin/orders/${checkoutTable.order.id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ status: 'cancelled' })
-                          }).then(() => {
-                            fetchOrders();
-                            setTableSelection(checkoutTable.num);
-                            setCheckoutTable(null);
-                            toast.success(`Order for Table ${checkoutTable.num} cancelled.`);
-                          });
-                        }
+                        setConfirmDialog({
+                          isOpen: true,
+                          title: 'Cancel Order',
+                          message: 'Are you sure you want to cancel this order?',
+                          onConfirm: () => {
+                            fetch(`/api/admin/orders/${checkoutTable.order.id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ status: 'cancelled' })
+                            }).then(() => {
+                              fetchOrders();
+                              setTableSelection(checkoutTable.num);
+                              setCheckoutTable(null);
+                              toast.success(`Order for Table ${checkoutTable.num} cancelled.`);
+                            });
+                          }
+                        });
                       }}
                       className="flex-1 py-3 px-4 bg-white border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 transition-colors shadow-sm flex items-center justify-center gap-2"
                     >
@@ -573,15 +663,22 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
                     </button>
                     <button
                       onClick={() => {
-                        fetch(`/api/admin/orders/${checkoutTable.order.id}`, {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ status: 'completed' })
-                        }).then(() => {
-                          fetchOrders();
-                          setTableSelection(checkoutTable.num);
-                          setCheckoutTable(null);
-                          toast.success(`Bill for Table ${checkoutTable.num} marked as paid.`);
+                        setConfirmDialog({
+                          isOpen: true,
+                          title: 'Mark as Paid',
+                          message: 'Are you sure you want to mark this bill as paid?',
+                          onConfirm: () => {
+                            fetch(`/api/admin/orders/${checkoutTable.order.id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ status: 'completed' })
+                            }).then(() => {
+                              fetchOrders();
+                              setTableSelection(checkoutTable.num);
+                              setCheckoutTable(null);
+                              toast.success(`Bill for Table ${checkoutTable.num} marked as paid.`);
+                            });
+                          }
                         });
                       }}
                       className="flex-1 py-3 px-4 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2"
@@ -694,15 +791,24 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
   }
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100dvh - 56px)', margin: '0', padding: '0' }}>
+    <div className="flex" style={{ height: 'calc(100dvh - 56px)', margin: '0', padding: '0' }}>
       <div className="hidden print:block">
         <ThermalReceipt order={checkoutTable?.order} includeGst={generateGst} managerName="Manager" forwardedRef={receiptRef} />
         <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName="Manager" forwardedRef={cartReceiptRef} />
       </div>
 
-      <div className="px-4 sm:px-6 lg:px-8 pt-4">
+      {confirmDialog && (
+        <ConfirmDialog
+          isOpen={confirmDialog.isOpen}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }}
+          onCancel={() => setConfirmDialog(null)}
+        />
+      )}
+
+      <div className="flex-1 flex flex-col overflow-hidden">
         <PrinterPermissionCard role="manager" onConnect={() => { }} />
-      </div>
 
       {showCartReceiptPreview && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -869,9 +975,9 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
       )}
 
       {/* POS Header — table info left, search center, manager/lock right */}
-      <div className="bg-white border-b border-stone-200 px-3 sm:px-5 py-3 flex items-center justify-between gap-3 shrink-0">
+      <div className="bg-white border-b border-stone-200 px-3 sm:px-5 py-3 flex items-center justify-between gap-3 shrink-0 relative">
         {/* Left: back + table name */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 w-1/4 sm:w-1/4 lg:w-1/5">
           <button
             onClick={() => setTableSelection(null)}
             className="p-2 hover:bg-stone-100 rounded-lg transition-colors text-stone-500"
@@ -892,21 +998,39 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
           </div>
         </div>
 
-        {/* Center: Search — wider and responsive */}
-        <div className="hidden sm:block flex-1 max-w-md lg:max-w-lg xl:max-w-2xl relative mx-4">
-          <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search menu..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm border border-stone-200 rounded-xl focus:ring-2 focus:ring-dhaba-orange outline-none bg-stone-50 transition-shadow"
-          />
+        {/* Center: Search */}
+        <div className="hidden sm:flex justify-center flex-1 px-4 lg:px-12">
+          <style dangerouslySetInnerHTML={{__html: `
+            @keyframes border-dance {
+              0% { background-position: 0% 50%; }
+              50% { background-position: 100% 50%; }
+              100% { background-position: 0% 50%; }
+            }
+            .rgb-border-wrapper {
+              background: linear-gradient(90deg, #ff0000, #00ff00, #0000ff, #ff0000);
+              background-size: 300% 300%;
+              animation: border-dance 4s linear infinite;
+              padding: 1px;
+              border-radius: 0.75rem;
+            }
+          `}} />
+          <div className="relative w-full rgb-border-wrapper">
+            <div className="relative bg-stone-50 rounded-[11px] h-full flex items-center">
+              <Search className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
+              <input
+                type="text"
+                placeholder="Search menu..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 text-sm bg-transparent outline-none rounded-[11px]"
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Right: Mobile search */}
-        <div className="flex items-center shrink-0 sm:hidden">
-          <div className="relative w-40 sm:w-48 mr-1">
+        {/* Right: Mobile search / spacing */}
+        <div className="flex items-center justify-end shrink-0 w-1/4 sm:hidden">
+          <div className="relative w-40">
             <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -916,6 +1040,48 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
               className="w-full pl-8 pr-3 py-1.5 text-xs border border-stone-200 rounded-lg focus:ring-1 focus:ring-dhaba-orange outline-none bg-stone-50"
             />
           </div>
+        </div>
+        <div className="hidden sm:flex items-center justify-end gap-2 w-1/4 lg:w-1/5 pr-2">
+          {/* Network Status Indicator */}
+          <div className={`hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black mr-2 ${
+            isOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+          }`}>
+            {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+            {isOnline ? 'ONLINE' : 'OFFLINE'}
+          </div>
+
+          <button
+            onClick={() => {
+              if (cart.length > 0) {
+                setConfirmDialog({
+                  isOpen: true,
+                  title: 'Clear Bill',
+                  message: 'Are you sure you want to clear the entire bill?',
+                  onConfirm: () => {
+                    setCart([]);
+                  }
+                });
+              }
+            }}
+            disabled={cart.length === 0}
+            title="Clear Bill"
+            className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => {
+              if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+              } else {
+                document.exitFullscreen().catch(() => {});
+              }
+            }}
+            title="Toggle Fullscreen"
+            className="p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-xl transition-colors"
+          >
+            <Icons.Maximize className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
@@ -1006,6 +1172,9 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
           </div>
         </div>
 
+        </div>
+      </div>
+
         {/* Right Column: Current Bill */}
         <div
           className="bg-white border-l border-stone-100 flex flex-col shrink-0 shadow-[-4px_0_24px_rgba(0,0,0,0.02)] z-10 relative"
@@ -1019,19 +1188,19 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
             <div className={`w-1 h-12 rounded-full transition-colors ${isResizingCart ? 'bg-dhaba-orange' : 'bg-stone-300 group-hover/resizer:bg-dhaba-orange/50'}`} />
           </div>
 
-          <div className="p-5 border-b border-stone-100 bg-white shadow-sm relative z-20 flex justify-between items-center">
-            <h3 className="font-black text-xl text-stone-800 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-dhaba-orange/10 flex items-center justify-center">
-                <ShoppingBag className="w-4 h-4 text-dhaba-orange" />
+          <div className="px-4 py-3 border-b border-stone-100 bg-white shadow-sm relative z-20 flex justify-between items-center">
+            <h3 className="font-bold text-lg text-stone-800 flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-dhaba-orange/10 flex items-center justify-center">
+                <ShoppingBag className="w-3.5 h-3.5 text-dhaba-orange" />
               </div>
               Current Bill
             </h3>
-            <div className="flex items-center gap-2 pr-2">
-              <button onClick={() => setShowCartReceiptPreview(true)} disabled={cart.length === 0} title="Preview Bill" className="p-2.5 hover:bg-stone-100 rounded-xl text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
-                <Eye className="w-9 h-9" />
+            <div className="flex items-center gap-2 pr-1">
+              <button onClick={() => setShowCartReceiptPreview(true)} disabled={cart.length === 0} title="Preview Bill" className="p-1 hover:bg-stone-100 rounded-lg text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
+                <Eye className="w-7 h-7" />
               </button>
-              <button onClick={() => submitOrder(false)} disabled={cart.length === 0 || isSubmitting} title="Save Bill" className="p-2.5 hover:bg-stone-100 rounded-xl text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
-                <Save className="w-9 h-9" />
+              <button onClick={() => submitOrder(false)} disabled={cart.length === 0 || isSubmitting} title="Save Bill" className="p-1 hover:bg-stone-100 rounded-lg text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
+                <Save className="w-7 h-7" />
               </button>
             </div>
           </div>
@@ -1115,9 +1284,9 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
             <div ref={cartEndRef} />
           </div>
 
-          <div className="p-5 bg-white border-t border-stone-100 relative z-20 shadow-[0_-4px_24px_rgba(0,0,0,0.02)] space-y-4">
-            <div className="flex items-center gap-2 text-sm font-black text-stone-600 justify-center mb-2">
-              <label className="flex items-center gap-3 cursor-pointer select-none bg-stone-50 px-4 py-2 rounded-xl border border-stone-200 hover:bg-stone-100 transition-colors w-full justify-center">
+          <div className="p-3 bg-white border-t border-stone-100 relative z-20 shadow-[0_-4px_24px_rgba(0,0,0,0.02)] space-y-2">
+            <div className="flex items-center gap-2 text-sm font-black text-stone-600 justify-center mb-1">
+              <label className="flex items-center gap-3 cursor-pointer select-none bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-200 hover:bg-stone-100 transition-colors w-full justify-center">
                 <input
                   type="checkbox"
                   checked={generateGst}
@@ -1129,12 +1298,12 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
             </div>
 
             <div
-              className="bg-stone-900 rounded-2xl p-4 text-white shadow-lg relative mt-4 cursor-pointer transition-all hover:bg-stone-800"
+              className="bg-stone-900 rounded-xl p-3 text-white shadow-lg relative mt-2 cursor-pointer transition-all hover:bg-stone-800"
               onClick={() => setShowGstDetails(!showGstDetails)}
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-dhaba-orange/20 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
 
-              <div className="space-y-2 relative z-10 pointer-events-none">
+              <div className="space-y-1 relative z-10 pointer-events-none">
                 <div className="flex justify-between text-sm font-medium text-stone-400">
                   <span>Subtotal</span>
                   <span>₹{cartTotal}</span>
@@ -1151,14 +1320,14 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
                     </div>
                   </>
                 )}
-                <div className="flex justify-between items-center pt-3 mt-1 border-t border-stone-700/50">
+                <div className="flex justify-between items-center pt-2 mt-1 border-t border-stone-700/50">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-black text-stone-300 uppercase tracking-widest">Total</span>
                     {generateGst && (
                       <ChevronDown className={`w-4 h-4 text-stone-500 transition-transform ${showGstDetails ? 'rotate-180' : ''}`} />
                     )}
                   </div>
-                  <span className="text-3xl font-black text-dhaba-orange drop-shadow-sm">₹{generateGst ? cartTotal + (cartTotal * 0.05) : cartTotal}</span>
+                  <span className="text-2xl font-black text-dhaba-orange drop-shadow-sm">₹{generateGst ? cartTotal + (cartTotal * 0.05) : cartTotal}</span>
                 </div>
               </div>
             </div>
@@ -1167,30 +1336,29 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder }: { ed
               <button
                 onClick={() => submitOrder(true)}
                 disabled={cart.length === 0 || isSubmitting}
-                className="flex-[7] py-4 bg-gradient-to-r from-dhaba-orange to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:from-stone-300 disabled:to-stone-400 disabled:cursor-not-allowed text-white font-black rounded-xl transition-all shadow-md hover:shadow-xl flex items-center justify-center gap-2 text-lg transform hover:-translate-y-0.5"
+                className="flex-[7] py-2.5 px-2 bg-gradient-to-r from-dhaba-orange to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:from-stone-300 disabled:to-stone-400 disabled:cursor-not-allowed text-white font-black rounded-lg transition-all shadow-md hover:shadow-xl flex items-center justify-center gap-2 text-base transform hover:-translate-y-0.5"
+                title="Save & Print Bill"
               >
                 {isSubmitting ? (
                   <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <>
-                    <ShoppingBag className="w-5 h-5" />
-                    Save & Print Bill
+                    <Printer className="w-5 h-5 shrink-0" />
+                    <span className="hidden xl:inline">Save & Print</span>
                   </>
                 )}
               </button>
               <button
                 onClick={handlePrintKOT}
                 disabled={cart.length === 0}
-                className="flex-[3] py-4 bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200 font-black rounded-xl transition-all shadow-sm hover:shadow flex items-center justify-center gap-2 text-lg transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-[3] py-2.5 px-2 bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200 font-black rounded-lg transition-all shadow-sm hover:shadow flex items-center justify-center gap-2 text-base transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Print KOT"
               >
-                <FileText className="w-5 h-5 text-stone-600" />
-                KOT
+                <FileText className="w-5 h-5 shrink-0" />
+                <span className="hidden xl:inline">KOT</span>
               </button>
             </div>
-          </div>
         </div>
-
       </div>
     </div>
   );

@@ -295,26 +295,22 @@ app.get('/api/pos-data', async (req, res) => {
 
 app.get('/api/storefront-data', async (req, res) => {
   try {
-    const [menu, cats, feats, settings] = await Promise.all([
-      db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
-      db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id),
-      db.select().from(features).orderBy(features.displayOrder, features.id),
-      db.select().from(journeySettings).limit(1)
-    ]);
+    const menu = await db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id);
+    const cats = await db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id);
+    const feats = await db.select().from(features).orderBy(features.displayOrder, features.id);
+    const settings = await db.select().from(journeySettings).limit(1);
     res.json({ menuItems: menu, categories: cats, features: feats, journeySettings: settings[0] || { header: 'Our Journey', description: '' } });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin-data', async (req, res) => {
   try {
-    const [menu, cats, feats, deletedCats, deletedItems, settings] = await Promise.all([
-      db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
-      db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id),
-      db.select().from(features).orderBy(features.displayOrder, features.id),
-      db.select().from(categories).where(eq(categories.isDeleted, true)),
-      db.select().from(menuItems).where(eq(menuItems.isDeleted, true)),
-      db.select().from(journeySettings).limit(1)
-    ]);
+    const menu = await db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id);
+    const cats = await db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id);
+    const feats = await db.select().from(features).orderBy(features.displayOrder, features.id);
+    const deletedCats = await db.select().from(categories).where(eq(categories.isDeleted, true));
+    const deletedItems = await db.select().from(menuItems).where(eq(menuItems.isDeleted, true));
+    const settings = await db.select().from(journeySettings).limit(1);
     res.json({ menuItems: menu, categories: cats, features: feats, deletedData: { categories: deletedCats, menuItems: deletedItems }, journeySettings: settings[0] || { header: 'Our Journey', description: '' } });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });

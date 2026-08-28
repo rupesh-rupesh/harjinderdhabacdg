@@ -145,9 +145,15 @@ export default function Storefront() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [features, setFeatures] = useState<any[]>([]);
   const newsTickers = [
-    { text: 'Now open 24/7!' },
-    { text: 'Try our new special Kulcha!' },
-    { text: 'Best Dhaba on the Highway!' }
+    { text: 'SPL DAL MAKHNI' },
+    { text: 'PANEER BUTTER MASALA' },
+    { text: 'MALAI KOPTA' },
+    { text: "DON'T WASTE FOOD" },
+    { text: 'MUSHROOM' },
+    { text: 'DHABA SPL GUD TEA' },
+    { text: 'DHABA SPL DELUX THALI' },
+    { text: 'MAKKI DI ROTI SARSON DA SAAG (Seasonal)' },
+    { text: 'MILK FOR BABY -FREE' },
   ];
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);

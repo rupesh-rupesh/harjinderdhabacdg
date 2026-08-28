@@ -3,8 +3,18 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 let dbUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
-if (dbUrl && dbUrl.includes('pooler.supabase.com:6543') && !dbUrl.includes('pgbouncer=true')) {
-  dbUrl += (dbUrl.includes('?') ? '&' : '?') + 'pgbouncer=true';
+if (dbUrl && dbUrl.includes('pooler.supabase.com:6543')) {
+  // Convert Supabase pooler URL to direct connection URL for Drizzle Push
+  // From: postgresql://postgres.PROJECT_REF:PASSWORD@aws-1-ap-south-1.pooler.supabase.com:6543/postgres
+  // To: postgresql://postgres:PASSWORD@db.PROJECT_REF.supabase.co:5432/postgres
+  const match = dbUrl.match(/postgres\.([^:]+):([^@]+)@[^:]+:6543/);
+  if (match) {
+    const projectRef = match[1];
+    const password = match[2];
+    dbUrl = `postgresql://postgres:${password}@db.${projectRef}.supabase.co:5432/postgres?sslmode=require`;
+  }
+} else if (dbUrl && !dbUrl.includes('sslmode=')) {
+  dbUrl += (dbUrl.includes('?') ? '&' : '?') + 'sslmode=require';
 }
 
 const sqlHost = process.env.SQL_HOST;

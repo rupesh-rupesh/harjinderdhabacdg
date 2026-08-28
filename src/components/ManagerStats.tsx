@@ -448,7 +448,7 @@ export default function ManagerStats() {
                           <div className="flex items-center gap-4">
                             <div className="text-sm font-black text-stone-400 bg-stone-100 w-8 h-8 flex items-center justify-center rounded-lg">{item.quantity}x</div>
                             <div className="font-black text-stone-900 w-16 text-right">
-                              ₹{((Number(item.price) || 0) + (item.isButter ? (Number(item.butterPrice) || 0) : 0)) * item.quantity}
+                              ₹{(Number(item.price) || 0) * item.quantity}
                             </div>
                           </div>
                         </div>

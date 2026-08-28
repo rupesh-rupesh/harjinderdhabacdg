@@ -166,19 +166,18 @@ app.use(compression());
 
   app.get("/api/storefront-data", async (req, res) => {
     try {
-      const [menu, cats, feats, settings, tickers] = await Promise.all([
+      const [menu, cats, feats, settings] = await Promise.all([
         db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
         db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id),
         db.select().from(features).orderBy(features.displayOrder, features.id),
-        db.select().from(journeySettings).limit(1),
-        db.select().from(newsTicker).where(eq(newsTicker.isActive, true)).orderBy(newsTicker.displayOrder, newsTicker.id)
+        db.select().from(journeySettings).limit(1)
       ]);
+      
       res.json({
         menuItems: menu,
         categories: cats,
         features: feats,
-        journeySettings: settings[0] || { header: 'Our Journey', description: '' },
-        newsTickers: tickers
+        journeySettings: settings[0] || { header: 'Our Journey', description: '' }
       });
     } catch (error: any) {
       console.error(error);
@@ -188,14 +187,13 @@ app.use(compression());
 
   app.get("/api/admin-data", async (req, res) => {
     try {
-      const [menu, cats, feats, deletedCats, deletedItems, settings, tickers] = await Promise.all([
+      const [menu, cats, feats, deletedCats, deletedItems, settings] = await Promise.all([
         db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
         db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id),
         db.select().from(features).orderBy(features.displayOrder, features.id),
         db.select().from(categories).where(eq(categories.isDeleted, true)),
         db.select().from(menuItems).where(eq(menuItems.isDeleted, true)),
-        db.select().from(journeySettings).limit(1),
-        db.select().from(newsTicker).orderBy(newsTicker.displayOrder, newsTicker.id)
+        db.select().from(journeySettings).limit(1)
       ]);
       
       const deleted = { categories: deletedCats, menuItems: deletedItems };
@@ -204,8 +202,7 @@ app.use(compression());
         categories: cats,
         features: feats,
         deletedData: deleted,
-        journeySettings: settings[0] || { header: 'Our Journey', description: '' },
-        newsTickers: tickers
+        journeySettings: settings[0] || { header: 'Our Journey', description: '' }
       });
     } catch (error: any) {
       console.error(error);
@@ -1087,7 +1084,16 @@ app.get("/api/journey-media", async (req, res) => {
 
   app.post("/api/admin/pos/orders", async (req, res) => {
     try {
-      const { tableNumber, items, total } = req.body;
+      const { tableNumber, items, total, localBillId } = req.body;
+      
+      // Idempotency check: if localBillId is provided and already exists, return the existing order immediately
+      if (localBillId) {
+        const existingOrder = await db.select().from(orders).where(eq(orders.localBillId, localBillId)).limit(1);
+        if (existingOrder.length > 0) {
+          console.log(`[Idempotency] Order ${localBillId} already exists. Skipping duplicate insert.`);
+          return res.json(existingOrder[0]);
+        }
+      }
       
       let posUser = await db.select().from(users).where(eq(users.uid, 'pos_system')).limit(1);
       if (posUser.length === 0) {
@@ -1106,6 +1112,7 @@ app.get("/api/journey-media", async (req, res) => {
       ];
 
       const newOrder = await db.insert(orders).values({
+        localBillId: localBillId || null,
         userId: posUser[0].id,
         items: JSON.stringify(posItems),
         total,

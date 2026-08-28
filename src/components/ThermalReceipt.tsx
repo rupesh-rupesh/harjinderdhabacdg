@@ -56,7 +56,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({ order, includeGs
   // Filter out table markers if any
   const billItems = items.filter((i: any) => !i.isTableMarker);
 
-  const subTotal = billItems.reduce((acc: number, item: any) => acc + ((Number(item.price) || 0) + (item.isButter ? (Number(item.butterPrice) || 0) : 0)) * item.quantity, 0);
+  const subTotal = billItems.reduce((acc: number, item: any) => acc + (Number(item.price) || 0) * item.quantity, 0);
 
   const cgst = includeGst ? parseFloat((subTotal * 0.025).toFixed(2)) : 0;
   const sgst = includeGst ? parseFloat((subTotal * 0.025).toFixed(2)) : 0;
@@ -145,7 +145,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({ order, includeGs
       {/* Item Table Body */}
       <div className="mb-2">
         {billItems.map((item: any, i: number) => {
-          const itemPrice = (Number(item.price) || 0) + (item.isButter ? (Number(item.butterPrice) || 0) : 0);
+          const itemPrice = (Number(item.price) || 0);
           const itemAmount = itemPrice * item.quantity;
           let itemName = item.name;
           if (item.isHalf) itemName += ' (Half)';
