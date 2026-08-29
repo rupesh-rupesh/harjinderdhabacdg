@@ -987,6 +987,16 @@ export default function Storefront() {
                   </div>
                 )}
               </div>
+              
+              <div className="mt-12 text-center border-t border-white/10 pt-6">
+                <p className="text-stone-400 text-xs md:text-sm tracking-wide flex items-center justify-center gap-2 flex-wrap">
+                  <span>Every dish takes 15-20 minutes to serve</span>
+                  <span className="hidden sm:inline">|</span>
+                  <span>GST Extra</span>
+                  <span className="hidden sm:inline">|</span>
+                  <span>Please don't waste the food</span>
+                </p>
+              </div>
             </div>
           </section>
 
@@ -1198,6 +1208,16 @@ export default function Storefront() {
               </div>
             </div>
 
+            <div className="border-t border-stone-800 py-4 text-center px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+              <p className="text-stone-500 text-xs md:text-sm tracking-wide flex items-center justify-center gap-2 flex-wrap">
+                <span>Every dish takes 15-20 minutes to serve</span>
+                <span className="hidden sm:inline">|</span>
+                <span>GST Extra</span>
+                <span className="hidden sm:inline">|</span>
+                <span>Please don't waste the food</span>
+              </p>
+            </div>
+            
             <div className="border-t border-stone-800 py-6 flex flex-col md:flex-row justify-between items-center text-sm max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <p className="mb-4 md:mb-0 text-stone-400">&copy; {new Date().getFullYear()} Harjinder Tourist Dhaba. All rights reserved.</p>
               <a href="https://rupeshkumar.online" target="_blank" rel="noopener noreferrer" className="relative flex items-center gap-2 bg-black/50 hover:bg-black/80 px-4 py-1.5 rounded-full border border-green-500/30 hover:border-green-400 transition-all duration-500 group overflow-hidden shadow-[0_0_10px_rgba(34,197,94,0.1)] hover:shadow-[0_0_20px_rgba(34,197,94,0.4)] scale-90 md:scale-100 origin-right">

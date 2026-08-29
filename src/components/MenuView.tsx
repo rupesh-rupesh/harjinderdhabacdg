@@ -402,6 +402,16 @@ export default function MenuView({
               );
             })}
           </div>
+          
+          <div className="mt-12 text-center border-t border-stone-200 pt-6">
+            <p className="text-stone-500 text-xs md:text-sm tracking-wide flex items-center justify-center gap-2 flex-wrap">
+              <span>Every dish takes 15-20 minutes to serve</span>
+              <span className="hidden sm:inline">|</span>
+              <span>GST Extra</span>
+              <span className="hidden sm:inline">|</span>
+              <span>Please don't waste the food</span>
+            </p>
+          </div>
         </div>
       </div>
       

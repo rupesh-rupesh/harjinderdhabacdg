@@ -404,7 +404,7 @@ class PrinterService {
     } catch(e) {}
 
     const realItems = items.filter((i: any) => !i.isTableMarker);
-    subTotal = realItems.reduce((acc: number, item: any) => acc + ((Number(item.price) || 0) + (item.isButter ? Number(item.butterPrice) || 0 : 0)) * (item.quantity || 1), 0);
+    subTotal = realItems.reduce((acc: number, item: any) => acc + (Number(item.price) || 0) * (item.quantity || 1), 0);
     cgst = includeGst ? parseFloat((subTotal * 0.025).toFixed(2)) : 0;
     sgst = includeGst ? parseFloat((subTotal * 0.025).toFixed(2)) : 0;
     grandTotal = subTotal + cgst + sgst;
@@ -452,7 +452,7 @@ class PrinterService {
          if (item.variantName) itemName += ` (${item.variantName})`;
 
          if (isCustomerCopy) {
-            const itemPrice = (Number(item.price) || 0) + (item.isButter ? Number(item.butterPrice) || 0 : 0);
+            const itemPrice = (Number(item.price) || 0);
             const itemAmount = itemPrice * (item.quantity || 1);
             generator.print4Columns(itemName, (item.quantity || 1).toString(), itemPrice.toFixed(2), itemAmount.toFixed(2));
          } else {

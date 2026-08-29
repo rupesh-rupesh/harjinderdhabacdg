@@ -645,32 +645,66 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
         )}
 
         {checkoutTable && (
-          <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md relative z-10 flex flex-col">
-              <div className="p-6 border-b border-stone-100">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-2xl font-bold text-stone-900">
-                      Table {checkoutTable.num} Checkout
-                    </h3>
-                    <div className="text-sm text-stone-500 font-medium mt-1">Order #{checkoutTable.order.id}</div>
+          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md relative z-10 flex flex-col border border-stone-100 overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200">
+              <div className="bg-gradient-to-br from-[#2b1f15] to-[#1a120b] p-6 relative overflow-hidden">
+                {/* Decorative background element */}
+                <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-[#e8ba7d]/20 to-transparent rounded-full blur-3xl pointer-events-none translate-x-1/3 -translate-y-1/3"></div>
+                <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-dhaba-orange/20 to-transparent rounded-full blur-2xl pointer-events-none -translate-x-1/2 translate-y-1/2"></div>
+                
+                <div className="flex justify-between items-start relative z-10">
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-white/5 backdrop-blur-md flex items-center justify-center text-[#e8ba7d] border border-white/10 shadow-xl">
+                        <Table className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-[0.2em] text-[#e8ba7d] font-bold mb-1 opacity-80">Active Session</div>
+                        <h3 className="text-3xl font-black text-white tracking-tight flex items-center gap-2 font-serif drop-shadow-md">
+                          Table {checkoutTable.num}
+                        </h3>
+                      </div>
+                    </div>
+                    <div className="text-sm text-stone-300 font-medium mt-5 flex items-center gap-2.5 bg-white/5 w-fit px-3.5 py-1.5 rounded-full border border-white/10 shadow-inner backdrop-blur-sm">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span>
+                      </span>
+                      <span className="font-mono tracking-wider">Order #{checkoutTable.order.id}</span>
+                    </div>
                   </div>
-                  <button onClick={() => setCheckoutTable(null)} className="p-2 hover:bg-stone-100 rounded-full transition-colors text-stone-500">
-                    <X className="w-5 h-5" />
+                  <button onClick={() => setCheckoutTable(null)} className="p-2.5 bg-white/5 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 rounded-full transition-all duration-300 text-stone-300 backdrop-blur-md border border-white/10 group shadow-lg">
+                    <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
                   </button>
                 </div>
-                <div className="bg-stone-50 p-4 rounded-xl text-center mb-6 border border-stone-100">
-                  <div className="text-sm text-stone-500 font-bold uppercase tracking-wider">Total Amount</div>
-                  <div className="text-4xl font-bold text-dhaba-dark mt-1">₹{checkoutTable.order.total}</div>
+              </div>
+              
+              <div className="p-6">
+                <div className="bg-gradient-to-br from-[#FFFDF5] to-[#FDF8E7] p-6 rounded-2xl text-center mb-6 border border-[#F2E5C5] shadow-sm relative overflow-hidden group">
+                  <div className="absolute -right-4 -top-4 text-[#D4AF37] opacity-10 group-hover:scale-110 transition-transform duration-500">
+                    <CreditCard className="w-32 h-32" />
+                  </div>
+                  <div className="text-xs text-[#5C4D40] font-bold uppercase tracking-[0.2em] mb-1">Total Amount Due</div>
+                  <div className="text-5xl font-black text-[#3B291A] tracking-tighter">₹{checkoutTable.order.total}</div>
                 </div>
 
-                <div className="space-y-3">
-                  <button
-                    onClick={() => setShowReceiptPreview(true)}
-                    className="w-full py-3 bg-white border border-stone-200 text-stone-700 font-bold rounded-xl hover:bg-stone-50 transition-colors flex items-center justify-center shadow-sm"
-                  >
-                    <Eye className="w-5 h-5 mr-2" /> View Bill Preview
-                  </button>
+                <div className="space-y-4 relative z-10">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setShowReceiptPreview(true)}
+                      className="py-3 px-2 bg-white border border-stone-200 text-stone-700 font-bold rounded-xl hover:bg-stone-50 hover:border-stone-300 transition-colors flex flex-col items-center justify-center shadow-sm gap-1.5"
+                    >
+                      <Eye className="w-5 h-5" /> 
+                      <span className="text-xs uppercase tracking-wider">Preview Bill</span>
+                    </button>
+                    <button
+                      onClick={handlePrint}
+                      className="py-3 px-2 bg-gradient-to-br from-dhaba-dark to-black text-[var(--color-gold)] border border-black font-bold rounded-xl hover:brightness-110 transition-all flex flex-col items-center justify-center shadow-md gap-1.5"
+                    >
+                      <Printer className="w-5 h-5" /> 
+                      <span className="text-xs uppercase tracking-wider">Print Bill</span>
+                    </button>
+                  </div>
                   <div className="flex gap-2 flex-wrap mb-4">
                     <button
                       onClick={() => {
@@ -848,6 +882,36 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                     </span>
                   )}
                 </div>
+
+                {isActive && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmDialog({
+                        isOpen: true,
+                        title: 'Clear Bill',
+                        message: `Are you sure you want to clear the bill for Table ${num}?`,
+                        onConfirm: () => {
+                          fetch(`/api/admin/orders/${tableOrder.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: 'cancelled' })
+                          }).then(async () => {
+                            if (tableOrder.localBillId) {
+                              await offlineDbService.updateBillStatus(tableOrder.localBillId, 'cancelled');
+                            }
+                            fetchOrders();
+                            toast.success(`Bill for Table ${num} cleared.`);
+                          });
+                        }
+                      });
+                    }}
+                    className="absolute top-2 right-2 p-1.5 bg-red-100/90 hover:bg-red-500 text-red-600 hover:text-white rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 shadow-sm z-20 backdrop-blur-sm"
+                    title="Clear Bill"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </button>
             );
           })}
