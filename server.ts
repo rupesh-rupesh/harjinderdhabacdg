@@ -154,9 +154,14 @@ app.use(compression());
         db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
         db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id)
       ]);
+      
+      const visibleCats = cats.filter(c => !c.isHidden);
+      const visibleCatNames = visibleCats.map(c => c.name);
+      const visibleMenu = menu.filter(m => visibleCatNames.includes(m.category));
+
       res.json({
-        menuItems: menu,
-        categories: cats
+        menuItems: visibleMenu,
+        categories: visibleCats
       });
     } catch (error: any) {
       console.error(error);
@@ -173,9 +178,13 @@ app.use(compression());
         db.select().from(journeySettings).limit(1)
       ]);
       
+      const visibleCats = cats.filter(c => !c.isHidden);
+      const visibleCatNames = visibleCats.map(c => c.name);
+      const visibleMenu = menu.filter(m => visibleCatNames.includes(m.category));
+
       res.json({
-        menuItems: menu,
-        categories: cats,
+        menuItems: visibleMenu,
+        categories: visibleCats,
         features: feats,
         journeySettings: settings[0] || { header: 'Our Journey', description: '' }
       });

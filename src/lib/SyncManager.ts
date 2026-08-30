@@ -80,10 +80,25 @@ class SyncManager extends EventTarget {
               throw new Error(`Server returned ${res.status}`);
             }
           } else if (item.operation === 'UPDATE_BILL') {
-            const res = await fetch(`/api/admin/orders/${item.payload.id}`, {
+            let targetId = item.payload.id;
+            
+            // Resolve local ID to server ID if needed
+            const bills = await offlineDbService.getBills();
+            const localBill = bills.find(b => b.localBillId === targetId || String((b as any).id) === String(targetId) || String(b.serverBillId) === String(targetId));
+            
+            if (localBill && localBill.serverBillId) {
+              targetId = localBill.serverBillId;
+            } else if (String(targetId).length > 15 && (!localBill || !localBill.serverBillId)) {
+               // If it's a UUID and we don't have a serverBillId, wait for CREATE_BILL
+               throw new Error('Waiting for CREATE_BILL to sync first');
+            }
+
+            const { id, ...updatePayload } = item.payload;
+            
+            const res = await fetch(`/api/admin/orders/${targetId}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: item.payload.status })
+              body: JSON.stringify(updatePayload)
             });
             
             if (res.ok) {
@@ -92,7 +107,18 @@ class SyncManager extends EventTarget {
               throw new Error(`Server returned ${res.status}`);
             }
           } else if (item.operation === 'DELETE_BILL') {
-            const res = await fetch(`/api/admin/orders/${item.payload.id}`, {
+            let targetId = item.payload.id;
+            
+            const bills = await offlineDbService.getBills();
+            const localBill = bills.find(b => b.localBillId === targetId || String((b as any).id) === String(targetId) || String(b.serverBillId) === String(targetId));
+            
+            if (localBill && localBill.serverBillId) {
+              targetId = localBill.serverBillId;
+            } else if (String(targetId).length > 15 && (!localBill || !localBill.serverBillId)) {
+               throw new Error('Waiting for CREATE_BILL to sync first');
+            }
+
+            const res = await fetch(`/api/admin/orders/${targetId}`, {
               method: 'DELETE'
             });
             
@@ -114,8 +140,8 @@ class SyncManager extends EventTarget {
     }
   }
 
-  triggerSync() {
-    this.processQueue();
+  async triggerSync() {
+    await this.processQueue();
   }
 }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { LayoutGrid, Package, Utensils, Grid, Search, Plus, Minus, Trash2, CheckCircle2, AlertCircle, ShoppingBag, ArrowLeft, ArrowRight, Table, X, CreditCard, Printer, FileText, Eye, UserCircle, Lock, Save, ChevronDown, Edit2, Wifi, WifiOff } from 'lucide-react';
+import { LayoutGrid, Package, Utensils, Grid, Search, Plus, Minus, Trash2, CheckCircle2, AlertCircle, ShoppingBag, ArrowLeft, ArrowRight, Table, X, CreditCard, Printer, FileText, Eye, UserCircle, Lock, Unlock, Save, ChevronDown, Edit2, Wifi, WifiOff } from 'lucide-react';
 import { ThermalReceipt } from './ThermalReceipt';
 import { managerPrinterService as printerService } from '../lib/printer/PrinterService';
 import * as Icons from 'lucide-react';
@@ -58,6 +58,56 @@ const TablePeopleIcon = ({ className }: { className?: string }) => (
 )
 
 export default function ManagerBilling({ editingOrder, clearEditingOrder, managerName = "Manager" }: { editingOrder?: any, clearEditingOrder?: () => void, managerName?: string }) {
+  const [isLocked, setIsLocked] = useState(false);
+
+  const toggleLock = () => {
+    if (!isLocked) {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+      setIsLocked(true);
+      toast.success("Screen locked! Refresh and exit are prevented.");
+    } else {
+      setIsLocked(false);
+      toast.success("Screen unlocked.");
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isLocked) {
+        if (e.key === 'F5' || (e.ctrlKey && e.key === 'r') || (e.metaKey && e.key === 'r')) {
+          e.preventDefault();
+          toast.error("Refresh is disabled while screen is locked.");
+        }
+      }
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isLocked) {
+        e.preventDefault();
+        e.returnValue = 'Screen is locked. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+
+    const handleFullscreenChange = () => {
+      if (isLocked && !document.fullscreenElement) {
+        toast.error("Screen is locked. Please unlock to exit full screen.");
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [isLocked]);
+
   const [isOnline, setIsOnline] = useState(syncManager.isOnline());
   useEffect(() => {
     // Initial check
@@ -464,37 +514,43 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
       ];
 
       if (editingOrderId) {
-        // Editing existing order -> use network (for now)
-        const endpoint = `/api/admin/orders/${editingOrderId}`;
-        const res = await fetch(endpoint, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ total: finalTotal, items: JSON.stringify(posItems) })
-        });
+        // Offline-first edit workflow
+        const payload = { id: editingOrderId, total: finalTotal, items: JSON.stringify(posItems) };
         
-        if (res.ok) {
-          toast.success(`Order updated for Table ${tableSelection}`);
-          if (shouldPrint) {
-            try {
-              const printOrder = { id: editingOrderId, items: JSON.stringify(posItems), tableNumber: tableSelection, createdAt: new Date().toISOString() };
-              if (printerService.getConfig().type !== 'browser') {
-                await printerService.printReceipt(printOrder, false, true, generateGst);
-              } else {
-                 draftOrder.id = String(printOrder.id);
-                 if (cartReceiptRef.current) window.print();
-              }
-            } catch (printErr: any) {
-              toast.error(printErr.message || "Failed to print bill");
-            }
-          }
-          localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
-          setCart([]);
-          setEditingOrderId(null);
-          setTableSelection(null);
-          fetchOrders();
-        } else {
-          toast.error("Failed to update order");
+        // Update local DB if it exists
+        const localBills = await offlineDbService.getBills();
+        const targetId = String(editingOrderId);
+        const localBill = localBills.find(b => String(b.serverBillId) === targetId || String(b.localBillId) === targetId || String((b as any).id) === targetId);
+        
+        if (localBill) {
+          localBill.items = posItems;
+          localBill.total = finalTotal;
+          await offlineDbService.saveBill(localBill);
         }
+        
+        await offlineDbService.enqueueSync('UPDATE_BILL', payload);
+        toast.success(`Order updated for Table ${tableSelection}`);
+        
+        if (shouldPrint) {
+          try {
+            const printOrder = { id: editingOrderId, items: JSON.stringify(posItems), tableNumber: tableSelection, createdAt: new Date().toISOString() };
+            if (printerService.getConfig().type !== 'browser') {
+              await printerService.printReceipt(printOrder, false, true, generateGst);
+            } else {
+               draftOrder.id = String(printOrder.id);
+               if (cartReceiptRef.current) window.print();
+            }
+          } catch (printErr: any) {
+            toast.error(printErr.message || "Failed to print bill");
+          }
+        }
+        
+        syncManager.triggerSync();
+        localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
+        setCart([]);
+        setEditingOrderId(null);
+        setTableSelection(null);
+        fetchOrders();
       } else {
         // New order -> Offline-first workflow
         const localBillId = uuidv4();
@@ -741,20 +797,20 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                           isOpen: true,
                           title: 'Cancel Order',
                           message: 'Are you sure you want to cancel this order?',
-                          onConfirm: () => {
-                            fetch(`/api/admin/orders/${checkoutTable.order.id}`, {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ status: 'cancelled' })
-                            }).then(async () => {
-                              if (checkoutTable.order.localBillId) {
-                                await offlineDbService.updateBillStatus(checkoutTable.order.localBillId, 'cancelled');
-                              }
-                              fetchOrders();
-                              setTableSelection(checkoutTable.num);
-                              setCheckoutTable(null);
-                              toast.success(`Order for Table ${checkoutTable.num} cancelled.`);
-                            });
+                          onConfirm: async () => {
+                            await offlineDbService.enqueueSync('UPDATE_BILL', { id: checkoutTable.order.id, status: 'cancelled' });
+                            const localBills = await offlineDbService.getBills();
+                            const targetId = String(checkoutTable.order.id);
+                            const targetLocalId = checkoutTable.order.localBillId ? String(checkoutTable.order.localBillId) : null;
+                            const localBill = localBills.find(b => String(b.serverBillId) === targetId || String(b.localBillId) === targetId || String((b as any).id) === targetId || (targetLocalId && String(b.localBillId) === targetLocalId));
+                            if (localBill) {
+                              await offlineDbService.updateBillStatus(localBill.localBillId, 'cancelled');
+                            }
+                            syncManager.triggerSync();
+                            fetchOrders();
+                            setTableSelection(checkoutTable.num);
+                            setCheckoutTable(null);
+                            toast.success(`Order for Table ${checkoutTable.num} cancelled.`);
                           }
                         });
                       }}
@@ -768,20 +824,20 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                           isOpen: true,
                           title: 'Mark as Paid',
                           message: 'Are you sure you want to mark this bill as paid?',
-                          onConfirm: () => {
-                            fetch(`/api/admin/orders/${checkoutTable.order.id}`, {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ status: 'completed' })
-                            }).then(async () => {
-                              if (checkoutTable.order.localBillId) {
-                                await offlineDbService.updateBillStatus(checkoutTable.order.localBillId, 'completed');
-                              }
-                              fetchOrders();
-                              setTableSelection(checkoutTable.num);
-                              setCheckoutTable(null);
-                              toast.success(`Bill for Table ${checkoutTable.num} marked as paid.`);
-                            });
+                          onConfirm: async () => {
+                            await offlineDbService.enqueueSync('UPDATE_BILL', { id: checkoutTable.order.id, status: 'completed' });
+                            const localBills = await offlineDbService.getBills();
+                            const targetId = String(checkoutTable.order.id);
+                            const targetLocalId = checkoutTable.order.localBillId ? String(checkoutTable.order.localBillId) : null;
+                            const localBill = localBills.find(b => String(b.serverBillId) === targetId || String(b.localBillId) === targetId || String((b as any).id) === targetId || (targetLocalId && String(b.localBillId) === targetLocalId));
+                            if (localBill) {
+                              await offlineDbService.updateBillStatus(localBill.localBillId, 'completed');
+                            }
+                            syncManager.triggerSync();
+                            fetchOrders();
+                            setTableSelection(checkoutTable.num);
+                            setCheckoutTable(null);
+                            toast.success(`Bill for Table ${checkoutTable.num} marked as paid.`);
                           }
                         });
                       }}
@@ -795,7 +851,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
             </div>
           </div>
         )}
-        <div className="bg-gradient-to-br from-[#FFFDF5] to-[#FDF8E7] p-8 sm:p-10 rounded-3xl shadow-sm border border-[#F2E5C5] text-center overflow-hidden mb-6">
+        <div className="relative bg-gradient-to-br from-[#FFFDF5] to-[#FDF8E7] p-6 sm:p-8 rounded-3xl shadow-sm border border-[#F2E5C5] overflow-hidden mb-8 flex flex-col xl:flex-row items-center justify-between gap-6 max-w-7xl mx-auto">
           {/* Subtle background lines */}
           <svg className="absolute inset-0 w-full h-full opacity-40 pointer-events-none" viewBox="0 0 800 300" preserveAspectRatio="xMidYMid slice" fill="none">
             <path d="M-100 350C150 150 300 250 500 -50" stroke="#E3C77D" strokeWidth="1" strokeOpacity="0.4" />
@@ -804,32 +860,77 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
             <path d="M300 450C550 200 700 300 1000 0" stroke="#E3C77D" strokeWidth="1" strokeOpacity="0.2" />
           </svg>
 
-          <div className="relative z-10 flex flex-col items-center justify-center">
+          <div className="relative z-10 flex flex-col items-center xl:items-start text-center xl:text-left">
             {/* Top Ornament */}
-            <div className="flex items-center justify-center gap-1.5 mb-4 text-[#D4AF37]">
-              <div className="w-12 h-[1px] bg-gradient-to-r from-transparent to-[#D4AF37]"></div>
-              <svg width="32" height="16" viewBox="0 0 32 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <div className="flex items-center justify-center xl:justify-start gap-1.5 mb-2 text-[#D4AF37]">
+              <div className="w-8 h-[1px] bg-gradient-to-r from-transparent to-[#D4AF37] xl:hidden"></div>
+              <svg width="24" height="12" viewBox="0 0 32 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M16 0C16 6.5 10 12 0 12C10 12 16 16 16 16C16 16 22 12 32 12C22 12 16 6.5 16 0Z" fill="currentColor" />
                 <path d="M16 3C16 7 13 10 7 10C13 10 16 13 16 13C16 13 19 10 25 10C19 10 16 7 16 3Z" fill="currentColor" opacity="0.6" />
               </svg>
-              <div className="w-12 h-[1px] bg-gradient-to-l from-transparent to-[#D4AF37]"></div>
+              <div className="w-8 h-[1px] bg-gradient-to-l from-transparent to-[#D4AF37] xl:hidden"></div>
             </div>
 
-            <h2 className="text-4xl md:text-5xl font-serif font-bold text-[#3B291A] mb-3 tracking-tight">Select a Table</h2>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold text-[#3B291A] mb-2 tracking-tight">Select a Table</h2>
+            <p className="text-[#5C4D40] text-sm sm:text-lg">Choose a table to start taking an order.</p>
+          </div>
 
-            {/* Bottom line */}
-            <div className="flex items-center justify-center gap-2 mb-4 mt-2">
-              <div className="w-16 h-[1px] bg-[#D4AF37] opacity-50"></div>
-              <div className="w-2 h-2 rotate-45 bg-[#D4AF37] opacity-80"></div>
-              <div className="w-16 h-[1px] bg-[#D4AF37] opacity-50"></div>
-            </div>
-
-            <p className="text-[#5C4D40] text-lg">Choose a table to start taking an order.</p>
+          <div className="relative z-10 flex flex-wrap justify-center gap-2 sm:gap-3 bg-white/40 p-2 sm:p-3 rounded-2xl backdrop-blur-sm border border-[#E3C77D]/20 shadow-inner">
+            <button
+              onClick={() => {
+                fetchOrders();
+                toast.success("Orders refreshed");
+              }}
+              title="Refresh Orders"
+              className="px-3 sm:px-4 py-2 sm:py-2.5 bg-white hover:bg-stone-50 border border-[#E3C77D]/40 rounded-xl shadow-sm text-[#5C4D40] transition-all flex items-center justify-center gap-2 font-semibold text-xs sm:text-sm"
+            >
+              <Icons.RefreshCw className="w-4 h-4" />
+              <span className="hidden sm:block">Refresh</span>
+            </button>
+            <button
+              onClick={async () => {
+                const loadingToast = toast.loading("Syncing...");
+                await syncManager.triggerSync();
+                toast.dismiss(loadingToast);
+                toast.success("Sync done");
+              }}
+              title="Sync Data"
+              className="px-3 sm:px-4 py-2 sm:py-2.5 bg-white hover:bg-stone-50 border border-[#E3C77D]/40 rounded-xl shadow-sm text-[#5C4D40] transition-all flex items-center justify-center gap-2 font-semibold text-xs sm:text-sm"
+            >
+              <Icons.RefreshCcw className="w-4 h-4" />
+              <span className="hidden sm:block">Sync</span>
+            </button>
+            <button
+              onClick={() => {
+                if (!document.fullscreenElement) {
+                  document.documentElement.requestFullscreen().catch(() => {});
+                } else {
+                  document.exitFullscreen().catch(() => {});
+                }
+              }}
+              title="Toggle Fullscreen"
+              className="px-3 sm:px-4 py-2 sm:py-2.5 bg-white hover:bg-stone-50 border border-[#E3C77D]/40 rounded-xl shadow-sm text-[#5C4D40] transition-all flex items-center justify-center gap-2 font-semibold text-xs sm:text-sm"
+            >
+              <Icons.Maximize className="w-4 h-4" />
+              <span className="hidden sm:block">Fullscreen</span>
+            </button>
+            <button
+              onClick={toggleLock}
+              title={isLocked ? "Unlock Screen" : "Lock Screen"}
+              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 font-semibold text-xs sm:text-sm border ${
+                isLocked
+                  ? 'bg-dhaba-orange/10 hover:bg-dhaba-orange/20 border-dhaba-orange text-dhaba-orange'
+                  : 'bg-white hover:bg-stone-50 border-[#E3C77D]/40 text-[#5C4D40]'
+              }`}
+            >
+              {isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+              <span className="hidden sm:block">{isLocked ? 'Locked' : 'Lock'}</span>
+            </button>
           </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
-          {Array.from({ length: 20 }, (_, i) => i + 1).map(num => {
+          {Array.from({ length: 30 }, (_, i) => i + 1).map(num => {
             const tableOrder = activeOrders.find(o => {
               try {
                 const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
@@ -891,18 +992,18 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                         isOpen: true,
                         title: 'Clear Bill',
                         message: `Are you sure you want to clear the bill for Table ${num}?`,
-                        onConfirm: () => {
-                          fetch(`/api/admin/orders/${tableOrder.id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ status: 'cancelled' })
-                          }).then(async () => {
-                            if (tableOrder.localBillId) {
-                              await offlineDbService.updateBillStatus(tableOrder.localBillId, 'cancelled');
-                            }
-                            fetchOrders();
-                            toast.success(`Bill for Table ${num} cleared.`);
-                          });
+                        onConfirm: async () => {
+                          await offlineDbService.enqueueSync('UPDATE_BILL', { id: tableOrder.id, status: 'cancelled' });
+                          const localBills = await offlineDbService.getBills();
+                          const targetId = String(tableOrder.id);
+                          const targetLocalId = tableOrder.localBillId ? String(tableOrder.localBillId) : null;
+                          const localBill = localBills.find(b => String(b.serverBillId) === targetId || String(b.localBillId) === targetId || String((b as any).id) === targetId || (targetLocalId && String(b.localBillId) === targetLocalId));
+                          if (localBill) {
+                            await offlineDbService.updateBillStatus(localBill.localBillId, 'cancelled');
+                          }
+                          syncManager.triggerSync();
+                          fetchOrders();
+                          toast.success(`Bill for Table ${num} cleared.`);
                         }
                       });
                     }}
@@ -1180,24 +1281,22 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                   isOpen: true,
                   title: 'Clear Bill',
                   message: editingOrderId ? 'Are you sure you want to clear this bill? This will cancel the active order for this table.' : 'Are you sure you want to clear the entire bill?',
-                  onConfirm: () => {
+                  onConfirm: async () => {
                     if (editingOrderId) {
-                      fetch(`/api/admin/orders/${editingOrderId}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status: 'cancelled' })
-                      }).then(async () => {
-                        const existingLocal = activeOrders.find(o => o.id === editingOrderId);
-                        if (existingLocal && existingLocal.localBillId) {
-                          await offlineDbService.updateBillStatus(existingLocal.localBillId, 'cancelled');
-                        }
-                        fetchOrders();
-                        setCart([]);
-                        setEditingOrderId(null);
-                        setTableSelection(null);
-                        localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
-                        toast.success(`Bill cleared and order cancelled.`);
-                      });
+                      await offlineDbService.enqueueSync('UPDATE_BILL', { id: editingOrderId, status: 'cancelled' });
+                      const localBills = await offlineDbService.getBills();
+                      const targetId = String(editingOrderId);
+                      const localBill = localBills.find(b => String(b.serverBillId) === targetId || String(b.localBillId) === targetId || String((b as any).id) === targetId);
+                      if (localBill) {
+                        await offlineDbService.updateBillStatus(localBill.localBillId, 'cancelled');
+                      }
+                      syncManager.triggerSync();
+                      fetchOrders();
+                      setCart([]);
+                      setEditingOrderId(null);
+                      setTableSelection(null);
+                      localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
+                      toast.success(`Bill cleared and order cancelled.`);
                     } else {
                       setCart([]);
                     }
@@ -1213,6 +1312,10 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
           </button>
           <button
             onClick={() => {
+              if (isLocked) {
+                toast.error("Please unlock the screen first.");
+                return;
+              }
               if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(() => {});
               } else {
@@ -1338,11 +1441,14 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
               Current Bill
             </h3>
             <div className="flex items-center gap-2 pr-1">
-              <button onClick={() => setShowCartReceiptPreview(true)} disabled={cart.length === 0} title="Preview Bill" className="p-1 hover:bg-stone-100 rounded-lg text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
-                <Eye className="w-7 h-7" />
+              <button onClick={toggleLock} title={isLocked ? "Unlock Screen" : "Lock Screen"} className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${isLocked ? 'text-dhaba-orange bg-dhaba-orange/10' : 'text-stone-500 hover:text-stone-700 hover:bg-stone-100'}`}>
+                {isLocked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
               </button>
-              <button onClick={() => submitOrder(false)} disabled={cart.length === 0 || isSubmitting} title="Save Bill" className="p-1 hover:bg-stone-100 rounded-lg text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
-                <Save className="w-7 h-7" />
+              <button onClick={() => setShowCartReceiptPreview(true)} disabled={cart.length === 0} title="Preview Bill" className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
+                <Eye className="w-5 h-5" />
+              </button>
+              <button onClick={() => submitOrder(false)} disabled={cart.length === 0 || isSubmitting} title="Save Bill" className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
+                <Save className="w-5 h-5" />
               </button>
             </div>
           </div>

@@ -11,6 +11,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchType, setSearchType] = useState<'all' | 'table' | 'amount' | 'orderNo'>('all');
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'cancelled'>('active');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'yesterday' | 'custom'>('all');
   const [customDate, setCustomDate] = useState('');
@@ -206,6 +207,29 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
   };
 
 
+  const handleDeleteAllCancelled = async () => {
+    if (!window.confirm("Are you sure you want to permanently delete all cancelled orders? This action cannot be undone.")) return;
+    
+    const cancelledOrders = orders.filter(o => o.status === 'cancelled');
+    for (const order of cancelledOrders) {
+      const isServerId = typeof order.id === 'number' || (typeof order.id === 'string' && !order.id.includes('-'));
+      
+      if (navigator.onLine && isServerId) {
+        await fetch(`/api/admin/orders/${order.id}`, { method: 'DELETE' }).catch(() => {});
+      } else {
+        const serverId = order.serverBillId || (isServerId ? order.id : null);
+        if (serverId) {
+          await offlineDbService.enqueueSync('DELETE_BILL', { id: serverId });
+        }
+      }
+      if (order.localBillId) {
+        await offlineDbService.deleteLocalBill(order.localBillId);
+      }
+    }
+    toast.success("All cancelled orders deleted");
+    fetchOrders();
+  };
+
   const handleUpdateItemQty = async (index, change) => {
     if (!selectedOrder) return;
     try {
@@ -313,7 +337,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
   const cancelledCount = React.useMemo(() => orders.filter(o => o.status === 'cancelled').length, [orders]);
 
   const filteredOrders = React.useMemo(() => {
-    return orders.filter(order => {
+    let result = orders.filter(order => {
       let matchesTab = false;
       if (activeTab === 'active') {
         matchesTab = ['pending', 'processing'].includes(order.status) || order.status === 'pending';
@@ -341,13 +365,68 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
         matchesTab = order.status === 'cancelled';
       }
 
-      const itemsText = typeof order.items === 'string' ? order.items.toLowerCase() : JSON.stringify(order.items).toLowerCase();
-      const matchesSearch = itemsText.includes(searchQuery.toLowerCase()) || 
-                            order.id.toString().includes(searchQuery);
+      if (!matchesTab) return false;
 
-      return matchesTab && matchesSearch;
+      const itemsText = typeof order.items === 'string' ? order.items.toLowerCase() : JSON.stringify(order.items).toLowerCase();
+      const sq = searchQuery.toLowerCase().trim();
+      let matchesSearch = true;
+      if (sq) {
+        const orderAmountFloor = order.total ? Math.floor(order.total).toString() : '';
+        
+        if (searchType === 'all') {
+          matchesSearch = itemsText.includes(sq) || 
+                          order.id.toString().includes(sq) ||
+                          (order.tableNumber && order.tableNumber.toLowerCase().includes(sq)) ||
+                          orderAmountFloor.includes(sq);
+        } else if (searchType === 'table') {
+          matchesSearch = order.tableNumber && order.tableNumber.toLowerCase().includes(sq);
+        } else if (searchType === 'amount') {
+          matchesSearch = orderAmountFloor.includes(sq);
+        } else if (searchType === 'orderNo') {
+          matchesSearch = order.id.toString().includes(sq);
+        }
+      }
+
+      return matchesSearch;
     });
-  }, [orders, activeTab, searchQuery, dateFilter, customDate]);
+
+    const sq = searchQuery.toLowerCase().trim();
+    if (sq) {
+      result = result.sort((a, b) => {
+        let aScore = 0;
+        let bScore = 0;
+        
+        const aAmountFloor = a.total ? Math.floor(a.total).toString() : '';
+        const bAmountFloor = b.total ? Math.floor(b.total).toString() : '';
+
+        // exact table match
+        if (searchType === 'all' || searchType === 'table') {
+           if (a.tableNumber && a.tableNumber.toLowerCase() === sq) aScore += 100;
+           if (b.tableNumber && b.tableNumber.toLowerCase() === sq) bScore += 100;
+        }
+        
+        // exact order no match
+        if (searchType === 'all' || searchType === 'orderNo') {
+           if (a.id.toString() === sq) aScore += 100;
+           if (b.id.toString() === sq) bScore += 100;
+        }
+
+        // exact amount match
+        if (searchType === 'all' || searchType === 'amount') {
+           if (aAmountFloor === sq) aScore += 100;
+           if (bAmountFloor === sq) bScore += 100;
+        }
+
+        if (aScore !== bScore) {
+          return bScore - aScore;
+        } else {
+          return Number(a.id) - Number(b.id);
+        }
+      });
+    }
+
+    return result;
+  }, [orders, activeTab, searchQuery, searchType, dateFilter, customDate]);
 
   return (
     <>
@@ -428,16 +507,56 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
                    </button>
                 ))}
              </div>
-             {dateFilter === 'custom' && (
-               <div className="w-full sm:w-auto flex animate-in slide-in-from-right-4 duration-300">
-                 <input 
-                   type="date" 
-                   value={customDate} 
-                   onChange={(e) => setCustomDate(e.target.value)}
-                   className="px-4 py-2 w-full sm:w-48 rounded-xl border border-stone-200 bg-stone-50 text-sm font-bold text-stone-700 focus:outline-none focus:ring-2 focus:ring-dhaba-orange focus:bg-white transition-all shadow-inner"
-                 />
+             <div className="flex items-center gap-3 w-full sm:w-auto">
+               {dateFilter === 'custom' && (
+                 <div className="w-full sm:w-auto flex animate-in slide-in-from-right-4 duration-300">
+                   <input 
+                     type="date" 
+                     value={customDate} 
+                     onChange={(e) => setCustomDate(e.target.value)}
+                     className="px-4 py-2 w-full sm:w-48 rounded-xl border border-stone-200 bg-stone-50 text-sm font-bold text-stone-700 focus:outline-none focus:ring-2 focus:ring-dhaba-orange focus:bg-white transition-all shadow-inner"
+                   />
+                 </div>
+               )}
+               <div className="flex bg-stone-50 border border-stone-200 rounded-xl focus-within:ring-2 focus-within:ring-dhaba-orange focus-within:border-dhaba-orange shadow-inner overflow-hidden w-full sm:w-auto">
+                 <select 
+                   value={searchType}
+                   onChange={(e) => setSearchType(e.target.value as any)}
+                   className="bg-transparent pl-3 pr-8 py-2 text-sm font-bold text-stone-600 border-r border-stone-200 focus:outline-none appearance-none"
+                   style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23131313%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right .7rem top 50%', backgroundSize: '.65rem auto' }}
+                 >
+                   <option value="all">Search All</option>
+                   <option value="table">Table No</option>
+                   <option value="amount">Amount</option>
+                   <option value="orderNo">Order No</option>
+                 </select>
+                 <div className="relative w-full sm:w-48">
+                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                     <Search className="h-4 w-4 text-stone-400" />
+                   </div>
+                   <input
+                     type="text"
+                     placeholder={searchType === 'all' ? "Search..." : `Search ${searchType}...`}
+                     value={searchQuery}
+                     onChange={(e) => setSearchQuery(e.target.value)}
+                     className="w-full pl-9 pr-4 py-2 bg-transparent outline-none text-stone-700 placeholder-stone-400 transition-all text-sm font-medium"
+                   />
+                 </div>
                </div>
-             )}
+             </div>
+          </div>
+        )}
+
+        {/* Delete All Cancelled Orders */}
+        {activeTab === 'cancelled' && filteredOrders.length > 0 && (
+          <div className="flex justify-end">
+            <button 
+              onClick={handleDeleteAllCancelled}
+              className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-xl font-bold shadow-sm transition-colors text-sm"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete All Cancelled
+            </button>
           </div>
         )}
 
@@ -450,16 +569,44 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
           ) : filteredOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 px-4 bg-stone-50/80 backdrop-blur-sm rounded-3xl border border-dashed border-stone-200 text-center shadow-inner">
               <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-sm mb-6 relative">
-                <Package className="w-12 h-12 text-stone-300" />
+                {searchQuery ? <Search className="w-12 h-12 text-stone-300" /> : <Package className="w-12 h-12 text-stone-300" />}
                 <div className="absolute top-0 right-0 w-6 h-6 bg-stone-100 rounded-full flex items-center justify-center border-2 border-white">
                   <span className="w-2 h-2 rounded-full bg-stone-300"></span>
                 </div>
               </div>
-              <h3 className="text-2xl font-black text-stone-800 mb-2">No {activeTab} orders</h3>
-              <p className="text-stone-500 font-medium max-w-sm">We couldn't find any orders matching this status. Fresh orders will appear here automatically.</p>
+              <h3 className="text-2xl font-black text-stone-800 mb-2">
+                {searchQuery ? `No ${searchType === 'all' ? 'orders' : searchType} found for "${searchQuery}"` : `No ${activeTab} orders`}
+              </h3>
+              <p className="text-stone-500 font-medium max-w-sm">
+                {searchQuery ? "Try checking for typos or searching with a different term." : "We couldn't find any orders matching this status. Fresh orders will appear here automatically."}
+              </p>
             </div>
           ) : (
             <div className="flex flex-col gap-4 sm:gap-6">
+              {searchQuery && searchType !== 'all' && (
+                (() => {
+                  const sq = searchQuery.toLowerCase().trim();
+                  let hasExactMatch = false;
+                  if (searchType === 'table') {
+                    hasExactMatch = filteredOrders.some(o => o.tableNumber && o.tableNumber.toLowerCase() === sq);
+                  } else if (searchType === 'amount') {
+                    hasExactMatch = filteredOrders.some(o => o.total && Math.floor(o.total).toString() === sq);
+                  } else if (searchType === 'orderNo') {
+                    hasExactMatch = filteredOrders.some(o => o.id.toString() === sq);
+                  }
+                  
+                  if (!hasExactMatch) {
+                    return (
+                      <div className="bg-amber-50 text-amber-800 px-4 py-3 rounded-xl text-sm font-bold border border-amber-200 shadow-sm flex items-center">
+                        <span className="mr-2">⚠️</span>
+                        No exact {searchType === 'orderNo' ? 'order number' : searchType === 'table' ? 'table number' : 'amount'} "{searchQuery}" found. Showing related partial matches below:
+                      </div>
+                    );
+                  }
+                  return null;
+                })()
+              )}
+
               {filteredOrders.map(order => {
                 let items = [];
                 try { items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items; } catch (e) {}
