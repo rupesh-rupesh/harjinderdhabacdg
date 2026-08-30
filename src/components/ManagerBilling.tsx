@@ -404,12 +404,21 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
       try {
         // 1. Try to load offline menu first for instant render
         const localMenu = await offlineDbService.getMenu();
+        const localCats = await offlineDbService.getCategories();
+        
         if (localMenu && localMenu.length > 0) {
           setMenuItems(localMenu);
-          const catSet = new Set(localMenu.map(i => i.category));
-          const cats = Array.from(catSet).map(name => ({ name }));
-          setCategories(cats);
-          if (cats.length > 0 && !selectedCategory) setSelectedCategory(cats[0].name as string);
+          
+          if (localCats && localCats.length > 0) {
+            setCategories(localCats);
+            if (!selectedCategory) setSelectedCategory(localCats[0].name as string);
+          } else {
+            // Fallback if no categories are cached
+            const catSet = new Set(localMenu.map(i => i.category));
+            const cats = Array.from(catSet).map(name => ({ name }));
+            setCategories(cats);
+            if (cats.length > 0 && !selectedCategory) setSelectedCategory(cats[0].name as string);
+          }
         }
 
         // 2. Fetch from server and sync

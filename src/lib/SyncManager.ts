@@ -140,8 +140,64 @@ class SyncManager extends EventTarget {
     }
   }
 
+  async downloadServerData() {
+    if (!this.online) return;
+    try {
+      const posRes = await fetch('/api/pos-data');
+      if (posRes.ok) {
+        const { menuItems, categories } = await posRes.json();
+        if (menuItems && menuItems.length > 0) {
+          await offlineDbService.cacheMenu(menuItems);
+        }
+        if (categories && categories.length > 0) {
+          await offlineDbService.cacheCategories(categories);
+        }
+      }
+
+      const ordersRes = await fetch('/api/admin/orders');
+      if (ordersRes.ok) {
+        const orders = await ordersRes.json();
+        const localBills = await offlineDbService.getBills();
+        const pendingMap = new Map();
+        localBills.forEach(b => {
+          if (b.syncStatus === 'pending' || b.syncStatus === 'failed') {
+            pendingMap.set(String(b.serverBillId || b.localBillId), true);
+          }
+        });
+
+        for (const order of orders) {
+          if (pendingMap.has(String(order.id))) continue;
+
+          let parsedItems = [];
+          try {
+            parsedItems = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+          } catch (e) {}
+
+          const tableMarker = parsedItems.find((i: any) => i.isTableMarker);
+          const tableNum = tableMarker ? tableMarker.name.replace('Table ', '') : '';
+
+          const localBill = {
+            localBillId: order.id.toString(),
+            serverBillId: order.id,
+            tableNumber: tableNum,
+            items: parsedItems,
+            total: order.total,
+            syncStatus: 'synced' as const,
+            createdAt: order.createdAt,
+            status: order.status
+          };
+          
+          await offlineDbService.saveBill(localBill);
+        }
+      }
+    } catch (e) {
+      console.error('[SyncManager] Failed to download server data', e);
+    }
+  }
+
   async triggerSync() {
     await this.processQueue();
+    await this.downloadServerData();
   }
 }
 

@@ -6,6 +6,10 @@ interface RestaurantOfflineDB extends DBSchema {
     value: any; // Full menu item object
     indexes: { 'by-category': string };
   };
+  categories: {
+    key: number;
+    value: any;
+  };
   bills: {
     key: string;
     value: {
@@ -39,7 +43,7 @@ interface RestaurantOfflineDB extends DBSchema {
 }
 
 const DB_NAME = 'restaurant_offline_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase<RestaurantOfflineDB>> | null = null;
 
@@ -52,6 +56,10 @@ export const getDB = () => {
         if (!db.objectStoreNames.contains('menuItems')) {
           const menuStore = db.createObjectStore('menuItems', { keyPath: 'id' });
           menuStore.createIndex('by-category', 'category');
+        }
+        
+        if (!db.objectStoreNames.contains('categories')) {
+          db.createObjectStore('categories', { keyPath: 'id' });
         }
         
         if (!db.objectStoreNames.contains('bills')) {
@@ -92,6 +100,24 @@ export const offlineDbService = {
     const db = await getDB();
     if (!db) return [];
     return db.getAll('menuItems');
+  },
+
+  // --- CATEGORIES ---
+  async cacheCategories(categories: any[]) {
+    const db = await getDB();
+    if (!db) return;
+    const tx = db.transaction('categories', 'readwrite');
+    await tx.objectStore('categories').clear();
+    for (const cat of categories) {
+      tx.store.put(cat);
+    }
+    await tx.done;
+  },
+
+  async getCategories() {
+    const db = await getDB();
+    if (!db) return [];
+    return db.getAll('categories');
   },
 
   // --- BILLS ---

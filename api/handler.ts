@@ -34,6 +34,7 @@ const categories = pgTable('categories', {
   startTime: text('start_time'),
   endTime: text('end_time'),
   isDeleted: boolean('is_deleted').default(false),
+  isHidden: boolean('is_hidden').default(false),
   createdAt: timestamp('created_at').defaultNow(),
 });
 
@@ -287,19 +288,29 @@ app.post('/api/auth/update-dashboard-passwords', async (req, res) => {
 // ─── POS / Storefront / Admin Data ──────────────────────────────────────────
 app.get('/api/pos-data', async (req, res) => {
   try {
-    const menu = await db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id);
-    const cats = await db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id);
-    res.json({ menuItems: menu, categories: cats });
+    const [menu, cats] = await Promise.all([
+      db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
+      db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id)
+    ]);
+    const visibleCats = cats.filter(c => !c.isHidden);
+    const visibleCatNames = visibleCats.map(c => c.name);
+    const visibleMenu = menu.filter(m => visibleCatNames.includes(m.category));
+    res.json({ menuItems: visibleMenu, categories: visibleCats });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/storefront-data', async (req, res) => {
   try {
-    const menu = await db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id);
-    const cats = await db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id);
-    const feats = await db.select().from(features).orderBy(features.displayOrder, features.id);
-    const settings = await db.select().from(journeySettings).limit(1);
-    res.json({ menuItems: menu, categories: cats, features: feats, journeySettings: settings[0] || { header: 'Our Journey', description: '' } });
+    const [menu, cats, feats, settings] = await Promise.all([
+      db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
+      db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id),
+      db.select().from(features).orderBy(features.displayOrder, features.id),
+      db.select().from(journeySettings).limit(1)
+    ]);
+    const visibleCats = cats.filter(c => !c.isHidden);
+    const visibleCatNames = visibleCats.map(c => c.name);
+    const visibleMenu = menu.filter(m => visibleCatNames.includes(m.category));
+    res.json({ menuItems: visibleMenu, categories: visibleCats, features: feats, journeySettings: settings[0] || { header: 'Our Journey', description: '' } });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -316,6 +327,17 @@ app.get('/api/admin-data', async (req, res) => {
 });
 
 // ─── Categories ───────────────────────────────────────────────────────────────
+app.post("/api/categories/:id/toggle-visibility", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isHidden } = req.body;
+    const updated = await db.update(categories).set({ isHidden }).where(eq(categories.id, Number(id))).returning();
+    res.json(updated[0]);
+  } catch (error: any) {
+    res.status(500).json({ error: "Failed to toggle category visibility: " + (error.message || error) });
+  }
+});
+
 app.get('/api/categories', async (req, res) => {
   try { res.json(await db.select().from(categories).where(eq(categories.isDeleted, false))); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
