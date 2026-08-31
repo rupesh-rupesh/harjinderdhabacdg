@@ -1,8 +1,24 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ArrowLeft, Shield } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function PrivacyPolicy() {
+  useEffect(() => {
+    // Set page-specific title
+    const prevTitle = document.title;
+    document.title = 'Privacy Policy | Harjinder Tourist Dhaba';
+
+    // Set canonical
+    let canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    const prevCanonical = canonical?.href || '';
+    if (canonical) canonical.href = 'https://harjindertouristdhaba.com/privacy-policy';
+
+    return () => {
+      document.title = prevTitle;
+      if (canonical) canonical.href = prevCanonical;
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-stone-50 font-sans">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">

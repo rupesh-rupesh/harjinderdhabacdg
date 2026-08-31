@@ -292,10 +292,7 @@ app.get('/api/pos-data', async (req, res) => {
       db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
       db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id)
     ]);
-    const visibleCats = cats.filter(c => !c.isHidden);
-    const visibleCatNames = visibleCats.map(c => c.name);
-    const visibleMenu = menu.filter(m => visibleCatNames.includes(m.category));
-    res.json({ menuItems: visibleMenu, categories: visibleCats });
+    res.json({ menuItems: menu, categories: cats });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

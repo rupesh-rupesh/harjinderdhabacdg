@@ -6,8 +6,6 @@ import * as Icons from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PrinterPermissionCard } from './PrinterPermissionCard';
 import { NoodleBowlIcon } from './CustomIcons';
-import { offlineDbService } from '../lib/offlineDb';
-import { syncManager } from '../lib/SyncManager';
 import { v4 as uuidv4 } from 'uuid';
 import { ConfirmDialog } from './ConfirmDialog';
 
@@ -108,19 +106,6 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
     };
   }, [isLocked]);
 
-  const [isOnline, setIsOnline] = useState(syncManager.isOnline());
-  useEffect(() => {
-    // Initial check
-    setIsOnline(syncManager.isOnline());
-    
-    // Subscribe to events
-    const handleStatusChange = (e: Event) => {
-      setIsOnline((e as CustomEvent).detail.isOnline);
-    };
-    
-    syncManager.addEventListener('networkStatus', handleStatusChange);
-    return () => syncManager.removeEventListener('networkStatus', handleStatusChange);
-  }, []);
 
   const [tableSelection, setTableSelection] = useState<number | null>(null);
   const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
@@ -361,35 +346,17 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
 
   const fetchOrders = async () => {
     try {
-      const localBills = await offlineDbService.getBills();
       let serverOrders: any[] = [];
-      
-      try {
-        const res = await fetch('/api/admin/orders');
-        if (res.ok) {
-          const ct = res.headers.get('content-type');
-          if (ct && ct.includes('application/json')) {
-            serverOrders = await res.json();
-          }
+      const res = await fetch('/api/admin/orders');
+      if (res.ok) {
+        const ct = res.headers.get('content-type');
+        if (ct && ct.includes('application/json')) {
+          serverOrders = await res.json();
         }
-      } catch (e: any) {
-        if (e.message !== 'Failed to fetch') console.error(e);
       }
-
-      const mergedMap = new Map();
-      serverOrders.forEach((o: any) => mergedMap.set(o.localBillId || o.id.toString(), o));
-      
-      localBills.forEach(local => {
-        const key = local.localBillId;
-        if (local.syncStatus === 'pending' || local.syncStatus === 'failed' || !mergedMap.has(key)) {
-           mergedMap.set(key, { ...local, id: local.serverBillId || local.localBillId.substring(0, 8), _isLocal: true });
-        }
-      });
-      
-      const merged = Array.from(mergedMap.values());
-      setActiveOrders(merged.filter((o: any) => o.status === 'pending' || o.status === 'processing'));
-    } catch (e) {
-      console.error(e);
+      setActiveOrders(serverOrders.filter((o: any) => o.status === 'pending' || o.status === 'processing'));
+    } catch (e: any) {
+      if (e.message !== 'Failed to fetch') console.error(e);
     }
   };
 
@@ -399,52 +366,30 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // 1. Try to load offline menu first for instant render
-        const localMenu = await offlineDbService.getMenu();
-        const localCats = await offlineDbService.getCategories();
-        
-        if (localMenu && localMenu.length > 0) {
-          setMenuItems(localMenu);
-          
-          if (localCats && localCats.length > 0) {
-            setCategories(localCats);
-            if (!selectedCategory) setSelectedCategory(localCats[0].name as string);
-          } else {
-            // Fallback if no categories are cached
-            const catSet = new Set(localMenu.map(i => i.category));
-            const cats = Array.from(catSet).map(name => ({ name }));
-            setCategories(cats);
-            if (cats.length > 0 && !selectedCategory) setSelectedCategory(cats[0].name as string);
+  const fetchData = async () => {
+    try {
+      const res = await fetch('/api/pos-data', { cache: 'no-store' });
+      if (res.ok) {
+        const ct = res.headers.get('content-type');
+        if (ct && ct.includes('application/json')) {
+          const data = await res.json();
+          setCategories(data.categories || []);
+          setMenuItems(data.menuItems || []);
+          if (data.categories && data.categories.length > 0 && !selectedCategory) {
+            setSelectedCategory(data.categories[0].name);
           }
         }
-
-        // 2. Fetch from server and sync
-        const res = await fetch('/api/pos-data');
-        if (res.ok) {
-          const ct = res.headers.get('content-type');
-          if (ct && ct.includes('application/json')) {
-            const data = await res.json();
-            setCategories(data.categories || []);
-            setMenuItems(data.menuItems || []);
-            if (data.categories && data.categories.length > 0 && (!localMenu || localMenu.length === 0)) {
-              setSelectedCategory(data.categories[0].name);
-            }
-            if (data.menuItems) {
-              await offlineDbService.cacheMenu(data.menuItems);
-            }
-          }
-        }
-      } catch (e: any) {
-        if (e.message !== 'Failed to fetch') {
-          console.error("Failed to load POS data", e);
-        }
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (e: any) {
+      if (e.message !== 'Failed to fetch') {
+        console.error("Failed to load POS data", e);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -523,21 +468,17 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
       ];
 
       if (editingOrderId) {
-        // Offline-first edit workflow
-        const payload = { id: editingOrderId, total: finalTotal, items: JSON.stringify(posItems) };
+        // Direct API edit workflow
+        const payload = { total: finalTotal, items: JSON.stringify(posItems) };
         
-        // Update local DB if it exists
-        const localBills = await offlineDbService.getBills();
-        const targetId = String(editingOrderId);
-        const localBill = localBills.find(b => String(b.serverBillId) === targetId || String(b.localBillId) === targetId || String((b as any).id) === targetId);
+        const res = await fetch(`/api/admin/orders/${editingOrderId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error("Failed to update order");
         
-        if (localBill) {
-          localBill.items = posItems;
-          localBill.total = finalTotal;
-          await offlineDbService.saveBill(localBill);
-        }
-        
-        await offlineDbService.enqueueSync('UPDATE_BILL', payload);
         toast.success(`Order updated for Table ${tableSelection}`);
         
         if (shouldPrint) {
@@ -554,47 +495,37 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
           }
         }
         
-        syncManager.triggerSync();
         localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
         setCart([]);
         setEditingOrderId(null);
         setTableSelection(null);
         fetchOrders();
       } else {
-        // New order -> Offline-first workflow
-        const localBillId = uuidv4();
-        const localBill: any = {
-          localBillId,
-          tableNumber: tableSelection.toString(),
-          items: posItems, // Keep the structure with marker for printing
-          total: finalTotal,
-          syncStatus: 'pending',
-          createdAt: new Date().toISOString(),
-          status: 'pending'
-        };
-
-        // 1. Save completely to IndexedDB first
-        await offlineDbService.saveBill(localBill);
-        
-        // 2. Queue it for sync
-        await offlineDbService.enqueueSync('CREATE_BILL', {
-           localBillId,
+        // Direct API create workflow
+        const payload = {
            tableNumber: tableSelection,
            items: cart, // Items without table marker for server route
            total: finalTotal
+        };
+
+        const res = await fetch('/api/admin/pos/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
         });
 
-        // 3. Immediately show success to user
-        toast.success(`Order placed offline for Table ${tableSelection}`);
+        if (!res.ok) throw new Error("Failed to create order");
+        const newOrder = await res.json();
+
+        toast.success(`Order placed for Table ${tableSelection}`);
         
-        // 4. Trigger print with local bill
         if (shouldPrint) {
           try {
-            const printOrder = { ...localBill, id: localBillId.substring(0, 8), items: JSON.stringify(posItems) };
+            const printOrder = { ...newOrder, tableNumber: tableSelection, items: JSON.stringify(posItems) };
             if (printerService.getConfig().type !== 'browser') {
               await printerService.printReceipt(printOrder, false, true, generateGst);
             } else {
-               draftOrder.id = printOrder.id;
+               draftOrder.id = String(printOrder.id);
                if (cartReceiptRef.current) window.print();
             }
           } catch (printErr: any) {
@@ -602,16 +533,13 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
           }
         }
 
-        // 5. Trigger sync in background
-        syncManager.triggerSync();
-
         localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
         setCart([]);
         setTableSelection(null);
-        fetchOrders(); // This fetches server orders; in a fully offline UI we'd merge local orders too
+        fetchOrders();
       }
-    } catch (e) {
-      toast.error("A connection error occurred. Please verify your network and try again.");
+    } catch (e: any) {
+      toast.error(e.message || "A connection error occurred. Please verify your network and try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -807,19 +735,21 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                           title: 'Cancel Order',
                           message: 'Are you sure you want to cancel this order?',
                           onConfirm: async () => {
-                            await offlineDbService.enqueueSync('UPDATE_BILL', { id: checkoutTable.order.id, status: 'cancelled' });
-                            const localBills = await offlineDbService.getBills();
-                            const targetId = String(checkoutTable.order.id);
-                            const targetLocalId = checkoutTable.order.localBillId ? String(checkoutTable.order.localBillId) : null;
-                            const localBill = localBills.find(b => String(b.serverBillId) === targetId || String(b.localBillId) === targetId || String((b as any).id) === targetId || (targetLocalId && String(b.localBillId) === targetLocalId));
-                            if (localBill) {
-                              await offlineDbService.updateBillStatus(localBill.localBillId, 'cancelled');
+                            try {
+                              const res = await fetch(`/api/admin/orders/${checkoutTable.order.id}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: 'cancelled' })
+                              });
+                              if (!res.ok) throw new Error("Failed to cancel order");
+                              
+                              fetchOrders();
+                              setTableSelection(checkoutTable.num);
+                              setCheckoutTable(null);
+                              toast.success(`Order for Table ${checkoutTable.num} cancelled.`);
+                            } catch (e: any) {
+                              toast.error(e.message || "Failed to cancel order");
                             }
-                            syncManager.triggerSync();
-                            fetchOrders();
-                            setTableSelection(checkoutTable.num);
-                            setCheckoutTable(null);
-                            toast.success(`Order for Table ${checkoutTable.num} cancelled.`);
                           }
                         });
                       }}
@@ -834,19 +764,21 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                           title: 'Mark as Paid',
                           message: 'Are you sure you want to mark this bill as paid?',
                           onConfirm: async () => {
-                            await offlineDbService.enqueueSync('UPDATE_BILL', { id: checkoutTable.order.id, status: 'completed' });
-                            const localBills = await offlineDbService.getBills();
-                            const targetId = String(checkoutTable.order.id);
-                            const targetLocalId = checkoutTable.order.localBillId ? String(checkoutTable.order.localBillId) : null;
-                            const localBill = localBills.find(b => String(b.serverBillId) === targetId || String(b.localBillId) === targetId || String((b as any).id) === targetId || (targetLocalId && String(b.localBillId) === targetLocalId));
-                            if (localBill) {
-                              await offlineDbService.updateBillStatus(localBill.localBillId, 'completed');
+                            try {
+                              const res = await fetch(`/api/admin/orders/${checkoutTable.order.id}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: 'completed' })
+                              });
+                              if (!res.ok) throw new Error("Failed to mark as paid");
+                              
+                              fetchOrders();
+                              setTableSelection(checkoutTable.num);
+                              setCheckoutTable(null);
+                              toast.success(`Bill for Table ${checkoutTable.num} marked as paid.`);
+                            } catch (e: any) {
+                              toast.error(e.message || "Failed to mark order as paid");
                             }
-                            syncManager.triggerSync();
-                            fetchOrders();
-                            setTableSelection(checkoutTable.num);
-                            setCheckoutTable(null);
-                            toast.success(`Bill for Table ${checkoutTable.num} marked as paid.`);
                           }
                         });
                       }}
@@ -887,8 +819,15 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
           <div className="relative z-10 flex flex-wrap justify-center gap-2 sm:gap-3 bg-white/40 p-2 sm:p-3 rounded-2xl backdrop-blur-sm border border-[#E3C77D]/20 shadow-inner">
             <button
               onClick={() => {
-                fetchOrders();
-                toast.success("Orders refreshed");
+                setSearchQuery('');
+                const loadingToast = toast.loading("Refreshing & Fetching data...");
+                Promise.all([
+                  fetchOrders(),
+                  fetchData()
+                ]).then(() => {
+                  toast.dismiss(loadingToast);
+                  toast.success("Page refreshed and data updated!");
+                });
               }}
               title="Refresh Orders"
               className="px-3 sm:px-4 py-2 sm:py-2.5 bg-white hover:bg-stone-50 border border-[#E3C77D]/40 rounded-xl shadow-sm text-[#5C4D40] transition-all flex items-center justify-center gap-2 font-semibold text-xs sm:text-sm"
@@ -896,19 +835,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
               <Icons.RefreshCw className="w-4 h-4" />
               <span className="hidden sm:block">Refresh</span>
             </button>
-            <button
-              onClick={async () => {
-                const loadingToast = toast.loading("Syncing...");
-                await syncManager.triggerSync();
-                toast.dismiss(loadingToast);
-                toast.success("Sync done");
-              }}
-              title="Sync Data"
-              className="px-3 sm:px-4 py-2 sm:py-2.5 bg-white hover:bg-stone-50 border border-[#E3C77D]/40 rounded-xl shadow-sm text-[#5C4D40] transition-all flex items-center justify-center gap-2 font-semibold text-xs sm:text-sm"
-            >
-              <Icons.RefreshCcw className="w-4 h-4" />
-              <span className="hidden sm:block">Sync</span>
-            </button>
+
             <button
               onClick={() => {
                 if (!document.fullscreenElement) {
@@ -1002,17 +929,19 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                         title: 'Clear Bill',
                         message: `Are you sure you want to clear the bill for Table ${num}?`,
                         onConfirm: async () => {
-                          await offlineDbService.enqueueSync('UPDATE_BILL', { id: tableOrder.id, status: 'cancelled' });
-                          const localBills = await offlineDbService.getBills();
-                          const targetId = String(tableOrder.id);
-                          const targetLocalId = tableOrder.localBillId ? String(tableOrder.localBillId) : null;
-                          const localBill = localBills.find(b => String(b.serverBillId) === targetId || String(b.localBillId) === targetId || String((b as any).id) === targetId || (targetLocalId && String(b.localBillId) === targetLocalId));
-                          if (localBill) {
-                            await offlineDbService.updateBillStatus(localBill.localBillId, 'cancelled');
+                          try {
+                            const res = await fetch(`/api/admin/orders/${tableOrder.id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ status: 'cancelled' })
+                            });
+                            if (!res.ok) throw new Error("Failed to clear bill");
+                            
+                            fetchOrders();
+                            toast.success(`Bill for Table ${num} cleared.`);
+                          } catch (e: any) {
+                            toast.error(e.message || "Failed to clear bill");
                           }
-                          syncManager.triggerSync();
-                          fetchOrders();
-                          toast.success(`Bill for Table ${num} cleared.`);
                         }
                       });
                     }}
@@ -1275,13 +1204,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
 
         {/* Right: Actions */}
         <div className="flex items-center justify-end gap-1 sm:gap-2 shrink-0">
-          {/* Network Status Indicator */}
-          <div className={`flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-black ${
-            isOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-          }`}>
-            {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{isOnline ? 'ONLINE' : 'OFFLINE'}</span>
-          </div>
+
 
           <button
             onClick={() => {
@@ -1292,22 +1215,30 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                   message: editingOrderId ? 'Are you sure you want to clear this bill? This will cancel the active order for this table.' : 'Are you sure you want to clear the entire bill?',
                   onConfirm: async () => {
                     if (editingOrderId) {
-                      await offlineDbService.enqueueSync('UPDATE_BILL', { id: editingOrderId, status: 'cancelled' });
-                      const localBills = await offlineDbService.getBills();
-                      const targetId = String(editingOrderId);
-                      const localBill = localBills.find(b => String(b.serverBillId) === targetId || String(b.localBillId) === targetId || String((b as any).id) === targetId);
-                      if (localBill) {
-                        await offlineDbService.updateBillStatus(localBill.localBillId, 'cancelled');
+                      try {
+                        const res = await fetch(`/api/admin/orders/${editingOrderId}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ status: 'cancelled' })
+                        });
+                        if (!res.ok) throw new Error("Failed to clear bill");
+                        
+                        fetchOrders();
+                        setCart([]);
+                        setEditingOrderId(null);
+                        setTableSelection(null);
+                        localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
+                        toast.success(`Bill cleared and order cancelled.`);
+                      } catch (e: any) {
+                        toast.error(e.message || "Failed to clear bill");
                       }
-                      syncManager.triggerSync();
-                      fetchOrders();
-                      setCart([]);
-                      setEditingOrderId(null);
-                      setTableSelection(null);
-                      localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
-                      toast.success(`Bill cleared and order cancelled.`);
                     } else {
                       setCart([]);
+                      if (tableSelection) {
+                        localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
+                      }
+                      setTableSelection(null);
+                      toast.success(`Bill cleared.`);
                     }
                   }
                 });

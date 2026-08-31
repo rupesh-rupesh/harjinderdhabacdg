@@ -419,7 +419,7 @@ export default function Storefront() {
       {currentView === 'home' ? (
         <>
           {/* Navigation */}
-          <nav className="fixed w-full z-50 transition-all duration-500" style={{ background: 'rgba(36,23,18,0.85)', backdropFilter: 'blur(24px)', borderBottom: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 4px 32px rgba(0,0,0,0.25)' }}>
+          <nav aria-label="Main navigation" className="fixed w-full z-50 transition-all duration-500" style={{ background: 'rgba(36,23,18,0.85)', backdropFilter: 'blur(24px)', borderBottom: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 4px 32px rgba(0,0,0,0.25)' }}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="relative flex justify-between items-center h-16 sm:h-18">
                 {/* Left Side: Mobile Button + Brand Logo */}
@@ -478,7 +478,7 @@ export default function Storefront() {
                 <div className="flex items-center justify-end flex-1 space-x-2 md:space-x-4">
                   <div className="hidden xl:block">
                     <a
-                      href="http://zoma.to/r/22202855"
+                      href="https://zoma.to/r/22202855"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="bg-dhaba-orange hover:bg-dhaba-orange-light text-white px-5 py-2 rounded-full font-medium transition-all duration-300 flex items-center gap-2 transform hover:-translate-y-1 hover:shadow-lg hover:shadow-dhaba-orange/30 active:translate-y-0"
@@ -564,7 +564,7 @@ export default function Storefront() {
 
               <div className="p-6 border-t border-white/10 bg-black/20">
                 <a
-                  href="http://zoma.to/r/22202855"
+                  href="https://zoma.to/r/22202855"
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setIsMobileMenuOpen(false)}
@@ -581,7 +581,7 @@ export default function Storefront() {
             <div
               className="absolute inset-0 z-0"
               style={{
-                backgroundImage: "url('/hero-bg.jpg'), url('/hero-bg.png'), url('https://images.unsplash.com/photo-1517244683847-7456b63c5969?q=80&w=2070&auto=format&fit=crop')",
+                backgroundImage: "url('/hero-bg.webp'), url('https://images.unsplash.com/photo-1517244683847-7456b63c5969?q=80&w=2070&auto=format&fit=crop')",
                 backgroundPosition: "center",
                 backgroundSize: "cover",
               }}
@@ -603,7 +603,7 @@ export default function Storefront() {
                 <span style={{ background: 'linear-gradient(135deg, #C89B3C, #e8bb5c, #C89B3C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Punjab</span>
               </h1>
               <p className="text-sm sm:text-lg md:text-xl text-stone-300 mb-10 sm:mb-12 max-w-2xl mx-auto font-light leading-relaxed px-2">
-                Stop by for a piping hot meal, rich with desi ghee and traditional spices. Serving travelers with love and authenticity since 1995.
+                Stop by for a piping hot meal, rich with desi ghee and traditional spices. Serving travelers and families with love and authenticity since 1991.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center px-4">
                 <a
@@ -1073,7 +1073,7 @@ export default function Storefront() {
                           <img
                             key={media.id}
                             src={media.url || undefined}
-                            alt="Journey"
+                            alt={`Harjinder Tourist Dhaba — ${media.caption || 'our journey since 1991'}`}
                             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${index === currentJourneyIndex ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}
                           />
                         )
@@ -1090,8 +1090,11 @@ export default function Storefront() {
                   {/* Gold "SINCE 1991" Badge Image */}
                   <div className="absolute -bottom-10 right-4 sm:-right-10 z-20 w-36 h-36 sm:w-44 sm:h-44 flex items-center justify-center">
                     <img
-                      src="/since-1991.png"
-                      alt="Since 1991"
+                      src="/since-1991.webp"
+                      alt="Harjinder Tourist Dhaba — Serving Since 1991"
+                      width="176"
+                      height="176"
+                      loading="lazy"
                       className="w-full h-full object-contain drop-shadow-2xl"
                     />
                   </div>
@@ -1143,10 +1146,11 @@ export default function Storefront() {
 
                 <div>
                   <h4 className="text-white font-serif font-bold mb-8 text-2xl tracking-wide">Contact Us</h4>
-                  <ul className="space-y-4">
+                  <address>
+                  <ul className="space-y-4 not-italic">
                     <li className="flex items-start">
                       <MapPin className="w-6 h-6 text-[var(--color-gold)] mr-3 flex-shrink-0 mt-0.5" />
-                      <span>QJR5+4FQ, Kharar-kurali-Village-sahauran,<br />teh-kharar, NH 24, opp. Indian Oil Petrol Bunk,<br />MOHALI, Punjab 140103</span>
+                      <span>Kharar-Kurali-Village-Sahauran, Teh-Kharar,<br />NH-24, Opp. Indian Oil Petrol Bunk,<br />Kharar, MOHALI, Punjab 140103</span>
                     </li>
                     <li className="flex flex-col gap-2">
                       <div className="flex items-center">
@@ -1170,6 +1174,7 @@ export default function Storefront() {
                       <span>Open 24 Hours, 7 Days a Week</span>
                     </li>
                   </ul>
+                  </address>
                 </div>
 
                 <div>

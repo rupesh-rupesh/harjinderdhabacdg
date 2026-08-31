@@ -5,7 +5,6 @@ import { ThermalReceipt } from './ThermalReceipt';
 import { managerPrinterService as printerService } from '../lib/printer/PrinterService';
 import toast from 'react-hot-toast';
 import { PrinterPermissionCard } from './PrinterPermissionCard';
-import { offlineDbService } from '../lib/offlineDb';
 
 export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: { onEditOrder?: (order: any) => void, managerName?: string }) {
   const [orders, setOrders] = useState<any[]>([]);
@@ -92,43 +91,15 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
 
   const fetchOrders = async () => {
     try {
-      // 1. Get from offline DB first
-      const localBills = await offlineDbService.getBills();
-      
-      // 2. Fetch from network
-      let serverOrders: any[] = [];
-      try {
-        const res = await fetch('/api/admin/orders');
-        if (res.ok) {
-          const ct = res.headers.get('content-type');
-          if (ct && ct.includes('application/json')) {
-            serverOrders = await res.json();
-          }
+      const res = await fetch('/api/admin/orders');
+      if (res.ok) {
+        const ct = res.headers.get('content-type');
+        if (ct && ct.includes('application/json')) {
+          const serverOrders = await res.json();
+          const sorted = serverOrders.sort((a: any, b: any) => new Date(b.createdAt || b.created_at).getTime() - new Date(a.createdAt || a.created_at).getTime());
+          setOrders(sorted);
         }
-      } catch (e: any) {
-        if (e.message !== 'Failed to fetch') console.error(e);
       }
-      
-      // 3. Merge: prefer local pending over server, and server over local synced
-      const mergedMap = new Map();
-      
-      // Add server orders first
-      serverOrders.forEach(o => {
-        mergedMap.set(o.localBillId || o.id.toString(), o);
-      });
-      
-      // Override/Add with local bills
-      localBills.forEach(local => {
-        const key = local.localBillId;
-        if (local.syncStatus === 'pending' || local.syncStatus === 'failed' || !mergedMap.has(key)) {
-           // Adapt local bill to the structure UI expects
-           mergedMap.set(key, { ...local, id: local.serverBillId || local.localBillId.substring(0, 8), _isLocal: true });
-        }
-      });
-      
-      const merged = Array.from(mergedMap.values()).sort((a: any, b: any) => new Date(b.createdAt || b.created_at).getTime() - new Date(a.createdAt || a.created_at).getTime());
-      
-      setOrders(merged);
     } catch (e: any) {
       if (e.message !== 'Failed to fetch') {
         console.error(e);
@@ -152,57 +123,27 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
   const handleUpdateStatus = async (id: number | string, status: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     try {
-      const order = orders.find(o => o.id === id || o.localBillId === id);
+      const order = orders.find(o => o.id === id);
       if (!order) return;
 
       // Optimistically update UI
-      if (selectedOrder && (selectedOrder.id === id || selectedOrder.localBillId === id)) {
+      if (selectedOrder && selectedOrder.id === id) {
         setSelectedOrder({ ...selectedOrder, status });
       }
-      
-      // Update local db
-      if (order.localBillId) {
-        await offlineDbService.updateBillStatus(order.localBillId, status);
-      }
 
-      // If it's fully local and hasn't synced at all, updating it locally is enough,
-      // as the CREATE_BILL payload is static or we can just update the DB and the CREATE_BILL
-      // payload isn't strictly used for status because pending status is default, wait...
-      // the CREATE_BILL payload has status: 'pending'. If they mark it 'completed' offline before it syncs,
-      // we need to make sure the server gets 'completed'.
-      // So we enqueue an UPDATE_BILL for it regardless.
-
-      const isServerId = typeof id === 'number' || (typeof id === 'string' && !id.includes('-')); // UUIDs have hyphens
-
-      if (navigator.onLine && isServerId) {
-        const res = await fetch(`/api/admin/orders/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status })
-        });
-        if (res.ok) {
-          fetchOrders();
-        }
+      const res = await fetch(`/api/admin/orders/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) {
+        fetchOrders();
       } else {
-        // Enqueue update
-        const serverId = order.serverBillId || (isServerId ? id : null);
-        if (serverId) {
-          await offlineDbService.enqueueSync('UPDATE_BILL', { id: serverId, status });
-        } else if (order.localBillId) {
-           // It's a pure offline bill. If we just update local DB, when it syncs we want the 
-           // SyncManager to know. SyncManager's CREATE_BILL uses the payload it saved.
-           // Let's modify SyncManager.ts to fetch latest status from DB when creating? 
-           // No, we can just enqueue an UPDATE_BILL with the localBillId, but UPDATE_BILL needs server ID!
-           // Ah! We can rely on the SyncManager. Process queue handles CREATE_BILL first, gets serverId,
-           // but UPDATE_BILL is queued AFTER CREATE_BILL. When UPDATE_BILL runs, it needs serverId.
-           // To fix this simply, let's just push it with localBillId, but SyncManager needs to know to map it.
-           // It's easier if we just enqueue it, and SyncManager looks up the local bill to find serverId if missing!
-           await offlineDbService.enqueueSync('UPDATE_BILL', { id: order.localBillId, status, isLocalRef: true });
-        }
-        fetchOrders(); // Refresh local UI
+        toast.error("Failed to update status");
       }
     } catch (e) {
       console.error(e);
+      toast.error("An error occurred");
     }
   };
 
@@ -212,19 +153,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
     
     const cancelledOrders = orders.filter(o => o.status === 'cancelled');
     for (const order of cancelledOrders) {
-      const isServerId = typeof order.id === 'number' || (typeof order.id === 'string' && !order.id.includes('-'));
-      
-      if (navigator.onLine && isServerId) {
-        await fetch(`/api/admin/orders/${order.id}`, { method: 'DELETE' }).catch(() => {});
-      } else {
-        const serverId = order.serverBillId || (isServerId ? order.id : null);
-        if (serverId) {
-          await offlineDbService.enqueueSync('DELETE_BILL', { id: serverId });
-        }
-      }
-      if (order.localBillId) {
-        await offlineDbService.deleteLocalBill(order.localBillId);
-      }
+      await fetch(`/api/admin/orders/${order.id}`, { method: 'DELETE' }).catch(() => {});
     }
     toast.success("All cancelled orders deleted");
     fetchOrders();
@@ -294,36 +223,17 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
       const order = orders.find(o => o.id === deleteConfirm || o.localBillId === deleteConfirm);
       if (!order) return;
 
-      // Update local db
-      if (order.localBillId) {
-        await offlineDbService.deleteLocalBill(order.localBillId);
-      }
-
-      const isServerId = typeof deleteConfirm === 'number' || (typeof deleteConfirm === 'string' && !deleteConfirm.includes('-'));
-
-      if (navigator.onLine && isServerId) {
-        const res = await fetch(`/api/admin/orders/${deleteConfirm}`, {
-          method: 'DELETE'
-        });
-        if (res.ok) {
-          fetchOrders();
-          if (selectedOrder && selectedOrder.id === deleteConfirm) {
-            setSelectedOrder(null);
-          }
-        }
-      } else {
-        // Enqueue delete
-        const serverId = order.serverBillId || (isServerId ? deleteConfirm : null);
-        if (serverId) {
-          await offlineDbService.enqueueSync('DELETE_BILL', { id: serverId });
-        } else if (order.localBillId) {
-           await offlineDbService.enqueueSync('DELETE_BILL', { id: order.localBillId, isLocalRef: true });
-        }
-        
+      const res = await fetch(`/api/admin/orders/${deleteConfirm}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
         fetchOrders();
-        if (selectedOrder && (selectedOrder.id === deleteConfirm || selectedOrder.localBillId === deleteConfirm)) {
+        if (selectedOrder && selectedOrder.id === deleteConfirm) {
           setSelectedOrder(null);
         }
+        toast.success("Order deleted");
+      } else {
+        toast.error("Failed to delete order");
       }
     } catch(e) {
       console.error(e);

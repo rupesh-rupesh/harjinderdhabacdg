@@ -1,0 +1,13 @@
+# robots.txt — Harjinder Tourist Dhaba
+# https://harjindertouristdhaba.com
+
+User-agent: *
+Allow: /
+Allow: /privacy-policy
+
+# Block admin and manager dashboards from indexing
+Disallow: /htd-ctrl-9x7k2m/
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://harjindertouristdhaba.com/sitemap.xml
