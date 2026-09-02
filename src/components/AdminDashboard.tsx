@@ -1,27 +1,25 @@
-import AdminReviews from './AdminReviews';
-import AnalyticsDashboard from './AnalyticsDashboard';
-import ManagerStats from './ManagerStats';
-import ManagerOrders from './ManagerOrders';
-import ManagerBilling from './ManagerBilling';
-import AdminManagers from './AdminManagers';
-import AdminPasswordSettings from './AdminPasswordSettings';
-import PrinterSettings from './PrinterSettings';
-import DashboardAuthModal from './DashboardAuthModal';
-
-import { ConfirmModal } from './ConfirmModal';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import * as Icons from 'lucide-react';
+import { Menu, Plus, Activity, Trash2, Edit, Save, X, Image as ImageIcon, Layers, Search, MoreVertical, ArrowLeft, ChevronRight, Video, LayoutDashboard, Star, ToggleLeft, ToggleRight, ArrowUp, ArrowDown, ShieldCheck, Zap, Wifi, Snowflake, MapPin, Coffee, Utensils, ChefHat, Fuel, TreePine, BatteryCharging, Clock, Car, Users, Leaf, Droplets, Package, ShoppingCart, Lock, KeyRound, Shield, MessageCircle, Upload, FileText, Printer, Eye, EyeOff } from 'lucide-react';
+
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../lib/firebase';
+
+import StaffLoginModal from './StaffLoginModal';
+import { ConfirmModal } from './ConfirmModal';
 import { DevEmptyStateText } from './DevEmptyStateText';
 import { TimePicker } from './TimePicker';
 
-import { Menu, Plus, Activity, Trash2, Edit, Save, X, Image as ImageIcon, Layers, Search, MoreVertical, ArrowLeft, ChevronRight, Video, LayoutDashboard, Star, ToggleLeft, ToggleRight, ArrowUp, ArrowDown, ShieldCheck, Zap, Wifi, Snowflake, MapPin, Coffee, Utensils, ChefHat, Fuel, TreePine, BatteryCharging, Clock, Car, Users, Leaf, Droplets, Package, ShoppingCart, Lock, KeyRound, Shield, MessageCircle, Upload, FileText, Printer, Eye, EyeOff } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import toast from 'react-hot-toast';
-
-
-import * as Icons from 'lucide-react';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../lib/firebase';
+const AdminReviews = lazy(() => import('./AdminReviews'));
+const AnalyticsDashboard = lazy(() => import('./AnalyticsDashboard'));
+const ManagerStats = lazy(() => import('./ManagerStats'));
+const ManagerOrders = lazy(() => import('./ManagerOrders'));
+const ManagerBilling = lazy(() => import('./ManagerBilling'));
+const AdminManagers = lazy(() => import('./AdminManagers'));
+const PrinterSettings = lazy(() => import('./PrinterSettings'));
 
 const DynamicIcon = ({ name, className }: { name: string, className?: string }) => {
   const IconComponent = (Icons as any)[name] || Icons.Sparkles;
@@ -56,12 +54,34 @@ const getSuggestedIcon = (title: string) => {
 const SPICE_LEVELS = ['None', 'Mild', 'Medium', 'Spicy', 'Extra Spicy'];
 
 export default function AdminDashboard() {
-  const [authenticated, setAuthenticated] = useState<boolean>(
-    () => sessionStorage.getItem('admin_dashboard_auth') === 'true' || localStorage.getItem('admin_dashboard_auth') === 'true'
-  );
+  const [session, setSession] = useState<{ name: string; email: string; role: string; sessionToken: string } | null>(() => {
+    try {
+      const stored = localStorage.getItem('staff_session');
+      if (!stored) return null;
+      
+      let lastActive = localStorage.getItem('staff_last_active');
+      if (!lastActive) {
+        lastActive = Date.now().toString();
+        localStorage.setItem('staff_last_active', lastActive);
+      }
+      
+      if (Date.now() - Number(lastActive) > 12 * 60 * 60 * 1000) {
+        localStorage.removeItem('staff_session');
+        localStorage.removeItem('staff_last_active');
+        return null;
+      }
+      
+      const s = JSON.parse(stored);
+      if (s.role === 'admin') return s;
+      return null;
+    } catch {
+      return null;
+    }
+  });
+  const authenticated = !!session;
   const [items, setItems] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  const [activeModule, setActiveModule] = useState<'menu' | 'features' | 'journey' | 'recover' | 'analytics' | 'reviews' | 'managers' | 'stats' | 'orders' | 'billing' | 'passwords' | 'printer'>('analytics');
+  const [activeModule, setActiveModule] = useState<'menu' | 'features' | 'journey' | 'recover' | 'analytics' | 'reviews' | 'managers' | 'stats' | 'orders' | 'billing' | 'printer'>('analytics');
   const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
 
   const [features, setFeatures] = useState<any[]>([]);
@@ -104,11 +124,32 @@ export default function AdminDashboard() {
   const [journeyForm, setJourneyForm] = useState({ url: '', type: 'image', displayOrder: 0, isActive: true });
 
   const handleLock = () => {
-    sessionStorage.removeItem('admin_dashboard_auth');
-    localStorage.removeItem('admin_dashboard_auth');
-    setAuthenticated(false);
+    localStorage.removeItem('staff_session');
+    localStorage.removeItem('staff_last_active');
+    setSession(null);
     toast.success('Admin Dashboard locked');
   };
+
+  useEffect(() => {
+    if (!authenticated) return;
+    let lastUpdate = 0;
+    const updateActivity = () => {
+      const now = Date.now();
+      if (now - lastUpdate > 60000) {
+        localStorage.setItem('staff_last_active', now.toString());
+        lastUpdate = now;
+      }
+    };
+    updateActivity();
+    window.addEventListener('mousemove', updateActivity, { passive: true });
+    window.addEventListener('keydown', updateActivity, { passive: true });
+    window.addEventListener('click', updateActivity, { passive: true });
+    return () => {
+      window.removeEventListener('mousemove', updateActivity);
+      window.removeEventListener('keydown', updateActivity);
+      window.removeEventListener('click', updateActivity);
+    };
+  }, [authenticated]);
 
   useEffect(() => {
     if (authenticated) {
@@ -122,9 +163,13 @@ export default function AdminDashboard() {
 
   if (!authenticated) {
     return (
-      <DashboardAuthModal
+      <StaffLoginModal
         role="admin"
-        onSuccess={() => setAuthenticated(true)}
+        onSuccess={(info) => {
+          localStorage.setItem('staff_session', JSON.stringify(info));
+          localStorage.setItem('staff_last_active', Date.now().toString());
+          setSession(info);
+        }}
       />
     );
   }
@@ -1258,19 +1303,22 @@ export default function AdminDashboard() {
           className={`fixed inset-y-0 left-0 z-50 w-72 flex flex-col transform transition-all duration-300 ease-in-out lg:relative lg:z-auto ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:hidden'}`}
           style={{ background: 'linear-gradient(180deg,#1a1008 0%,#241712 65%,#1a1008 100%)' }}
         >
-        {/* Sidebar Header */}
+        {/* Sidebar Header & Profile */}
         <div className="flex items-center justify-between px-6 pt-8 pb-6" style={{ borderBottom: '1px solid rgba(200,155,60,0.12)' }}>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(200,155,60,0.2)' }}>
-                <LayoutDashboard className="w-4 h-4" style={{ color: '#C89B3C' }} />
-              </div>
-              <span className="font-serif text-xl font-bold" style={{ color: '#C89B3C' }}>Admin</span>
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#C89B3C] to-amber-600 flex items-center justify-center text-[#1a1008] font-bold text-lg shadow-[0_0_15px_rgba(200,155,60,0.4)]">
+              {session?.name ? session.name.charAt(0).toUpperCase() : 'A'}
             </div>
-            <p className="text-xs" style={{ color: '#7a6555' }}>Harjinder Tourist Dhaba</p>
+            <div>
+              <p className="text-white font-bold text-sm tracking-wide">{session?.name?.toUpperCase() || 'SUPERADMIN'}</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#C89B3C]" />
+                <p className="text-[#C89B3C] text-xs font-medium uppercase tracking-wider">{session?.role || 'Admin'}</p>
+              </div>
+            </div>
           </div>
-          <button onClick={() => setIsSidebarOpen(false)} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" style={{ color: '#7a6555' }}>
-            <X className="w-6 h-6" />
+          <button onClick={handleLock} className="p-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors border border-red-500/20 shadow-inner" title="Lock Dashboard">
+            <Lock className="w-4 h-4" />
           </button>
         </div>
 
@@ -1282,9 +1330,8 @@ export default function AdminDashboard() {
             { key: 'journey',   label: 'Our Journey',       icon: <ImageIcon className="w-5 h-5" /> },
             { key: 'analytics', label: 'Analytics',         icon: <Activity className="w-5 h-5" /> },
             { key: 'reviews',   label: 'Reviews',           icon: <Star className="w-5 h-5" /> },
-            { key: 'passwords', label: 'Password Security', icon: <Shield className="w-5 h-5" /> },
             { key: 'printer', label: 'Printer Settings', icon: <Printer className="w-5 h-5" /> },
-            { key: 'managers',  label: 'Managers',          icon: <Users className="w-5 h-5" /> },
+            { key: 'managers',  label: 'Manage Staff',      icon: <Users className="w-5 h-5" /> },
             { key: 'stats',     label: 'Revenue Stats',     icon: <Activity className="w-5 h-5" /> },
             { key: 'orders',    label: 'Orders Control',    icon: <Package className="w-5 h-5" /> },
             { key: 'billing',   label: 'Make Bills',        icon: <ShoppingCart className="w-5 h-5" /> },
@@ -1339,9 +1386,8 @@ export default function AdminDashboard() {
         <div className={`${activeModule === 'billing' ? 'h-full' : 'max-w-6xl mx-auto w-full'}`}>
 
         
-        {activeModule === 'passwords' ? (
-          <AdminPasswordSettings />
-        ) : activeModule === 'printer' ? (
+        <Suspense fallback={<div className="flex h-64 items-center justify-center text-stone-500 animate-pulse">Loading module...</div>}>
+        {activeModule === 'printer' ? (
           <PrinterSettings role="admin" />
         ) : activeModule === 'managers' ? (
           <AdminManagers />
@@ -1352,7 +1398,6 @@ export default function AdminDashboard() {
         ) : activeModule === 'billing' ? (
           <ManagerBilling managerName="Admin" />
         ) : activeModule === 'reviews' ? (
-
           <AdminReviews />
         ) : activeModule === 'analytics' ? (
           <AnalyticsDashboard />
@@ -1892,6 +1937,7 @@ export default function AdminDashboard() {
         ) : activeModule === 'journey' ? (
           renderJourneyModule()
         ) : null}
+        </Suspense>
         </div>
         </div>
       </div>

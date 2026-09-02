@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch server.ts",
+    "dev": "concurrently \"vite\" \"tsx server.ts\"",
     "build": "npx drizzle-kit push --config src/db/drizzle.config.ts --force || true && npx tsx src/db/seed.ts || true && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "vercel-build": "vite build",
     "start": "node dist/server.cjs",
@@ -20,6 +20,7 @@
     "@types/compression": "^1.8.1",
     "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^5.0.4",
+    "bcryptjs": "^3.0.3",
     "compression": "^1.8.1",
     "dom-to-image": "^2.6.0",
     "dotenv": "^17.2.3",
@@ -45,10 +46,12 @@
     "react-is": "^19.2.8",
     "react-router-dom": "^7.18.1",
     "recharts": "^3.9.2",
+    "resend": "^6.25.0",
     "uuid": "^14.0.2",
     "vite": "^6.2.3"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.2.0",
     "@types/node": "^22.14.0",
@@ -58,6 +61,7 @@
     "@types/web-bluetooth": "^0.0.21",
     "@vercel/node": "^5.9.3",
     "autoprefixer": "^10.4.21",
+    "concurrently": "^10.0.5",
     "drizzle-kit": "^0.31.10",
     "esbuild": "^0.28.1",
     "tailwindcss": "^4.1.14",

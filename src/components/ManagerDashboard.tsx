@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { ShoppingCart, Package, Activity, Calendar, Printer, ArrowLeft, Lock, UserCircle, X, LayoutDashboard, ChevronLeft, Menu } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
-import ManagerBilling from './ManagerBilling';
-import ManagerOrders from './ManagerOrders';
-import ManagerStats from './ManagerStats';
-import ManagerDailyRevenue from './ManagerDailyRevenue';
-import PrinterSettings from './PrinterSettings';
-import DashboardAuthModal from './DashboardAuthModal';
+const ManagerBilling = lazy(() => import('./ManagerBilling'));
+const ManagerOrders = lazy(() => import('./ManagerOrders'));
+const ManagerStats = lazy(() => import('./ManagerStats'));
+const ManagerDailyRevenue = lazy(() => import('./ManagerDailyRevenue'));
+const PrinterSettings = lazy(() => import('./PrinterSettings'));
+import StaffLoginModal from './StaffLoginModal';
 
 type Module = 'billing' | 'orders' | 'stats' | 'revenue' | 'printer';
 
@@ -29,9 +29,28 @@ const MODULE_TITLES: Record<Module, string> = {
 };
 
 export default function ManagerDashboard() {
-  const [authenticated, setAuthenticated] = useState<boolean>(
-    () => sessionStorage.getItem('manager_dashboard_auth') === 'true' || localStorage.getItem('manager_dashboard_auth') === 'true'
-  );
+  const [session, setSession] = useState<{ name: string; email: string; role: string; sessionToken: string } | null>(() => {
+    try {
+      const stored = localStorage.getItem('staff_session');
+      if (!stored) return null;
+      
+      let lastActive = localStorage.getItem('staff_last_active');
+      if (!lastActive) {
+        lastActive = Date.now().toString();
+        localStorage.setItem('staff_last_active', lastActive);
+      }
+      
+      if (Date.now() - Number(lastActive) > 12 * 60 * 60 * 1000) {
+        localStorage.removeItem('staff_session');
+        localStorage.removeItem('staff_last_active');
+        return null;
+      }
+      return JSON.parse(stored);
+    } catch {
+      return null;
+    }
+  });
+  const authenticated = !!session;
   const [activeModule, setActiveModule] = useState<Module>('billing');
   const [editingOrder, setEditingOrder] = useState<any>(null);
   // Sidebar starts open on desktop, closed on mobile
@@ -45,14 +64,44 @@ export default function ManagerDashboard() {
     localStorage.setItem('manager_sidebar_open', String(isSidebarOpen));
   }, [isSidebarOpen]);
 
+  useEffect(() => {
+    if (!authenticated) return;
+    let lastUpdate = 0;
+    const updateActivity = () => {
+      const now = Date.now();
+      if (now - lastUpdate > 60000) {
+        localStorage.setItem('staff_last_active', now.toString());
+        lastUpdate = now;
+      }
+    };
+    updateActivity();
+    window.addEventListener('mousemove', updateActivity, { passive: true });
+    window.addEventListener('keydown', updateActivity, { passive: true });
+    window.addEventListener('click', updateActivity, { passive: true });
+    return () => {
+      window.removeEventListener('mousemove', updateActivity);
+      window.removeEventListener('keydown', updateActivity);
+      window.removeEventListener('click', updateActivity);
+    };
+  }, [authenticated]);
+
   if (!authenticated) {
-    return <DashboardAuthModal role="manager" onSuccess={() => setAuthenticated(true)} />;
+    return (
+      <StaffLoginModal
+        role="manager"
+        onSuccess={(info) => {
+          localStorage.setItem('staff_session', JSON.stringify(info));
+          localStorage.setItem('staff_last_active', Date.now().toString());
+          setSession(info);
+        }}
+      />
+    );
   }
 
   const handleLock = () => {
-    sessionStorage.removeItem('manager_dashboard_auth');
-    localStorage.removeItem('manager_dashboard_auth');
-    setAuthenticated(false);
+    localStorage.removeItem('staff_session');
+    localStorage.removeItem('staff_last_active');
+    setSession(null);
     toast.success('Manager Dashboard locked');
   };
 
@@ -81,36 +130,23 @@ export default function ManagerDashboard() {
         `}
         style={{ background: 'linear-gradient(180deg,#1a1008 0%,#241712 65%,#1a1008 100%)' }}
       >
-        {/* Sidebar Header */}
+        {/* Sidebar Header & Profile */}
         <div className="flex items-center justify-between px-6 pt-8 pb-6" style={{ borderBottom: '1px solid rgba(200,155,60,0.12)' }}>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(200,155,60,0.2)' }}>
-                <LayoutDashboard className="w-4 h-4" style={{ color: '#C89B3C' }} />
-              </div>
-              <span className="font-serif text-xl font-bold" style={{ color: '#C89B3C' }}>Manager</span>
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#C89B3C] to-amber-600 flex items-center justify-center text-[#1a1008] font-bold text-lg shadow-[0_0_15px_rgba(200,155,60,0.4)]">
+              {session?.name ? session.name.charAt(0).toUpperCase() : 'M'}
             </div>
-            <p className="text-xs" style={{ color: '#7a6555' }}>Harjinder Tourist Dhaba</p>
+            <div>
+              <p className="text-white font-bold text-sm tracking-wide">{session?.name?.toUpperCase() || 'MANAGER'}</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <Package className="w-3.5 h-3.5 text-[#C89B3C]" />
+                <p className="text-[#C89B3C] text-xs font-medium uppercase tracking-wider">{session?.role || 'Manager'}</p>
+              </div>
+            </div>
           </div>
-          {/* Close button */}
-          <button
-            onClick={() => setIsSidebarOpen(false)}
-            className="p-1.5 rounded-lg transition-colors hover:bg-white/10"
-            style={{ color: '#7a6555' }}
-          >
-            <X className="w-6 h-6" />
+          <button onClick={handleLock} className="p-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors border border-red-500/20 shadow-inner" title="Lock Dashboard">
+            <Lock className="w-4 h-4" />
           </button>
-        </div>
-
-        {/* Manager Profile Chip */}
-        <div className="mx-4 mt-4 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
-          <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: 'rgba(200,155,60,0.15)' }}>
-            <UserCircle className="w-5 h-5" style={{ color: '#C89B3C' }} />
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-white">Manager</div>
-            <div className="text-xs" style={{ color: '#7a6555' }}>Operational Access</div>
-          </div>
         </div>
 
         {/* Nav Items */}
@@ -160,6 +196,7 @@ export default function ManagerDashboard() {
         {/* Scrollable Content */}
         <div className={`flex-1 ${activeModule === 'billing' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-8 pb-8'}`}>
           <div className={`${activeModule === 'billing' ? 'h-full' : 'max-w-6xl mx-auto w-full'}`}>
+            <Suspense fallback={<div className="flex h-64 items-center justify-center text-stone-500 animate-pulse">Loading module...</div>}>
             {activeModule === 'billing' ? (
               <ManagerBilling editingOrder={editingOrder} clearEditingOrder={() => setEditingOrder(null)} />
             ) : activeModule === 'orders' ? (
@@ -168,9 +205,10 @@ export default function ManagerDashboard() {
               <ManagerStats />
             ) : activeModule === 'revenue' ? (
               <ManagerDailyRevenue />
-            ) : (
+            ) : activeModule === 'printer' ? (
               <PrinterSettings role="manager" />
-            )}
+            ) : null}
+            </Suspense>
           </div>
         </div>
       </div>

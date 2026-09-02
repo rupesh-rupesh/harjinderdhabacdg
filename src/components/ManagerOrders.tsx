@@ -23,6 +23,37 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
   const receiptRef = useRef<HTMLDivElement>(null);
 
   
+  const handlePrintSpecificOrder = async (order: any) => {
+    if (!printerService.isConnected()) {
+       try {
+         if (printerService.getConfig().type === 'webusb') {
+            await printerService.connectWebUSB();
+         } else if (printerService.getConfig().type === 'webbluetooth') {
+            await printerService.connectWebBluetooth();
+         }
+       } catch (err: any) {
+           if (err.message && !err.message.toLowerCase().includes('cancel') && !err.message.includes('permissions policy')) {
+             toast.error("Please connect printer first: " + err.message);
+           }
+           return;
+         }
+    }
+
+    if (printerService.getConfig().type === 'browser') {
+      setSelectedOrder(order);
+      setTimeout(() => {
+        if (receiptRef.current) window.print();
+      }, 100);
+    } else {
+      try {
+        await printerService.printReceipt(order, false, true, generateGst);
+        toast.success("Receipt sent to printer");
+      } catch (e: any) {
+        if (e.message && !e.message.toLowerCase().includes('cancel')) toast.error(e.message);
+      }
+    }
+  };
+
   const handlePrint = async () => {
     // Ensure printer is connected before starting async fetch to preserve user gesture
     if (!printerService.isConnected()) {
@@ -350,7 +381,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
           <div className="bg-stone-200 rounded-2xl shadow-xl w-full max-w-sm relative z-10 flex flex-col max-h-[90vh] overflow-hidden">
             <div className="p-4 bg-white border-b flex justify-between items-center">
               <h3 className="font-bold text-lg">Bill Preview</h3>
-              <button onClick={() => setShowReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
+              <button type="button" onClick={() => setShowReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
                 <span className="font-bold">&times;</span>
               </button>
             </div>
@@ -360,11 +391,11 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
                </div>
             </div>
             <div className="p-4 bg-white border-t flex flex-col gap-2">
-               <button onClick={() => setShowReceiptPreview(false)} className="w-full py-3 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
-               <button onClick={handlePrint} className="w-full py-3 bg-[#2b1f15] text-[#e8ba7d] font-bold rounded-xl hover:bg-black transition-colors flex items-center justify-center shadow-md">
+               <button type="button" onClick={() => setShowReceiptPreview(false)} className="w-full py-3 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
+               <button type="button" onClick={handlePrint} className="w-full py-3 bg-[#2b1f15] text-[#e8ba7d] font-bold rounded-xl hover:bg-black transition-colors flex items-center justify-center shadow-md">
                  <Printer className="w-5 h-5 mr-2" /> Print Bill
                </button>
-               <button onClick={handlePrintKOT} className="w-full py-3 bg-stone-100 text-stone-700 border border-stone-200 font-bold rounded-xl hover:bg-stone-200 transition-colors flex items-center justify-center shadow-sm">
+               <button type="button" onClick={handlePrintKOT} className="w-full py-3 bg-stone-100 text-stone-700 border border-stone-200 font-bold rounded-xl hover:bg-stone-200 transition-colors flex items-center justify-center shadow-sm">
                  <FileText className="w-5 h-5 mr-2" /> Print KOT
                </button>
             </div>
@@ -382,7 +413,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
             { id: 'completed', label: 'Completed Orders', icon: CheckCircle2 },
             { id: 'cancelled', label: 'Cancelled Orders', icon: XCircle, count: cancelledCount }
           ].map(tab => (
-            <button
+            <button type="button"
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex-1 py-3 px-2 sm:px-4 flex items-center justify-center gap-2 font-bold text-xs sm:text-sm rounded-xl transition-all duration-300 ${
@@ -408,7 +439,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
           <div className="flex flex-col sm:flex-row items-center justify-between bg-white p-3 rounded-2xl shadow-sm border border-stone-100 gap-3">
              <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0 scrollbar-hide">
                 {['all', 'today', 'yesterday', 'custom'].map(filter => (
-                   <button 
+                   <button type="button" 
                      key={filter} 
                      onClick={() => setDateFilter(filter as any)}
                      className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${dateFilter === filter ? 'bg-dhaba-orange text-white shadow-sm' : 'bg-stone-50 border border-stone-200 text-stone-600 hover:bg-stone-100'}`}
@@ -460,7 +491,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
         {/* Delete All Cancelled Orders */}
         {activeTab === 'cancelled' && filteredOrders.length > 0 && (
           <div className="flex justify-end">
-            <button 
+            <button type="button" 
               onClick={handleDeleteAllCancelled}
               className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-xl font-bold shadow-sm transition-colors text-sm"
             >
@@ -525,10 +556,10 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
                 const displayItems = items.filter((i: any) => !i.isTableMarker);
 
                 return (
-                  <button
+                  <div
                     key={order.id}
                     onClick={() => setSelectedOrder(order)}
-                    className={`p-6 rounded-3xl border text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group flex flex-col h-full ${
+                    className={`cursor-pointer p-6 rounded-3xl border text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group flex flex-col h-full ${
                       order.status === 'completed' ? 'bg-gradient-to-br from-green-50 to-emerald-50/30 border-green-100' :
                       order.status === 'cancelled' ? 'bg-gradient-to-br from-red-50 to-rose-50/30 border-red-100' :
                       'bg-white border-stone-100 shadow-sm hover:border-dhaba-orange/30'
@@ -591,12 +622,20 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
                     </div>
                     
                     <div className="pt-4 border-t border-stone-200/60 flex justify-between items-center w-full mt-auto">
-                      <div className="text-sm text-stone-500 font-bold uppercase tracking-wider">Total Amount</div>
-                      <div className={`text-xl font-black ${order.status === 'completed' ? 'text-green-700' : order.status === 'cancelled' ? 'text-red-700' : 'text-dhaba-dark'}`}>
-                        ₹{Number(order.total).toFixed(2)}
+                      <div>
+                        <div className="text-sm text-stone-500 font-bold uppercase tracking-wider">Total Amount</div>
+                        <div className={`text-xl font-black ${order.status === 'completed' ? 'text-green-700' : order.status === 'cancelled' ? 'text-red-700' : 'text-dhaba-dark'}`}>
+                          ₹{Number(order.total).toFixed(2)}
+                        </div>
                       </div>
+                      
+                      {order.status === 'completed' && (
+                        <button type="button" onClick={(e) => { e.stopPropagation(); handlePrintSpecificOrder(order); }} className="p-3 bg-green-100 text-green-700 hover:bg-green-200 rounded-xl transition-colors shadow-sm" title="Print Bill">
+                          <Printer className="w-5 h-5" />
+                        </button>
+                      )}
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -630,7 +669,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
                   </span>
                 </div>
               </div>
-              <button 
+              <button type="button" 
                 onClick={() => setSelectedOrder(null)}
                 className="p-2.5 bg-stone-50 hover:bg-stone-100 rounded-full transition-colors text-stone-500 hover:text-stone-700"
               >
@@ -692,17 +731,17 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
 
             <div className="p-6 bg-white border-t border-stone-100 shrink-0">
               <div className="grid grid-cols-2 gap-3 mb-3">
-                <button 
+                <button type="button" 
                   onClick={() => setShowReceiptPreview(true)}
                   className="w-full py-4 bg-stone-50 border border-stone-200 text-stone-700 font-bold rounded-2xl hover:bg-stone-100 hover:border-stone-300 transition-all flex items-center justify-center text-sm shadow-sm"
                 >
                   <Eye className="w-4 h-4 mr-2" /> View Bill
                 </button>
                 <div className="grid grid-cols-2 gap-2">
-                  <button onClick={handlePrint} className="w-full py-4 bg-[#2b1f15] text-[#e8ba7d] font-bold rounded-2xl hover:bg-black transition-colors flex items-center justify-center shadow-md group">
+                  <button type="button" onClick={handlePrint} className="w-full py-4 bg-[#2b1f15] text-[#e8ba7d] font-bold rounded-2xl hover:bg-black transition-colors flex items-center justify-center shadow-md group">
                     <Printer className="w-5 h-5 group-hover:scale-110 transition-transform" />
                   </button>
-                  <button onClick={handlePrintKOT} className="w-full py-4 bg-stone-100 text-stone-700 border border-stone-200 font-bold rounded-2xl hover:bg-stone-200 transition-colors flex items-center justify-center shadow-sm text-sm">
+                  <button type="button" onClick={handlePrintKOT} className="w-full py-4 bg-stone-100 text-stone-700 border border-stone-200 font-bold rounded-2xl hover:bg-stone-200 transition-colors flex items-center justify-center shadow-sm text-sm">
                     KOT
                   </button>
                 </div>
@@ -710,13 +749,13 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
 
               {(selectedOrder.status === 'pending' || selectedOrder.status === 'processing') && (
                 <div className="grid grid-cols-2 gap-3 mb-3">
-                  <button 
+                  <button type="button" 
                     onClick={() => { handleUpdateStatus(selectedOrder.id, 'cancelled'); }}
                     className="w-full py-4 bg-white border border-red-200 text-red-600 font-bold rounded-2xl hover:bg-red-50 hover:border-red-300 transition-all flex items-center justify-center text-sm shadow-sm"
                   >
                     <XCircle className="w-4 h-4 mr-2" /> Cancel
                   </button>
-                  <button 
+                  <button type="button" 
                     onClick={() => { handleUpdateStatus(selectedOrder.id, 'completed'); }}
                     className="w-full py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold rounded-2xl hover:from-emerald-600 hover:to-green-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center text-sm"
                   >
@@ -726,7 +765,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
               )}
               
               {(selectedOrder.status === 'pending' || selectedOrder.status === 'processing') && (
-                <button 
+                <button type="button" 
                   onClick={() => { if (onEditOrder) onEditOrder(selectedOrder); }}
                   className="w-full py-4 bg-dhaba-orange/10 text-dhaba-orange border border-dhaba-orange/20 font-bold rounded-2xl hover:bg-dhaba-orange/20 transition-all flex items-center justify-center text-sm shadow-sm"
                 >
@@ -734,7 +773,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
                 </button>
               )}
               <div className="mt-6 flex justify-center">
-                <button onClick={(e) => handleDelete(selectedOrder.id, e)} className="text-stone-400 hover:text-red-500 font-bold text-xs flex items-center transition-colors px-4 py-2 rounded-xl hover:bg-red-50">
+                <button type="button" onClick={(e) => handleDelete(selectedOrder.id, e)} className="text-stone-400 hover:text-red-500 font-bold text-xs flex items-center transition-colors px-4 py-2 rounded-xl hover:bg-red-50">
                   <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Delete Order Record
                 </button>
               </div>
@@ -753,13 +792,13 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
             <h3 className="text-xl font-bold text-stone-800 mb-2">Delete Order</h3>
             <p className="text-stone-500 mb-6">Are you sure you want to delete this order? This action cannot be undone.</p>
             <div className="flex gap-3">
-              <button 
+              <button type="button" 
                 onClick={() => setDeleteConfirm(null)}
                 className="flex-1 px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-600 font-medium rounded-xl transition-colors"
               >
                 Cancel
               </button>
-              <button 
+              <button type="button" 
                 onClick={confirmDelete}
                 className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-xl transition-colors"
               >

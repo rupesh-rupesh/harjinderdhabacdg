@@ -467,23 +467,62 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
         ...cart
       ];
 
-      if (editingOrderId) {
-        // Direct API edit workflow
-        const payload = { total: finalTotal, items: JSON.stringify(posItems) };
-        
-        const res = await fetch(`/api/admin/orders/${editingOrderId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+      let success = false;
+      let orderId = editingOrderId;
+      let newOrderObj: any = null;
 
-        if (!res.ok) throw new Error("Failed to update order");
+      try {
+        if (editingOrderId) {
+          const payload = { total: finalTotal, items: JSON.stringify(posItems) };
+          const res = await fetch(`/api/admin/orders/${editingOrderId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) throw new Error("Failed to update order");
+          success = true;
+          toast.success(`Order updated for Table ${tableSelection}`);
+        } else {
+          const payload = {
+             tableNumber: tableSelection,
+             items: cart, // Items without table marker for server route
+             total: finalTotal
+          };
+          const res = await fetch('/api/admin/pos/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) throw new Error("Failed to create order");
+          newOrderObj = await res.json();
+          orderId = newOrderObj.id;
+          success = true;
+          toast.success(`Order placed for Table ${tableSelection}`);
+        }
+      } catch (networkErr: any) {
+        toast.error("Network issue. Saving bill locally (Pending Sync).");
+        success = true;
+        const payload = editingOrderId 
+          ? { id: editingOrderId, action: 'PUT', payload: { total: finalTotal, items: JSON.stringify(posItems) } }
+          : { id: 'local-' + Date.now(), action: 'POST', payload: { tableNumber: tableSelection, items: cart, total: finalTotal } };
         
-        toast.success(`Order updated for Table ${tableSelection}`);
+        const pending = JSON.parse(localStorage.getItem('dhaba_pending_orders') || '[]');
+        pending.push(payload);
+        localStorage.setItem('dhaba_pending_orders', JSON.stringify(pending));
         
+        if (!editingOrderId) {
+           newOrderObj = { id: payload.id, tableNumber: tableSelection, items: JSON.stringify(posItems), total: finalTotal, createdAt: new Date().toISOString() };
+           orderId = newOrderObj.id;
+        }
+      }
+
+      if (success) {
         if (shouldPrint) {
           try {
-            const printOrder = { id: editingOrderId, items: JSON.stringify(posItems), tableNumber: tableSelection, createdAt: new Date().toISOString() };
+            const printOrder = newOrderObj 
+              ? { ...newOrderObj, tableNumber: tableSelection, items: JSON.stringify(posItems) }
+              : { id: orderId, items: JSON.stringify(posItems), tableNumber: tableSelection, createdAt: new Date().toISOString() };
+              
             if (printerService.getConfig().type !== 'browser') {
               await printerService.printReceipt(printOrder, false, true, generateGst);
             } else {
@@ -494,52 +533,15 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
             toast.error(printErr.message || "Failed to print bill");
           }
         }
-        
-        localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
-        setCart([]);
-        setEditingOrderId(null);
-        setTableSelection(null);
-        fetchOrders();
-      } else {
-        // Direct API create workflow
-        const payload = {
-           tableNumber: tableSelection,
-           items: cart, // Items without table marker for server route
-           total: finalTotal
-        };
-
-        const res = await fetch('/api/admin/pos/orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) throw new Error("Failed to create order");
-        const newOrder = await res.json();
-
-        toast.success(`Order placed for Table ${tableSelection}`);
-        
-        if (shouldPrint) {
-          try {
-            const printOrder = { ...newOrder, tableNumber: tableSelection, items: JSON.stringify(posItems) };
-            if (printerService.getConfig().type !== 'browser') {
-              await printerService.printReceipt(printOrder, false, true, generateGst);
-            } else {
-               draftOrder.id = String(printOrder.id);
-               if (cartReceiptRef.current) window.print();
-            }
-          } catch (printErr: any) {
-            toast.error(printErr.message || "Failed to print bill");
-          }
-        }
 
         localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
         setCart([]);
+        if (editingOrderId) { setEditingOrderId(null); clearEditingOrder?.(); }
         setTableSelection(null);
         fetchOrders();
       }
     } catch (e: any) {
-      toast.error(e.message || "A connection error occurred. Please verify your network and try again.");
+      toast.error(e.message || "A connection error occurred.");
     } finally {
       setIsSubmitting(false);
     }
@@ -587,7 +589,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
             <div className="bg-stone-200 rounded-2xl shadow-xl w-full max-w-sm relative z-10 flex flex-col max-h-[90vh] overflow-hidden">
               <div className="p-4 bg-white border-b flex justify-between items-center">
                 <h3 className="font-bold text-lg">Bill Preview (Draft)</h3>
-                <button onClick={() => setShowCartReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
+                <button type="button" onClick={() => setShowCartReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
                   <span className="font-bold">&times;</span>
                 </button>
               </div>
@@ -597,11 +599,11 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                 </div>
               </div>
               <div className="p-4 bg-white border-t flex flex-col gap-2">
-                <button onClick={() => setShowCartReceiptPreview(false)} className="w-full py-3 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
-                <button onClick={handlePrint} className="w-full py-3 bg-[#2b1f15] text-[#e8ba7d] font-bold rounded-xl hover:bg-black transition-colors flex items-center justify-center shadow-md">
+                <button type="button" onClick={() => setShowCartReceiptPreview(false)} className="w-full py-3 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
+                <button type="button" onClick={handlePrint} className="w-full py-3 bg-[#2b1f15] text-[#e8ba7d] font-bold rounded-xl hover:bg-black transition-colors flex items-center justify-center shadow-md">
                   <Printer className="w-5 h-5 mr-2" /> Print Bill
                 </button>
-                <button onClick={handlePrintKOT} className="w-full py-3 bg-stone-100 text-stone-700 border border-stone-200 font-bold rounded-xl hover:bg-stone-200 transition-colors flex items-center justify-center shadow-sm">
+                <button type="button" onClick={handlePrintKOT} className="w-full py-3 bg-stone-100 text-stone-700 border border-stone-200 font-bold rounded-xl hover:bg-stone-200 transition-colors flex items-center justify-center shadow-sm">
                   <FileText className="w-5 h-5 mr-2" /> Print KOT
                 </button>
               </div>
@@ -615,7 +617,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
             <div className="bg-stone-200 rounded-2xl shadow-xl w-full max-w-sm relative z-10 flex flex-col max-h-[90vh] overflow-hidden">
               <div className="p-4 bg-white border-b flex justify-between items-center">
                 <h3 className="font-bold text-lg">Bill Preview</h3>
-                <button onClick={() => setShowReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
+                <button type="button" onClick={() => setShowReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
                   <span className="font-bold">&times;</span>
                 </button>
               </div>
@@ -625,11 +627,11 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                 </div>
               </div>
               <div className="p-4 bg-white border-t flex flex-col gap-2">
-                <button onClick={() => setShowReceiptPreview(false)} className="w-full py-3 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
-                <button onClick={handlePrint} className="w-full py-3 bg-[#2b1f15] text-[#e8ba7d] font-bold rounded-xl hover:bg-black transition-colors flex items-center justify-center shadow-md">
+                <button type="button" onClick={() => setShowReceiptPreview(false)} className="w-full py-3 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
+                <button type="button" onClick={handlePrint} className="w-full py-3 bg-[#2b1f15] text-[#e8ba7d] font-bold rounded-xl hover:bg-black transition-colors flex items-center justify-center shadow-md">
                   <Printer className="w-5 h-5 mr-2" /> Print Bill
                 </button>
-                <button onClick={handlePrintKOT} className="w-full py-3 bg-stone-100 text-stone-700 border border-stone-200 font-bold rounded-xl hover:bg-stone-200 transition-colors flex items-center justify-center shadow-sm">
+                <button type="button" onClick={handlePrintKOT} className="w-full py-3 bg-stone-100 text-stone-700 border border-stone-200 font-bold rounded-xl hover:bg-stone-200 transition-colors flex items-center justify-center shadow-sm">
                   <FileText className="w-5 h-5 mr-2" /> Print KOT
                 </button>
               </div>
@@ -666,7 +668,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                       <span className="font-mono tracking-wider">Order #{checkoutTable.order.id}</span>
                     </div>
                   </div>
-                  <button onClick={() => setCheckoutTable(null)} className="p-2.5 bg-white/5 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 rounded-full transition-all duration-300 text-stone-300 backdrop-blur-md border border-white/10 group shadow-lg">
+                  <button type="button" onClick={() => setCheckoutTable(null)} className="p-2.5 bg-white/5 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 rounded-full transition-all duration-300 text-stone-300 backdrop-blur-md border border-white/10 group shadow-lg">
                     <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
                   </button>
                 </div>
@@ -683,14 +685,14 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
 
                 <div className="space-y-4 relative z-10">
                   <div className="grid grid-cols-2 gap-3">
-                    <button
+                    <button type="button"
                       onClick={() => setShowReceiptPreview(true)}
                       className="py-3 px-2 bg-white border border-stone-200 text-stone-700 font-bold rounded-xl hover:bg-stone-50 hover:border-stone-300 transition-colors flex flex-col items-center justify-center shadow-sm gap-1.5"
                     >
                       <Eye className="w-5 h-5" /> 
                       <span className="text-xs uppercase tracking-wider">Preview Bill</span>
                     </button>
-                    <button
+                    <button type="button"
                       onClick={handlePrint}
                       className="py-3 px-2 bg-gradient-to-br from-dhaba-dark to-black text-[var(--color-gold)] border border-black font-bold rounded-xl hover:brightness-110 transition-all flex flex-col items-center justify-center shadow-md gap-1.5"
                     >
@@ -699,7 +701,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                     </button>
                   </div>
                   <div className="flex gap-2 flex-wrap mb-4">
-                    <button
+                    <button type="button"
                       onClick={() => {
                         if (checkoutTable) {
                           let newCart: any[] = [];
@@ -728,7 +730,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                     </button>
                   </div>
                   <div className="flex gap-3">
-                    <button
+                    <button type="button"
                       onClick={() => {
                         setConfirmDialog({
                           isOpen: true,
@@ -757,7 +759,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                     >
                       <X className="w-5 h-5" /> Cancel Order
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => {
                         setConfirmDialog({
                           isOpen: true,
@@ -817,7 +819,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
           </div>
 
           <div className="relative z-10 flex flex-wrap justify-center gap-2 sm:gap-3 bg-white/40 p-2 sm:p-3 rounded-2xl backdrop-blur-sm border border-[#E3C77D]/20 shadow-inner">
-            <button
+            <button type="button"
               onClick={() => {
                 setSearchQuery('');
                 const loadingToast = toast.loading("Refreshing & Fetching data...");
@@ -836,7 +838,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
               <span className="hidden sm:block">Refresh</span>
             </button>
 
-            <button
+            <button type="button"
               onClick={() => {
                 if (!document.fullscreenElement) {
                   document.documentElement.requestFullscreen().catch(() => {});
@@ -850,7 +852,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
               <Icons.Maximize className="w-4 h-4" />
               <span className="hidden sm:block">Fullscreen</span>
             </button>
-            <button
+            <button type="button"
               onClick={toggleLock}
               title={isLocked ? "Unlock Screen" : "Lock Screen"}
               className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 font-semibold text-xs sm:text-sm border ${
@@ -876,7 +878,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
             const isActive = !!tableOrder;
 
             return (
-              <button
+              <button type="button"
                 key={num}
                 onClick={() => {
                   if (isActive) {
@@ -921,7 +923,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                 </div>
 
                 {isActive && (
-                  <button
+                  <button type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       setConfirmDialog({
@@ -989,7 +991,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
           <div className="bg-stone-200 rounded-2xl shadow-xl w-full max-w-sm relative z-10 flex flex-col max-h-[90vh] overflow-hidden">
             <div className="p-4 bg-white border-b flex justify-between items-center">
               <h3 className="font-bold text-lg">Bill Preview (Draft)</h3>
-              <button onClick={() => setShowCartReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
+              <button type="button" onClick={() => setShowCartReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
                 <span className="font-bold">&times;</span>
               </button>
             </div>
@@ -999,8 +1001,8 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
               </div>
             </div>
             <div className="p-4 bg-white border-t flex justify-end gap-2">
-              <button onClick={() => setShowCartReceiptPreview(false)} className="px-4 py-2 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
-              <button onClick={handlePrintCart} className="px-4 py-2 bg-dhaba-orange text-white rounded-xl hover:bg-[#e0561b] font-bold flex items-center"><Printer className="w-4 h-4 mr-2" /> Print</button>
+              <button type="button" onClick={() => setShowCartReceiptPreview(false)} className="px-4 py-2 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
+              <button type="button" onClick={handlePrintCart} className="px-4 py-2 bg-dhaba-orange text-white rounded-xl hover:bg-[#e0561b] font-bold flex items-center"><Printer className="w-4 h-4 mr-2" /> Print</button>
             </div>
           </div>
         </div>
@@ -1012,7 +1014,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
           <div className="bg-stone-200 rounded-2xl shadow-xl w-full max-w-sm relative z-10 flex flex-col max-h-[90vh] overflow-hidden">
             <div className="p-4 bg-white border-b flex justify-between items-center">
               <h3 className="font-bold text-lg">Bill Preview</h3>
-              <button onClick={() => setShowReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
+              <button type="button" onClick={() => setShowReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
                 <span className="font-bold">&times;</span>
               </button>
             </div>
@@ -1022,8 +1024,8 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
               </div>
             </div>
             <div className="p-4 bg-white border-t flex justify-end gap-2">
-              <button onClick={() => setShowReceiptPreview(false)} className="px-4 py-2 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
-              <button onClick={handlePrint} className="px-4 py-2 bg-dhaba-orange text-white rounded-xl hover:bg-[#e0561b] font-bold flex items-center"><Printer className="w-4 h-4 mr-2" /> Print</button>
+              <button type="button" onClick={() => setShowReceiptPreview(false)} className="px-4 py-2 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
+              <button type="button" onClick={handlePrint} className="px-4 py-2 bg-dhaba-orange text-white rounded-xl hover:bg-[#e0561b] font-bold flex items-center"><Printer className="w-4 h-4 mr-2" /> Print</button>
             </div>
           </div>
         </div>
@@ -1032,7 +1034,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
         <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6" onClick={() => setSelectedItemDetail(null)} data-lenis-prevent="true">
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
             <div className="relative h-48 sm:h-56 bg-stone-100">
-              <button onClick={() => setSelectedItemDetail(null)} className="absolute top-4 right-4 w-8 h-8 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center text-stone-600 hover:text-stone-900 transition-colors z-10 shadow-sm"><X className="w-5 h-5" /></button>
+              <button type="button" onClick={() => setSelectedItemDetail(null)} className="absolute top-4 right-4 w-8 h-8 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center text-stone-600 hover:text-stone-900 transition-colors z-10 shadow-sm"><X className="w-5 h-5" /></button>
               {selectedItemDetail.image ? (
                 <img src={selectedItemDetail.image} className="w-full h-full object-cover" />
               ) : (
@@ -1047,7 +1049,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                 {selectedItemDetail.variants && selectedItemDetail.variants.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3 sm:gap-4">
                     {selectedItemDetail.variants.map((v: any, i: number) => (
-                      <button
+                      <button type="button"
                         key={i}
                         onClick={() => {
                           addToCartWithOptions(selectedItemDetail, { price: v.price, variantName: v.name });
@@ -1062,14 +1064,14 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                   </div>
                 ) : selectedItemDetail.hasHalfPortion ? (
                   <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    <button
+                    <button type="button"
                       onClick={() => { addToCartWithOptions(selectedItemDetail, { isHalf: true, price: selectedItemDetail.halfPrice }); setSelectedItemDetail(null); }}
                       className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
                     >
                       <span className="text-xs uppercase tracking-widest font-bold text-stone-500 mb-1">Half</span>
                       <span className="text-xl font-bold text-dhaba-dark">₹{selectedItemDetail.halfPrice}</span>
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => { addToCartWithOptions(selectedItemDetail, { isHalf: false, price: selectedItemDetail.price }); setSelectedItemDetail(null); }}
                       className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
                     >
@@ -1079,14 +1081,14 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                   </div>
                 ) : selectedItemDetail.hasButterOption ? (
                   <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    <button
+                    <button type="button"
                       onClick={() => { addToCartWithOptions(selectedItemDetail, { isButter: false, price: selectedItemDetail.price }); setSelectedItemDetail(null); }}
                       className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
                     >
                       <span className="text-xs uppercase tracking-widest font-bold text-stone-500 mb-1">Normal</span>
                       <span className="text-xl font-bold text-dhaba-dark">₹{selectedItemDetail.price}</span>
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => { addToCartWithOptions(selectedItemDetail, { isButter: true, price: selectedItemDetail.price + (selectedItemDetail.butterPrice || 0) }); setSelectedItemDetail(null); }}
                       className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
                     >
@@ -1107,7 +1109,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
           <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden relative z-10 animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50">
               <h3 className="font-black text-xl text-stone-800">{editingCustomItem ? 'Edit Custom Item' : 'Add Custom Item'}</h3>
-              <button onClick={() => { setIsCustomItemModalOpen(false); setEditingCustomItem(null); }} className="p-2 hover:bg-stone-200 rounded-full transition-colors">
+              <button type="button" onClick={() => { setIsCustomItemModalOpen(false); setEditingCustomItem(null); }} className="p-2 hover:bg-stone-200 rounded-full transition-colors">
                 <X className="w-5 h-5 text-stone-500" />
               </button>
             </div>
@@ -1151,7 +1153,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
       <div className="bg-white border-b border-stone-200 px-2 sm:px-5 py-2 sm:py-3 flex items-center justify-between gap-1 sm:gap-3 shrink-0 relative w-full overflow-hidden">
         {/* Left: back + table name */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          <button
+          <button type="button"
             onClick={() => setTableSelection(null)}
             className="p-1.5 sm:p-2 hover:bg-stone-100 rounded-lg transition-colors text-stone-500"
           >
@@ -1206,7 +1208,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
         <div className="flex items-center justify-end gap-1 sm:gap-2 shrink-0">
 
 
-          <button
+          <button type="button"
             onClick={() => {
               if (cart.length > 0) {
                 setConfirmDialog({
@@ -1250,7 +1252,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
           >
             <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-          <button
+          <button type="button"
             onClick={() => {
               if (isLocked) {
                 toast.error("Please unlock the screen first.");
@@ -1276,7 +1278,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
         {/* Left Column: Categories — floating pills look */}
         <div className="w-20 sm:w-48 bg-stone-50 border-r border-stone-200 overflow-y-auto shrink-0 flex flex-col p-2 sm:p-4 gap-2">
           {categories.map(cat => (
-            <button
+            <button type="button"
               key={cat.id}
               onClick={() => setSelectedCategory(cat.name)}
               className={`p-2 sm:p-3 text-left transition-all flex flex-col items-center sm:flex-row sm:items-center gap-2 rounded-2xl ${selectedCategory === cat.name
@@ -1294,7 +1296,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
               <span className={`text-[10px] sm:text-xs font-black uppercase tracking-wider text-center sm:text-left mt-1 sm:mt-0 ${selectedCategory === cat.name ? 'text-dhaba-orange' : 'text-stone-600'}`}>{cat.name}</span>
             </button>
           ))}
-          <button
+          <button type="button"
             onClick={() => setIsCustomItemModalOpen(true)}
             className="p-2 sm:p-3 text-left transition-all flex flex-col items-center sm:flex-row sm:items-center gap-2 rounded-2xl border border-dashed border-stone-300 text-stone-500 hover:bg-stone-100 hover:border-dhaba-orange hover:text-dhaba-orange group mt-2"
           >
@@ -1312,7 +1314,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
             style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(max(140px, calc((100% - 48px) / 3)), 1fr))' }}
           >
             {filteredItems.map(item => (
-              <button
+              <button type="button"
                 key={item.id}
                 onClick={() => addToCart(item)}
                 className="bg-white border border-stone-100 rounded-3xl overflow-hidden hover:border-dhaba-orange/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-left flex flex-col group h-full shadow-sm"
@@ -1381,13 +1383,13 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
               Current Bill
             </h3>
             <div className="flex items-center gap-2 pr-1">
-              <button onClick={toggleLock} title={isLocked ? "Unlock Screen" : "Lock Screen"} className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${isLocked ? 'text-dhaba-orange bg-dhaba-orange/10' : 'text-stone-500 hover:text-stone-700 hover:bg-stone-100'}`}>
+              <button type="button" onClick={toggleLock} title={isLocked ? "Unlock Screen" : "Lock Screen"} className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${isLocked ? 'text-dhaba-orange bg-dhaba-orange/10' : 'text-stone-500 hover:text-stone-700 hover:bg-stone-100'}`}>
                 {isLocked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
               </button>
-              <button onClick={() => setShowCartReceiptPreview(true)} disabled={cart.length === 0} title="Preview Bill" className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
+              <button type="button" onClick={() => setShowCartReceiptPreview(true)} disabled={cart.length === 0} title="Preview Bill" className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
                 <Eye className="w-5 h-5" />
               </button>
-              <button onClick={() => submitOrder(false)} disabled={cart.length === 0 || isSubmitting} title="Save Bill" className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
+              <button type="button" onClick={() => submitOrder(false)} disabled={cart.length === 0 || isSubmitting} title="Save Bill" className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
                 <Save className="w-5 h-5" />
               </button>
             </div>
@@ -1423,7 +1425,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                       ₹{item.price} EA
                     </span>
                     <div className="flex items-center gap-1 bg-stone-50 rounded-xl p-1 border border-stone-100 shadow-inner">
-                      <button
+                      <button type="button"
                         onClick={() => updateQuantity(item.cartItemId, -1)}
                         className="w-7 h-7 rounded-lg bg-white text-stone-600 hover:text-stone-900 hover:shadow shadow-sm flex items-center justify-center transition-all"
                       >
@@ -1439,7 +1441,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                         className="w-8 text-sm font-black text-center text-stone-700 bg-transparent outline-none appearance-none"
                         min="1"
                       />
-                      <button
+                      <button type="button"
                         onClick={() => updateQuantity(item.cartItemId, 1)}
                         className="w-7 h-7 rounded-lg bg-white text-stone-600 hover:text-stone-900 hover:shadow shadow-sm flex items-center justify-center transition-all"
                       >
@@ -1449,7 +1451,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                   </div>
 
                   <div className="absolute top-3 right-3 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                    <button
+                    <button type="button"
                       onClick={() => updateQuantity(item.cartItemId, -item.quantity)}
                       className="w-7 h-7 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white flex items-center justify-center shadow-sm"
                       title="Remove Item"
@@ -1457,7 +1459,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                     {item.isCustom && (
-                      <button
+                      <button type="button"
                         onClick={() => setEditingCustomItem(item)}
                         className="w-7 h-7 bg-stone-100 text-stone-600 rounded-lg hover:bg-dhaba-orange hover:text-white flex items-center justify-center shadow-sm"
                         title="Edit Custom Item"
@@ -1520,31 +1522,46 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
               </div>
             </div>
 
-            <div className="flex gap-2 mt-2">
-              <button
-                onClick={() => submitOrder(true)}
-                disabled={cart.length === 0 || isSubmitting}
-                className="flex-[7] py-2.5 px-2 bg-gradient-to-r from-dhaba-orange to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:from-stone-300 disabled:to-stone-400 disabled:cursor-not-allowed text-white font-black rounded-lg transition-all shadow-md hover:shadow-xl flex items-center justify-center gap-2 text-base transform hover:-translate-y-0.5"
-                title="Save & Print Bill"
-              >
-                {isSubmitting ? (
-                  <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Printer className="w-5 h-5 shrink-0" />
-                    <span className="hidden xl:inline">Save & Print</span>
-                  </>
-                )}
-              </button>
-              <button
-                onClick={handlePrintKOT}
-                disabled={cart.length === 0}
-                className="flex-[3] py-2.5 px-2 bg-stone-100 hover:bg-stone-200 text-stone-700 border border-stone-200 font-black rounded-lg transition-all shadow-sm hover:shadow flex items-center justify-center gap-2 text-base transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Print KOT"
-              >
-                <FileText className="w-5 h-5 shrink-0" />
-                <span className="hidden xl:inline">KOT</span>
-              </button>
+            <div className="flex flex-col gap-2 mt-3">
+              {editingOrderId ? (
+                <>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => submitOrder(true)} disabled={cart.length === 0 || isSubmitting} className="flex-1 py-2.5 px-2 bg-gradient-to-r from-dhaba-orange to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 text-white font-black rounded-lg shadow flex items-center justify-center gap-1.5 text-sm">
+                       {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Printer className="w-4 h-4" />} <span className="hidden sm:inline">Update & Print</span><span className="sm:hidden">Print</span>
+                    </button>
+                    <button type="button" onClick={() => submitOrder(false)} disabled={cart.length === 0 || isSubmitting} className="flex-1 py-2.5 px-2 bg-stone-800 hover:bg-black disabled:opacity-50 text-white font-black rounded-lg shadow flex items-center justify-center gap-1.5 text-sm">
+                       {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} <span className="hidden sm:inline">Update Only</span><span className="sm:hidden">Save</span>
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => { clearEditingOrder(); setCart([]); setTableSelection(null); }} className="flex-1 py-2 px-2 bg-white hover:bg-stone-50 border border-stone-200 text-stone-600 font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 text-sm">
+                       <X className="w-4 h-4" /> Cancel Edit
+                    </button>
+                    <button type="button" onClick={handlePrintKOT} disabled={cart.length === 0} className="flex-1 py-2 px-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 text-sm">
+                       <FileText className="w-4 h-4" /> KOT
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => submitOrder(true)} disabled={cart.length === 0 || isSubmitting} className="flex-1 py-2.5 px-2 bg-gradient-to-r from-dhaba-orange to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 text-white font-black rounded-lg shadow flex items-center justify-center gap-1.5 text-sm">
+                       {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Printer className="w-4 h-4" />} <span className="hidden sm:inline">Save & Print</span><span className="sm:hidden">Print</span>
+                    </button>
+                    <button type="button" onClick={() => submitOrder(false)} disabled={cart.length === 0 || isSubmitting} className="flex-1 py-2.5 px-2 bg-stone-800 hover:bg-black disabled:opacity-50 text-white font-black rounded-lg shadow flex items-center justify-center gap-1.5 text-sm">
+                       {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} <span className="hidden sm:inline">Save Only</span><span className="sm:hidden">Save</span>
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setCart([])} disabled={cart.length === 0} className="flex-1 py-2 px-2 bg-white hover:bg-stone-50 border border-stone-200 text-stone-600 font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 text-sm">
+                       <Trash2 className="w-4 h-4" /> Clear Cart
+                    </button>
+                    <button type="button" onClick={handlePrintKOT} disabled={cart.length === 0} className="flex-1 py-2 px-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 text-sm">
+                       <FileText className="w-4 h-4" /> Print KOT
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
         </div>
       </div>

@@ -39,7 +39,10 @@ export const categories = pgTable('categories', {
   isDeleted: boolean('is_deleted').default(false),
   isHidden: boolean('is_hidden').default(false),
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => [
+  index('categories_is_deleted_idx').on(table.isDeleted),
+  index('categories_is_hidden_idx').on(table.isHidden)
+]);
 
 // Define the 'menu_items' table.
 export const menuItems = pgTable('menu_items', {
@@ -94,7 +97,10 @@ export const features = pgTable('features', {
   displayOrder: integer('display_order').notNull().default(0),
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => [
+  index('features_is_active_idx').on(table.isActive),
+  index('features_display_order_idx').on(table.displayOrder)
+]);
 
 export const journeyMedia = pgTable('journey_media', {
   id: serial('id').primaryKey(),
@@ -103,7 +109,10 @@ export const journeyMedia = pgTable('journey_media', {
   displayOrder: integer('display_order').notNull().default(0),
   isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow(),
-});
+}, (table) => [
+  index('journey_media_is_active_idx').on(table.isActive),
+  index('journey_media_display_order_idx').on(table.displayOrder)
+]);
 
 export const journeySettings = pgTable('journey_settings', {
   id: serial('id').primaryKey(),
@@ -195,4 +204,37 @@ export const newsTicker = pgTable('news_ticker', {
   displayOrder: integer('display_order').notNull().default(0),
   createdAt: timestamp('created_at').defaultNow(),
 });
+
+// ─── Staff Auth ───────────────────────────────────────────────────────────────
+// Per-user accounts for admin and manager login (email + hashed password)
+export const staffAccounts = pgTable('staff_accounts', {
+  id: serial('id').primaryKey(),
+  email: text('email').notNull().unique(),
+  name: text('name').notNull(),
+  role: text('role').notNull(), // 'admin' | 'manager'
+  passwordHash: text('password_hash').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  permissions: jsonb('permissions'),
+  createdBy: integer('created_by'), // references staffAccounts.id (self-ref, nullable)
+  createdAt: timestamp('created_at').defaultNow(),
+  lastLogin: timestamp('last_login'),
+}, (table) => [
+  index('staff_accounts_email_idx').on(table.email),
+  index('staff_accounts_role_idx').on(table.role),
+  index('staff_accounts_is_active_idx').on(table.isActive)
+]);
+
+// Time-limited OTP codes — one per login attempt, expires in 10 minutes
+export const otpSessions = pgTable('otp_sessions', {
+  id: serial('id').primaryKey(),
+  staffId: integer('staff_id').notNull().references(() => staffAccounts.id, { onDelete: 'cascade' }),
+  otpHash: text('otp_hash').notNull(),   // bcrypt hash of the 6-digit code
+  expiresAt: timestamp('expires_at').notNull(),
+  used: boolean('used').notNull().default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => [
+  index('otp_sessions_staff_id_idx').on(table.staffId),
+  index('otp_sessions_used_idx').on(table.used),
+  index('otp_sessions_expires_at_idx').on(table.expiresAt)
+]);
 
