@@ -1317,9 +1317,11 @@ export default function AdminDashboard() {
               </div>
             </div>
           </div>
-          <button onClick={handleLock} className="p-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors border border-red-500/20 shadow-inner" title="Lock Dashboard">
-            <Lock className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setIsSidebarOpen(false)} className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white transition-colors" title="Close Sidebar">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Nav Items */}
@@ -1338,7 +1340,10 @@ export default function AdminDashboard() {
           ] as const).map(({ key, label, icon }) => (
             <button
               key={key}
-              onClick={() => { setActiveModule(key as any); }}
+              onClick={() => { 
+                setActiveModule(key as any); 
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
               className={`dash-sidebar-item${activeModule === key ? ' active' : ''}`}
             >
               <span className="icon">{icon}</span>
@@ -1347,7 +1352,10 @@ export default function AdminDashboard() {
           ))}
           <div className="pt-3 mt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
             <button
-              onClick={() => { setActiveModule('recover'); }}
+              onClick={() => { 
+                setActiveModule('recover'); 
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
               className={`dash-sidebar-item${activeModule === 'recover' ? ' active' : ''}`}
             >
               <span className="icon"><Trash2 className="w-5 h-5" /></span>

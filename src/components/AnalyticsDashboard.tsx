@@ -10,9 +10,8 @@ import toast from 'react-hot-toast';
 import { ConfirmModal } from './ConfirmModal';
 
 export default function AnalyticsDashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'visitors' | 'settings' | 'demo-notices'>('overview');
-  const [data, setData] = useState({ visits: [], visitors: [], activeVisitors: 0, demoNotices: [] });
-  const [demoFilter, setDemoFilter] = useState<'today' | 'weekly' | 'monthly' | 'all'>('all');
+  const [activeTab, setActiveTab] = useState<'overview' | 'visitors' | 'settings'>('overview');
+  const [data, setData] = useState({ visits: [], visitors: [], activeVisitors: 0 });
   const [settings, setSettings] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,15 +36,8 @@ export default function AnalyticsDashboard() {
       setData({
         visits: dataJson.visits || [],
         visitors: dataJson.visitors || [],
-        activeVisitors: dataJson.activeVisitors || 0,
-        demoNotices: dataJson.demoNotices || []
+        activeVisitors: dataJson.activeVisitors || 0
       });
-      
-      
-      const localDemoNotice = localStorage.getItem('htd_analytics_demoNoticeEnabled');
-      if (localDemoNotice !== null) {
-        settingsJson.demoNoticeEnabled = JSON.parse(localDemoNotice);
-      }
       
       setSettings(settingsJson);
     } catch (e) {
@@ -180,14 +172,6 @@ export default function AnalyticsDashboard() {
     (v.browser || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredDemoNotices = (data.demoNotices || []).filter((notice: any) => {
-    if (demoFilter === 'all') return true;
-    const nDate = new Date(notice.createdAt);
-    if (demoFilter === 'today') return nDate >= today;
-    if (demoFilter === 'weekly') return nDate >= weekStart;
-    if (demoFilter === 'monthly') return nDate >= monthStart;
-    return true;
-  }).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const exportCSV = () => {
     if (!settings?.exportEnabled) return toast.error("The export functionality is currently disabled.");
@@ -209,7 +193,6 @@ export default function AnalyticsDashboard() {
         <div className="flex gap-2 bg-stone-100 p-1 rounded-xl">
           <button onClick={() => setActiveTab('overview')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${activeTab === 'overview' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500'}`}>Overview</button>
           <button onClick={() => setActiveTab('visitors')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${activeTab === 'visitors' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500'}`}>Visitors</button>
-          <button onClick={() => setActiveTab('demo-notices')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${activeTab === 'demo-notices' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500'}`}>Demo Notices</button>
           <button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${activeTab === 'settings' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500'}`}>Settings</button>
         </div>
         <div className="flex items-center gap-3">
@@ -359,12 +342,7 @@ export default function AnalyticsDashboard() {
           <h3 className="text-lg font-bold text-stone-800 mb-6">Analytics Settings</h3>
           
           <div className="space-y-6">
-            <ToggleSetting 
-              title="Demo Website Notice" 
-              description="Show the welcome demo notice to all visitors on page load"
-              checked={settings.demoNoticeEnabled ?? true}
-              onChange={(val) => handleUpdateSetting('demoNoticeEnabled', val)}
-            />
+
             <ToggleSetting 
               title="Enable Tracking" 
               description="Track visitor interactions on the website"
@@ -409,51 +387,6 @@ export default function AnalyticsDashboard() {
         </div>
       )}
 
-      {activeTab === 'demo-notices' && (
-        <div className="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden">
-          <div className="p-6 border-b border-stone-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h3 className="text-lg font-bold text-stone-800">Demo Notices</h3>
-              <p className="text-sm text-stone-500">Users who clicked continue on the demo notice.</p>
-            </div>
-            <div className="flex bg-stone-100 p-1 rounded-xl">
-              <button onClick={() => setDemoFilter('all')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${demoFilter === 'all' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>All Time</button>
-              <button onClick={() => setDemoFilter('today')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${demoFilter === 'today' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>Today</button>
-              <button onClick={() => setDemoFilter('weekly')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${demoFilter === 'weekly' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>Weekly</button>
-              <button onClick={() => setDemoFilter('monthly')} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${demoFilter === 'monthly' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>Monthly</button>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-stone-50 text-stone-500 text-xs uppercase font-medium">
-                <tr>
-                  <th className="px-6 py-4">ID</th>
-                  <th className="px-6 py-4">Name</th>
-                  <th className="px-6 py-4">Submitted At</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100">
-                {filteredDemoNotices.map((notice: any) => (
-                  <tr key={notice.id} className="hover:bg-stone-50/50 transition-colors">
-                    <td className="px-6 py-4 text-stone-500 font-mono">#{notice.id}</td>
-                    <td className="px-6 py-4 font-medium text-stone-800">{notice.name}</td>
-                    <td className="px-6 py-4 text-stone-500">
-                      {new Date(notice.createdAt).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-                {filteredDemoNotices.length === 0 && (
-                  <tr>
-                    <td colSpan={3} className="px-6 py-8 text-center text-stone-500">
-                      No demo notices found for the selected time filter.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
       <ConfirmModal
         isOpen={confirmDialog.isOpen}

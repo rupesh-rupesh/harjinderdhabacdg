@@ -61,7 +61,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
   const toggleLock = () => {
     if (!isLocked) {
       if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
+        document.documentElement.requestFullscreen().catch(() => { });
       }
       setIsLocked(true);
       toast.success("Screen locked! Refresh and exit are prevented.");
@@ -92,7 +92,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
     const handleFullscreenChange = () => {
       if (isLocked && !document.fullscreenElement) {
         toast.error("Screen is locked. Please unlock to exit full screen.");
-        document.documentElement.requestFullscreen().catch(() => {});
+        document.documentElement.requestFullscreen().catch(() => { });
       }
     };
 
@@ -373,10 +373,28 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
         const ct = res.headers.get('content-type');
         if (ct && ct.includes('application/json')) {
           const data = await res.json();
-          setCategories(data.categories || []);
+          let fetchedCategories = data.categories || [];
+
+          // Reorder categories: move Tandoori and Biryani/Rice after Thali
+          const thaliIdx = fetchedCategories.findIndex((c: any) => c.name.toLowerCase() === 'thali');
+          if (thaliIdx !== -1) {
+            const tandoori = fetchedCategories.find((c: any) => c.name.toLowerCase() === 'tandoori');
+            const biryani = fetchedCategories.find((c: any) => c.name.toLowerCase().includes('biryani'));
+            
+            fetchedCategories = fetchedCategories.filter((c: any) => 
+              c.name.toLowerCase() !== 'tandoori' && 
+              !c.name.toLowerCase().includes('biryani')
+            );
+            
+            const newThaliIdx = fetchedCategories.findIndex((c: any) => c.name.toLowerCase() === 'thali');
+            const toInsert = [tandoori, biryani].filter(Boolean);
+            fetchedCategories.splice(newThaliIdx + 1, 0, ...toInsert);
+          }
+
+          setCategories(fetchedCategories);
           setMenuItems(data.menuItems || []);
-          if (data.categories && data.categories.length > 0 && !selectedCategory) {
-            setSelectedCategory(data.categories[0].name);
+          if (fetchedCategories.length > 0 && !selectedCategory) {
+            setSelectedCategory(fetchedCategories[0].name);
           }
         }
       }
@@ -461,7 +479,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
     setIsSubmitting(true);
     try {
       const finalTotal = generateGst ? cartTotal + (cartTotal * 0.05) : cartTotal;
-      
+
       const posItems = [
         { name: `Table ${tableSelection}`, price: 0, quantity: 1, isTableMarker: true },
         ...cart
@@ -484,9 +502,9 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
           toast.success(`Order updated for Table ${tableSelection}`);
         } else {
           const payload = {
-             tableNumber: tableSelection,
-             items: cart, // Items without table marker for server route
-             total: finalTotal
+            tableNumber: tableSelection,
+            items: cart, // Items without table marker for server route
+            total: finalTotal
           };
           const res = await fetch('/api/admin/pos/orders', {
             method: 'POST',
@@ -502,32 +520,32 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
       } catch (networkErr: any) {
         toast.error("Network issue. Saving bill locally (Pending Sync).");
         success = true;
-        const payload = editingOrderId 
+        const payload = editingOrderId
           ? { id: editingOrderId, action: 'PUT', payload: { total: finalTotal, items: JSON.stringify(posItems) } }
           : { id: 'local-' + Date.now(), action: 'POST', payload: { tableNumber: tableSelection, items: cart, total: finalTotal } };
-        
+
         const pending = JSON.parse(localStorage.getItem('dhaba_pending_orders') || '[]');
         pending.push(payload);
         localStorage.setItem('dhaba_pending_orders', JSON.stringify(pending));
-        
+
         if (!editingOrderId) {
-           newOrderObj = { id: payload.id, tableNumber: tableSelection, items: JSON.stringify(posItems), total: finalTotal, createdAt: new Date().toISOString() };
-           orderId = newOrderObj.id;
+          newOrderObj = { id: payload.id, tableNumber: tableSelection, items: JSON.stringify(posItems), total: finalTotal, createdAt: new Date().toISOString() };
+          orderId = newOrderObj.id;
         }
       }
 
       if (success) {
         if (shouldPrint) {
           try {
-            const printOrder = newOrderObj 
+            const printOrder = newOrderObj
               ? { ...newOrderObj, tableNumber: tableSelection, items: JSON.stringify(posItems) }
               : { id: orderId, items: JSON.stringify(posItems), tableNumber: tableSelection, createdAt: new Date().toISOString() };
-              
+
             if (printerService.getConfig().type !== 'browser') {
               await printerService.printReceipt(printOrder, false, true, generateGst);
             } else {
-               draftOrder.id = String(printOrder.id);
-               if (cartReceiptRef.current) window.print();
+              draftOrder.id = String(printOrder.id);
+              if (cartReceiptRef.current) window.print();
             }
           } catch (printErr: any) {
             toast.error(printErr.message || "Failed to print bill");
@@ -646,7 +664,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                 {/* Decorative background element */}
                 <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-[#e8ba7d]/20 to-transparent rounded-full blur-3xl pointer-events-none translate-x-1/3 -translate-y-1/3"></div>
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-dhaba-orange/20 to-transparent rounded-full blur-2xl pointer-events-none -translate-x-1/2 translate-y-1/2"></div>
-                
+
                 <div className="flex justify-between items-start relative z-10">
                   <div className="flex flex-col">
                     <div className="flex items-center gap-4">
@@ -673,7 +691,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                   </button>
                 </div>
               </div>
-              
+
               <div className="p-6">
                 <div className="bg-gradient-to-br from-[#FFFDF5] to-[#FDF8E7] p-6 rounded-2xl text-center mb-6 border border-[#F2E5C5] shadow-sm relative overflow-hidden group">
                   <div className="absolute -right-4 -top-4 text-[#D4AF37] opacity-10 group-hover:scale-110 transition-transform duration-500">
@@ -689,14 +707,14 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                       onClick={() => setShowReceiptPreview(true)}
                       className="py-3 px-2 bg-white border border-stone-200 text-stone-700 font-bold rounded-xl hover:bg-stone-50 hover:border-stone-300 transition-colors flex flex-col items-center justify-center shadow-sm gap-1.5"
                     >
-                      <Eye className="w-5 h-5" /> 
+                      <Eye className="w-5 h-5" />
                       <span className="text-xs uppercase tracking-wider">Preview Bill</span>
                     </button>
                     <button type="button"
                       onClick={handlePrint}
                       className="py-3 px-2 bg-gradient-to-br from-dhaba-dark to-black text-[var(--color-gold)] border border-black font-bold rounded-xl hover:brightness-110 transition-all flex flex-col items-center justify-center shadow-md gap-1.5"
                     >
-                      <Printer className="w-5 h-5" /> 
+                      <Printer className="w-5 h-5" />
                       <span className="text-xs uppercase tracking-wider">Print Bill</span>
                     </button>
                   </div>
@@ -744,7 +762,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                                 body: JSON.stringify({ status: 'cancelled' })
                               });
                               if (!res.ok) throw new Error("Failed to cancel order");
-                              
+
                               fetchOrders();
                               setTableSelection(checkoutTable.num);
                               setCheckoutTable(null);
@@ -773,7 +791,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                                 body: JSON.stringify({ status: 'completed' })
                               });
                               if (!res.ok) throw new Error("Failed to mark as paid");
-                              
+
                               fetchOrders();
                               setTableSelection(checkoutTable.num);
                               setCheckoutTable(null);
@@ -841,9 +859,9 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
             <button type="button"
               onClick={() => {
                 if (!document.fullscreenElement) {
-                  document.documentElement.requestFullscreen().catch(() => {});
+                  document.documentElement.requestFullscreen().catch(() => { });
                 } else {
-                  document.exitFullscreen().catch(() => {});
+                  document.exitFullscreen().catch(() => { });
                 }
               }}
               title="Toggle Fullscreen"
@@ -855,11 +873,10 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
             <button type="button"
               onClick={toggleLock}
               title={isLocked ? "Unlock Screen" : "Lock Screen"}
-              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 font-semibold text-xs sm:text-sm border ${
-                isLocked
+              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 font-semibold text-xs sm:text-sm border ${isLocked
                   ? 'bg-dhaba-orange/10 hover:bg-dhaba-orange/20 border-dhaba-orange text-dhaba-orange'
                   : 'bg-white hover:bg-stone-50 border-[#E3C77D]/40 text-[#5C4D40]'
-              }`}
+                }`}
             >
               {isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
               <span className="hidden sm:block">{isLocked ? 'Locked' : 'Lock'}</span>
@@ -901,13 +918,13 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                   }
                 }}
                 className={`aspect-[4/3] rounded-3xl flex flex-col items-center justify-center gap-3 transition-all duration-300 group relative border overflow-hidden ${isActive
-                    ? 'bg-green-100 shadow-md hover:shadow-lg hover:-translate-y-1 animate-rgb-glow'
-                    : 'bg-white/80 backdrop-blur-md border-stone-200 shadow-sm hover:shadow-xl hover:border-dhaba-orange/50 hover:bg-white hover:-translate-y-1'
+                  ? 'bg-green-100 shadow-md hover:shadow-lg hover:-translate-y-1 animate-rgb-glow'
+                  : 'bg-white/80 backdrop-blur-md border-stone-200 shadow-sm hover:shadow-xl hover:border-dhaba-orange/50 hover:bg-white hover:-translate-y-1'
                   }`}
               >
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${isActive
-                    ? 'bg-green-200 shadow-inner'
-                    : 'bg-stone-50 group-hover:bg-dhaba-orange/10 group-hover:scale-110'
+                  ? 'bg-green-200 shadow-inner'
+                  : 'bg-stone-50 group-hover:bg-dhaba-orange/10 group-hover:scale-110'
                   }`}>
                   <TablePeopleIcon className={`w-8 h-8 ${isActive ? 'text-green-700' : 'text-stone-400 group-hover:text-dhaba-orange'
                     }`} />
@@ -938,7 +955,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                               body: JSON.stringify({ status: 'cancelled' })
                             });
                             if (!res.ok) throw new Error("Failed to clear bill");
-                            
+
                             fetchOrders();
                             toast.success(`Bill for Table ${num} cleared.`);
                           } catch (e: any) {
@@ -985,198 +1002,199 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
       <div className="flex-1 flex flex-col overflow-hidden">
         <PrinterPermissionCard role="manager" onConnect={() => { }} />
 
-      {showCartReceiptPreview && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/80 backdrop-blur-sm" onClick={() => setShowCartReceiptPreview(false)} />
-          <div className="bg-stone-200 rounded-2xl shadow-xl w-full max-w-sm relative z-10 flex flex-col max-h-[90vh] overflow-hidden">
-            <div className="p-4 bg-white border-b flex justify-between items-center">
-              <h3 className="font-bold text-lg">Bill Preview (Draft)</h3>
-              <button type="button" onClick={() => setShowCartReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
-                <span className="font-bold">&times;</span>
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
-              <div className="shadow-2xl">
-                <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName={managerName} />
+        {showCartReceiptPreview && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-stone-900/80 backdrop-blur-sm" onClick={() => setShowCartReceiptPreview(false)} />
+            <div className="bg-stone-200 rounded-2xl shadow-xl w-full max-w-sm relative z-10 flex flex-col max-h-[90vh] overflow-hidden">
+              <div className="p-4 bg-white border-b flex justify-between items-center">
+                <h3 className="font-bold text-lg">Bill Preview (Draft)</h3>
+                <button type="button" onClick={() => setShowCartReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
+                  <span className="font-bold">&times;</span>
+                </button>
+              </div>
+              <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
+                <div className="shadow-2xl">
+                  <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName={managerName} />
+                </div>
+              </div>
+              <div className="p-4 bg-white border-t flex justify-end gap-2">
+                <button type="button" onClick={() => setShowCartReceiptPreview(false)} className="px-4 py-2 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
+                <button type="button" onClick={handlePrintCart} className="px-4 py-2 bg-dhaba-orange text-white rounded-xl hover:bg-[#e0561b] font-bold flex items-center"><Printer className="w-4 h-4 mr-2" /> Print</button>
               </div>
             </div>
-            <div className="p-4 bg-white border-t flex justify-end gap-2">
-              <button type="button" onClick={() => setShowCartReceiptPreview(false)} className="px-4 py-2 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
-              <button type="button" onClick={handlePrintCart} className="px-4 py-2 bg-dhaba-orange text-white rounded-xl hover:bg-[#e0561b] font-bold flex items-center"><Printer className="w-4 h-4 mr-2" /> Print</button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {showReceiptPreview && checkoutTable && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/80 backdrop-blur-sm" onClick={() => setShowReceiptPreview(false)} />
-          <div className="bg-stone-200 rounded-2xl shadow-xl w-full max-w-sm relative z-10 flex flex-col max-h-[90vh] overflow-hidden">
-            <div className="p-4 bg-white border-b flex justify-between items-center">
-              <h3 className="font-bold text-lg">Bill Preview</h3>
-              <button type="button" onClick={() => setShowReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
-                <span className="font-bold">&times;</span>
-              </button>
-            </div>
-            <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
-              <div className="shadow-2xl">
-                <ThermalReceipt order={checkoutTable.order} includeGst={generateGst} managerName={managerName} />
+        {showReceiptPreview && checkoutTable && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-stone-900/80 backdrop-blur-sm" onClick={() => setShowReceiptPreview(false)} />
+            <div className="bg-stone-200 rounded-2xl shadow-xl w-full max-w-sm relative z-10 flex flex-col max-h-[90vh] overflow-hidden">
+              <div className="p-4 bg-white border-b flex justify-between items-center">
+                <h3 className="font-bold text-lg">Bill Preview</h3>
+                <button type="button" onClick={() => setShowReceiptPreview(false)} className="p-2 hover:bg-stone-100 rounded-full">
+                  <span className="font-bold">&times;</span>
+                </button>
+              </div>
+              <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
+                <div className="shadow-2xl">
+                  <ThermalReceipt order={checkoutTable.order} includeGst={generateGst} managerName={managerName} />
+                </div>
+              </div>
+              <div className="p-4 bg-white border-t flex justify-end gap-2">
+                <button type="button" onClick={() => setShowReceiptPreview(false)} className="px-4 py-2 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
+                <button type="button" onClick={handlePrint} className="px-4 py-2 bg-dhaba-orange text-white rounded-xl hover:bg-[#e0561b] font-bold flex items-center"><Printer className="w-4 h-4 mr-2" /> Print</button>
               </div>
             </div>
-            <div className="p-4 bg-white border-t flex justify-end gap-2">
-              <button type="button" onClick={() => setShowReceiptPreview(false)} className="px-4 py-2 border rounded-xl hover:bg-stone-50 font-medium">Close</button>
-              <button type="button" onClick={handlePrint} className="px-4 py-2 bg-dhaba-orange text-white rounded-xl hover:bg-[#e0561b] font-bold flex items-center"><Printer className="w-4 h-4 mr-2" /> Print</button>
-            </div>
           </div>
-        </div>
-      )}
-      {selectedItemDetail && (
-        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6" onClick={() => setSelectedItemDetail(null)} data-lenis-prevent="true">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-            <div className="relative h-48 sm:h-56 bg-stone-100">
-              <button type="button" onClick={() => setSelectedItemDetail(null)} className="absolute top-4 right-4 w-8 h-8 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center text-stone-600 hover:text-stone-900 transition-colors z-10 shadow-sm"><X className="w-5 h-5" /></button>
-              {selectedItemDetail.image ? (
-                <img src={selectedItemDetail.image} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center"><Utensils className="w-12 h-12 text-stone-300" /></div>
-              )}
-            </div>
-            <div className="p-6 sm:p-8 overflow-y-auto flex-1" data-lenis-prevent="true">
-              <h3 className="text-2xl font-serif font-bold text-dhaba-dark mb-2">{selectedItemDetail.name}</h3>
-              <p className="text-stone-500 text-sm mb-6">{selectedItemDetail.description}</p>
+        )}
+        {selectedItemDetail && (
+          <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6" onClick={() => setSelectedItemDetail(null)} data-lenis-prevent="true">
+            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+              <div className="relative h-48 sm:h-56 bg-stone-100">
+                <button type="button" onClick={() => setSelectedItemDetail(null)} className="absolute top-4 right-4 w-8 h-8 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center text-stone-600 hover:text-stone-900 transition-colors z-10 shadow-sm"><X className="w-5 h-5" /></button>
+                {selectedItemDetail.image ? (
+                  <img src={selectedItemDetail.image} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center"><Utensils className="w-12 h-12 text-stone-300" /></div>
+                )}
+              </div>
+              <div className="p-6 sm:p-8 overflow-y-auto flex-1" data-lenis-prevent="true">
+                <h3 className="text-2xl font-serif font-bold text-dhaba-dark mb-2">{selectedItemDetail.name}</h3>
+                <p className="text-stone-500 text-sm mb-6">{selectedItemDetail.description}</p>
 
-              <div className="space-y-3">
-                {selectedItemDetail.variants && selectedItemDetail.variants.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    {selectedItemDetail.variants.map((v: any, i: number) => (
+                <div className="space-y-3">
+                  {selectedItemDetail.variants && selectedItemDetail.variants.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                      {selectedItemDetail.variants.map((v: any, i: number) => (
+                        <button type="button"
+                          key={i}
+                          onClick={() => {
+                            addToCartWithOptions(selectedItemDetail, { price: v.price, variantName: v.name });
+                            setSelectedItemDetail(null);
+                          }}
+                          className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
+                        >
+                          <span className="text-xs uppercase tracking-widest font-bold text-stone-500 mb-1">{v.name}</span>
+                          <span className="text-xl font-bold text-dhaba-dark">₹{v.price}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : selectedItemDetail.hasHalfPortion ? (
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
                       <button type="button"
-                        key={i}
-                        onClick={() => {
-                          addToCartWithOptions(selectedItemDetail, { price: v.price, variantName: v.name });
-                          setSelectedItemDetail(null);
-                        }}
+                        onClick={() => { addToCartWithOptions(selectedItemDetail, { isHalf: true, price: selectedItemDetail.halfPrice }); setSelectedItemDetail(null); }}
                         className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
                       >
-                        <span className="text-xs uppercase tracking-widest font-bold text-stone-500 mb-1">{v.name}</span>
-                        <span className="text-xl font-bold text-dhaba-dark">₹{v.price}</span>
+                        <span className="text-xs uppercase tracking-widest font-bold text-stone-500 mb-1">Half</span>
+                        <span className="text-xl font-bold text-dhaba-dark">₹{selectedItemDetail.halfPrice}</span>
                       </button>
-                    ))}
-                  </div>
-                ) : selectedItemDetail.hasHalfPortion ? (
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    <button type="button"
-                      onClick={() => { addToCartWithOptions(selectedItemDetail, { isHalf: true, price: selectedItemDetail.halfPrice }); setSelectedItemDetail(null); }}
-                      className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
-                    >
-                      <span className="text-xs uppercase tracking-widest font-bold text-stone-500 mb-1">Half</span>
-                      <span className="text-xl font-bold text-dhaba-dark">₹{selectedItemDetail.halfPrice}</span>
-                    </button>
-                    <button type="button"
-                      onClick={() => { addToCartWithOptions(selectedItemDetail, { isHalf: false, price: selectedItemDetail.price }); setSelectedItemDetail(null); }}
-                      className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
-                    >
-                      <span className="text-xs uppercase tracking-widest font-bold text-stone-500 mb-1">Full</span>
-                      <span className="text-xl font-bold text-dhaba-dark">₹{selectedItemDetail.price}</span>
-                    </button>
-                  </div>
-                ) : selectedItemDetail.hasButterOption ? (
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    <button type="button"
-                      onClick={() => { addToCartWithOptions(selectedItemDetail, { isButter: false, price: selectedItemDetail.price }); setSelectedItemDetail(null); }}
-                      className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
-                    >
-                      <span className="text-xs uppercase tracking-widest font-bold text-stone-500 mb-1">Normal</span>
-                      <span className="text-xl font-bold text-dhaba-dark">₹{selectedItemDetail.price}</span>
-                    </button>
-                    <button type="button"
-                      onClick={() => { addToCartWithOptions(selectedItemDetail, { isButter: true, price: selectedItemDetail.price + (selectedItemDetail.butterPrice || 0) }); setSelectedItemDetail(null); }}
-                      className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
-                    >
-                      <span className="text-xs uppercase tracking-widest font-bold text-stone-500 mb-1">With Butter</span>
-                      <span className="text-xl font-bold text-dhaba-dark">₹{selectedItemDetail.price + (selectedItemDetail.butterPrice || 0)}</span>
-                    </button>
-                  </div>
-                ) : null}
+                      <button type="button"
+                        onClick={() => { addToCartWithOptions(selectedItemDetail, { isHalf: false, price: selectedItemDetail.price }); setSelectedItemDetail(null); }}
+                        className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
+                      >
+                        <span className="text-xs uppercase tracking-widest font-bold text-stone-500 mb-1">Full</span>
+                        <span className="text-xl font-bold text-dhaba-dark">₹{selectedItemDetail.price}</span>
+                      </button>
+                    </div>
+                  ) : selectedItemDetail.hasButterOption ? (
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                      <button type="button"
+                        onClick={() => { addToCartWithOptions(selectedItemDetail, { isButter: false, price: selectedItemDetail.price }); setSelectedItemDetail(null); }}
+                        className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
+                      >
+                        <span className="text-xs uppercase tracking-widest font-bold text-stone-500 mb-1">Normal</span>
+                        <span className="text-xl font-bold text-dhaba-dark">₹{selectedItemDetail.price}</span>
+                      </button>
+                      <button type="button"
+                        onClick={() => { addToCartWithOptions(selectedItemDetail, { isButter: true, price: selectedItemDetail.price + (selectedItemDetail.butterPrice || 0) }); setSelectedItemDetail(null); }}
+                        className="group relative flex flex-col items-center justify-center p-4 bg-stone-50 border border-stone-200 rounded-2xl hover:border-dhaba-orange hover:shadow-md transition-all"
+                      >
+                        <span className="text-xs uppercase tracking-widest font-bold text-stone-500 mb-1">With Butter</span>
+                        <span className="text-xl font-bold text-dhaba-dark">₹{selectedItemDetail.price + (selectedItemDetail.butterPrice || 0)}</span>
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {(isCustomItemModalOpen || editingCustomItem) && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={() => { setIsCustomItemModalOpen(false); setEditingCustomItem(null); }} />
-          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden relative z-10 animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50">
-              <h3 className="font-black text-xl text-stone-800">{editingCustomItem ? 'Edit Custom Item' : 'Add Custom Item'}</h3>
-              <button type="button" onClick={() => { setIsCustomItemModalOpen(false); setEditingCustomItem(null); }} className="p-2 hover:bg-stone-200 rounded-full transition-colors">
-                <X className="w-5 h-5 text-stone-500" />
-              </button>
-            </div>
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const name = (e.target as any).itemName.value;
-              const price = parseFloat((e.target as any).itemPrice.value);
-              if (name && price >= 0) {
-                if (editingCustomItem) {
-                  setCart(prev => prev.map(i => i.cartItemId === editingCustomItem.cartItemId ? { ...i, name, price } : i));
-                } else {
-                  const customItem = {
-                    id: 'custom-' + Date.now(),
-                    name,
-                    price,
-                    isCustom: true
-                  };
-                  addToCartWithOptions(customItem, { price });
+        {(isCustomItemModalOpen || editingCustomItem) && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={() => { setIsCustomItemModalOpen(false); setEditingCustomItem(null); }} />
+            <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden relative z-10 animate-in zoom-in-95 duration-200">
+              <div className="p-6 border-b border-stone-100 flex justify-between items-center bg-stone-50">
+                <h3 className="font-black text-xl text-stone-800">{editingCustomItem ? 'Edit Custom Item' : 'Add Custom Item'}</h3>
+                <button type="button" onClick={() => { setIsCustomItemModalOpen(false); setEditingCustomItem(null); }} className="p-2 hover:bg-stone-200 rounded-full transition-colors">
+                  <X className="w-5 h-5 text-stone-500" />
+                </button>
+              </div>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const name = (e.target as any).itemName.value;
+                const price = parseFloat((e.target as any).itemPrice.value);
+                if (name && price >= 0) {
+                  if (editingCustomItem) {
+                    setCart(prev => prev.map(i => i.cartItemId === editingCustomItem.cartItemId ? { ...i, name, price } : i));
+                  } else {
+                    const customItem = {
+                      id: 'custom-' + Date.now(),
+                      name,
+                      price,
+                      isCustom: true
+                    };
+                    addToCartWithOptions(customItem, { price });
+                  }
+                  setIsCustomItemModalOpen(false);
+                  setEditingCustomItem(null);
                 }
-                setIsCustomItemModalOpen(false);
-                setEditingCustomItem(null);
-              }
-            }} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-stone-600 mb-1">Item Name</label>
-                <input required name="itemName" defaultValue={editingCustomItem?.name || ''} type="text" className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-dhaba-orange focus:border-dhaba-orange outline-none font-medium text-stone-800" placeholder="e.g. Extra Chutney" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-stone-600 mb-1">Amount (₹)</label>
-                <input required name="itemPrice" defaultValue={editingCustomItem?.price || ''} type="number" min="0" step="1" className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-dhaba-orange focus:border-dhaba-orange outline-none font-medium text-stone-800" placeholder="0" />
-              </div>
-              <button type="submit" className="w-full py-4 bg-stone-900 hover:bg-black text-white font-black rounded-xl transition-all shadow-md hover:shadow-lg mt-2">
-                {editingCustomItem ? 'Save Changes' : 'Add to Cart'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* POS Header — responsive layout ensuring icons are always visible */}
-      <div className="bg-white border-b border-stone-200 px-2 sm:px-5 py-2 sm:py-3 flex items-center justify-between gap-1 sm:gap-3 shrink-0 relative w-full overflow-hidden">
-        {/* Left: back + table name */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          <button type="button"
-            onClick={() => setTableSelection(null)}
-            className="p-1.5 sm:p-2 hover:bg-stone-100 rounded-lg transition-colors text-stone-500"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="flex items-center gap-1.5 sm:gap-3">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
-              <Table className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-dhaba-orange" />
+              }} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-stone-600 mb-1">Item Name</label>
+                  <input required name="itemName" defaultValue={editingCustomItem?.name || ''} type="text" className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-dhaba-orange focus:border-dhaba-orange outline-none font-medium text-stone-800" placeholder="e.g. Extra Chutney" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-stone-600 mb-1">Amount (₹)</label>
+                  <input required name="itemPrice" defaultValue={editingCustomItem?.price || ''} type="number" min="0" step="1" className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-dhaba-orange focus:border-dhaba-orange outline-none font-medium text-stone-800" placeholder="0" />
+                </div>
+                <button type="submit" className="w-full py-4 bg-stone-900 hover:bg-black text-white font-black rounded-xl transition-all shadow-md hover:shadow-lg mt-2">
+                  {editingCustomItem ? 'Save Changes' : 'Add to Cart'}
+                </button>
+              </form>
             </div>
-            <div className="flex flex-col">
-              <h2 className="text-sm sm:text-xl font-bold text-dhaba-dark leading-none truncate max-w-[70px] sm:max-w-[200px]">Table {tableSelection}</h2>
-              <div className="flex items-center gap-1 sm:gap-1.5 mt-0.5 sm:mt-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                <span className="text-[9px] sm:text-[10px] text-green-600 font-bold uppercase tracking-wider hidden sm:inline">Active Table</span>
-                <span className="text-[9px] text-green-600 font-bold uppercase tracking-wider sm:hidden">Active</span>
+          </div>
+        )}
+
+        {/* POS Header — responsive layout ensuring icons are always visible */}
+        <div className="bg-white border-b border-stone-200 px-2 sm:px-5 py-2 sm:py-3 flex items-center justify-between gap-1 sm:gap-3 shrink-0 relative w-full overflow-hidden">
+          {/* Left: back + table name */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            <button type="button"
+              onClick={() => setTableSelection(null)}
+              className="p-1.5 sm:p-2 hover:bg-stone-100 rounded-lg transition-colors text-stone-500"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-1.5 sm:gap-3">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-orange-100 flex items-center justify-center shrink-0">
+                <Table className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-dhaba-orange" />
+              </div>
+              <div className="flex flex-col">
+                <h2 className="text-sm sm:text-xl font-bold text-dhaba-dark leading-none truncate max-w-[70px] sm:max-w-[200px]">Table {tableSelection}</h2>
+                <div className="flex items-center gap-1 sm:gap-1.5 mt-0.5 sm:mt-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                  <span className="text-[9px] sm:text-[10px] text-green-600 font-bold uppercase tracking-wider hidden sm:inline">Active Table</span>
+                  <span className="text-[9px] text-green-600 font-bold uppercase tracking-wider sm:hidden">Active</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Center: Search (Flexible width) */}
-        <div className="flex-1 flex justify-center min-w-[32px] max-w-md px-1 sm:px-4">
-          <style dangerouslySetInnerHTML={{__html: `
+          {/* Center: Search (Flexible width) */}
+          <div className="flex-1 flex justify-center min-w-[32px] max-w-md px-1 sm:px-4">
+            <style dangerouslySetInnerHTML={{
+              __html: `
             @keyframes border-dance {
               0% { background-position: 0% 50%; }
               50% { background-position: 100% 50%; }
@@ -1190,379 +1208,379 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
               border-radius: 0.75rem;
             }
           `}} />
-          <div className="relative w-full rgb-border-wrapper">
-            <div className="relative bg-stone-50 rounded-[11px] h-full flex items-center min-w-[30px]">
-              <Search className="w-4 h-4 text-stone-400 absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-7 sm:pl-9 pr-1 sm:pr-4 py-1.5 sm:py-2.5 text-xs sm:text-sm bg-transparent outline-none rounded-[11px] placeholder-stone-400 focus:w-full transition-all duration-300 truncate"
-              />
+            <div className="relative w-full rgb-border-wrapper">
+              <div className="relative bg-stone-50 rounded-[11px] h-full flex items-center min-w-[30px]">
+                <Search className="w-4 h-4 text-stone-400 absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-7 sm:pl-9 pr-1 sm:pr-4 py-1.5 sm:py-2.5 text-xs sm:text-sm bg-transparent outline-none rounded-[11px] placeholder-stone-400 focus:w-full transition-all duration-300 truncate"
+                />
+              </div>
             </div>
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex items-center justify-end gap-1 sm:gap-2 shrink-0">
+
+
+            <button type="button"
+              onClick={() => {
+                if (cart.length > 0) {
+                  setConfirmDialog({
+                    isOpen: true,
+                    title: 'Clear Bill',
+                    message: editingOrderId ? 'Are you sure you want to clear this bill? This will cancel the active order for this table.' : 'Are you sure you want to clear the entire bill?',
+                    onConfirm: async () => {
+                      if (editingOrderId) {
+                        try {
+                          const res = await fetch(`/api/admin/orders/${editingOrderId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: 'cancelled' })
+                          });
+                          if (!res.ok) throw new Error("Failed to clear bill");
+
+                          fetchOrders();
+                          setCart([]);
+                          setEditingOrderId(null);
+                          setTableSelection(null);
+                          localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
+                          toast.success(`Bill cleared and order cancelled.`);
+                        } catch (e: any) {
+                          toast.error(e.message || "Failed to clear bill");
+                        }
+                      } else {
+                        setCart([]);
+                        if (tableSelection) {
+                          localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
+                        }
+                        setTableSelection(null);
+                        toast.success(`Bill cleared.`);
+                      }
+                    }
+                  });
+                }
+              }}
+              disabled={cart.length === 0}
+              title="Clear Bill"
+              className="p-1.5 sm:p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50"
+            >
+              <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+            <button type="button"
+              onClick={() => {
+                if (isLocked) {
+                  toast.error("Please unlock the screen first.");
+                  return;
+                }
+                if (!document.fullscreenElement) {
+                  document.documentElement.requestFullscreen().catch(() => { });
+                } else {
+                  document.exitFullscreen().catch(() => { });
+                }
+              }}
+              title="Toggle Fullscreen"
+              className="p-1.5 sm:p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-xl transition-colors"
+            >
+              <Icons.Maximize className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
           </div>
         </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center justify-end gap-1 sm:gap-2 shrink-0">
+        {/* POS Body */}
+        <div className="flex-1 flex overflow-hidden">
 
-
-          <button type="button"
-            onClick={() => {
-              if (cart.length > 0) {
-                setConfirmDialog({
-                  isOpen: true,
-                  title: 'Clear Bill',
-                  message: editingOrderId ? 'Are you sure you want to clear this bill? This will cancel the active order for this table.' : 'Are you sure you want to clear the entire bill?',
-                  onConfirm: async () => {
-                    if (editingOrderId) {
-                      try {
-                        const res = await fetch(`/api/admin/orders/${editingOrderId}`, {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ status: 'cancelled' })
-                        });
-                        if (!res.ok) throw new Error("Failed to clear bill");
-                        
-                        fetchOrders();
-                        setCart([]);
-                        setEditingOrderId(null);
-                        setTableSelection(null);
-                        localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
-                        toast.success(`Bill cleared and order cancelled.`);
-                      } catch (e: any) {
-                        toast.error(e.message || "Failed to clear bill");
-                      }
-                    } else {
-                      setCart([]);
-                      if (tableSelection) {
-                        localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
-                      }
-                      setTableSelection(null);
-                      toast.success(`Bill cleared.`);
-                    }
-                  }
-                });
-              }
-            }}
-            disabled={cart.length === 0}
-            title="Clear Bill"
-            className="p-1.5 sm:p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50"
-          >
-            <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-          <button type="button"
-            onClick={() => {
-              if (isLocked) {
-                toast.error("Please unlock the screen first.");
-                return;
-              }
-              if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(() => {});
-              } else {
-                document.exitFullscreen().catch(() => {});
-              }
-            }}
-            title="Toggle Fullscreen"
-            className="p-1.5 sm:p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-xl transition-colors"
-          >
-            <Icons.Maximize className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
-        </div>
-      </div>
-
-      {/* POS Body */}
-      <div className="flex-1 flex overflow-hidden">
-
-        {/* Left Column: Categories — floating pills look */}
-        <div className="w-20 sm:w-48 bg-stone-50 border-r border-stone-200 overflow-y-auto shrink-0 flex flex-col p-2 sm:p-4 gap-2">
-          {categories.map(cat => (
-            <button type="button"
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.name)}
-              className={`p-2 sm:p-3 text-left transition-all flex flex-col items-center sm:flex-row sm:items-center gap-2 rounded-2xl ${selectedCategory === cat.name
+          {/* Left Column: Categories — floating pills look */}
+          <div className="w-20 sm:w-48 bg-stone-50 border-r border-stone-200 overflow-y-auto shrink-0 flex flex-col p-2 sm:p-4 gap-2">
+            {categories.map(cat => (
+              <button type="button"
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.name)}
+                className={`p-2 sm:p-3 text-left transition-all flex flex-col items-center sm:flex-row sm:items-center gap-2 rounded-2xl ${selectedCategory === cat.name
                   ? 'bg-white shadow-sm border border-stone-200 ring-1 ring-dhaba-orange/20'
                   : 'border border-transparent text-stone-500 hover:bg-stone-200/50 hover:border-stone-200'
-                }`}
-            >
-              <div className={`w-12 h-12 rounded-xl overflow-hidden shrink-0 flex items-center justify-center transition-all ${selectedCategory === cat.name ? 'bg-dhaba-orange/10' : 'bg-stone-100'}`}>
-                {cat.image ? (
-                  <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
-                ) : (
-                  <Utensils className={`w-5 h-5 ${selectedCategory === cat.name ? 'text-dhaba-orange' : 'text-stone-400'}`} />
-                )}
-              </div>
-              <span className={`text-[10px] sm:text-xs font-black uppercase tracking-wider text-center sm:text-left mt-1 sm:mt-0 ${selectedCategory === cat.name ? 'text-dhaba-orange' : 'text-stone-600'}`}>{cat.name}</span>
-            </button>
-          ))}
-          <button type="button"
-            onClick={() => setIsCustomItemModalOpen(true)}
-            className="p-2 sm:p-3 text-left transition-all flex flex-col items-center sm:flex-row sm:items-center gap-2 rounded-2xl border border-dashed border-stone-300 text-stone-500 hover:bg-stone-100 hover:border-dhaba-orange hover:text-dhaba-orange group mt-2"
-          >
-            <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 flex items-center justify-center transition-all bg-stone-100 group-hover:bg-dhaba-orange/10">
-              <Plus className="w-5 h-5 text-stone-400 group-hover:text-dhaba-orange" />
-            </div>
-            <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-center sm:text-left mt-1 sm:mt-0 text-stone-600 group-hover:text-dhaba-orange">Custom Item</span>
-          </button>
-        </div>
-
-        {/* Middle Column: Items — no separate mobile search since search is in header */}
-        <div className="flex-1 bg-[#f8f9fa] overflow-y-auto p-4 sm:p-6">
-          <div
-            className="grid gap-4 sm:gap-6"
-            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(max(140px, calc((100% - 48px) / 3)), 1fr))' }}
-          >
-            {filteredItems.map(item => (
-              <button type="button"
-                key={item.id}
-                onClick={() => addToCart(item)}
-                className="bg-white border border-stone-100 rounded-3xl overflow-hidden hover:border-dhaba-orange/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-left flex flex-col group h-full shadow-sm"
+                  }`}
               >
-                <div className="w-full h-28 sm:h-32 bg-stone-50 relative overflow-hidden p-2">
-                  <div className="w-full h-full rounded-2xl overflow-hidden relative">
-                    {item.image ? (
-                      <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-stone-100 group-hover:bg-stone-200 transition-colors duration-500">
-                        <DynamicIcon name={getItemFallbackIcon(item.category)} className="w-10 h-10 text-stone-300 group-hover:scale-110 transition-transform duration-500" />
-                      </div>
-                    )}
-                  </div>
-                  {item.dietaryPreference === 'veg' ? (
-                    <div className="absolute top-4 right-4 w-5 h-5 bg-white/90 backdrop-blur-sm rounded-md flex items-center justify-center border border-green-200 shadow-sm">
-                      <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
-                    </div>
+                <div className={`w-12 h-12 rounded-xl overflow-hidden shrink-0 flex items-center justify-center transition-all ${selectedCategory === cat.name ? 'bg-dhaba-orange/10' : 'bg-stone-100'}`}>
+                  {cat.image ? (
+                    <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="absolute top-4 right-4 w-5 h-5 bg-white/90 backdrop-blur-sm rounded-md flex items-center justify-center border border-red-200 shadow-sm">
-                      <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-                    </div>
+                    <Utensils className={`w-5 h-5 ${selectedCategory === cat.name ? 'text-dhaba-orange' : 'text-stone-400'}`} />
                   )}
                 </div>
-                <div className="p-4 sm:p-5 flex flex-col flex-1">
-                  <h3 className="text-sm sm:text-base font-black text-stone-800 leading-tight group-hover:text-dhaba-orange transition-colors">{item.name}</h3>
-                  <div className="mt-auto pt-4 flex items-center justify-between">
-                    <span className="text-stone-900 font-black text-lg">₹{item.price}</span>
-                    <div className="w-8 h-8 rounded-xl bg-stone-100 text-stone-500 flex items-center justify-center group-hover:bg-dhaba-orange group-hover:text-white transition-all duration-300 group-hover:rotate-90 shadow-sm">
-                      <Plus className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
+                <span className={`text-[10px] sm:text-xs font-black uppercase tracking-wider text-center sm:text-left mt-1 sm:mt-0 ${selectedCategory === cat.name ? 'text-dhaba-orange' : 'text-stone-600'}`}>{cat.name}</span>
               </button>
             ))}
-            {filteredItems.length === 0 && (
-              <div className="col-span-full py-12 text-center text-stone-500">
-                <Utensils className="w-12 h-12 mx-auto mb-3 text-stone-300" />
-                <p>No items are currently available.</p>
+            <button type="button"
+              onClick={() => setIsCustomItemModalOpen(true)}
+              className="p-2 sm:p-3 text-left transition-all flex flex-col items-center sm:flex-row sm:items-center gap-2 rounded-2xl border border-dashed border-stone-300 text-stone-500 hover:bg-stone-100 hover:border-dhaba-orange hover:text-dhaba-orange group mt-2"
+            >
+              <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 flex items-center justify-center transition-all bg-stone-100 group-hover:bg-dhaba-orange/10">
+                <Plus className="w-5 h-5 text-stone-400 group-hover:text-dhaba-orange" />
               </div>
-            )}
-          </div>
-        </div>
-
-        </div>
-      </div>
-
-        {/* Right Column: Current Bill */}
-        <div
-          className="bg-white border-l border-stone-100 flex flex-col shrink-0 shadow-[-4px_0_24px_rgba(0,0,0,0.02)] z-10 relative"
-          style={{ width: `${cartWidth}px` }}
-        >
-          {/* Resize Handle */}
-          <div
-            className="absolute left-0 top-0 bottom-0 w-3 hover:bg-dhaba-orange/10 cursor-col-resize z-50 flex items-center justify-center transition-colors -translate-x-1.5 group/resizer"
-            onMouseDown={() => setIsResizingCart(true)}
-          >
-            <div className={`w-1 h-12 rounded-full transition-colors ${isResizingCart ? 'bg-dhaba-orange' : 'bg-stone-300 group-hover/resizer:bg-dhaba-orange/50'}`} />
+              <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-center sm:text-left mt-1 sm:mt-0 text-stone-600 group-hover:text-dhaba-orange">Custom Item</span>
+            </button>
           </div>
 
-          <div className="px-4 py-3 border-b border-stone-100 bg-white shadow-sm relative z-20 flex justify-between items-center">
-            <h3 className="font-bold text-lg text-stone-800 flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-dhaba-orange/10 flex items-center justify-center">
-                <ShoppingBag className="w-3.5 h-3.5 text-dhaba-orange" />
-              </div>
-              Current Bill
-            </h3>
-            <div className="flex items-center gap-2 pr-1">
-              <button type="button" onClick={toggleLock} title={isLocked ? "Unlock Screen" : "Lock Screen"} className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${isLocked ? 'text-dhaba-orange bg-dhaba-orange/10' : 'text-stone-500 hover:text-stone-700 hover:bg-stone-100'}`}>
-                {isLocked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
-              </button>
-              <button type="button" onClick={() => setShowCartReceiptPreview(true)} disabled={cart.length === 0} title="Preview Bill" className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
-                <Eye className="w-5 h-5" />
-              </button>
-              <button type="button" onClick={() => submitOrder(false)} disabled={cart.length === 0 || isSubmitting} title="Save Bill" className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
-                <Save className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f8f9fa] relative z-10">
-            {cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-stone-400 space-y-4">
-                <div className="w-20 h-20 rounded-full bg-white shadow-sm flex items-center justify-center mb-2">
-                  <ShoppingBag className="w-8 h-8 opacity-40" />
-                </div>
-                <p className="text-sm font-bold uppercase tracking-widest text-stone-400">Cart is empty</p>
-              </div>
-            ) : (
-              cart.map(item => (
-                <div key={item.cartItemId} className="bg-white p-3.5 rounded-2xl border border-stone-100 shadow-sm flex flex-col gap-2 relative group hover:shadow-md hover:border-stone-200 transition-all">
-                  <div className="flex justify-between items-start gap-2 pr-6">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-black text-stone-800 leading-tight pr-6">{item.name}</span>
-                      {(item.variantName || item.isHalf || item.isButter) && (
-                        <div className="flex gap-1.5 mt-1">
-                          {item.variantName && <span className="text-[10px] bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{item.variantName}</span>}
-                          {item.isHalf && <span className="text-[10px] bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Half</span>}
-                          {item.isButter && <span className="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">+Butter</span>}
+          {/* Middle Column: Items — no separate mobile search since search is in header */}
+          <div className="flex-1 bg-[#f8f9fa] overflow-y-auto p-4 sm:p-6">
+            <div
+              className="grid gap-4 sm:gap-6"
+              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(max(140px, calc((100% - 48px) / 3)), 1fr))' }}
+            >
+              {filteredItems.map(item => (
+                <button type="button"
+                  key={item.id}
+                  onClick={() => addToCart(item)}
+                  className="bg-white border border-stone-100 rounded-3xl overflow-hidden hover:border-dhaba-orange/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-left flex flex-col group h-full shadow-sm"
+                >
+                  <div className="w-full h-28 sm:h-32 bg-stone-50 relative overflow-hidden p-2">
+                    <div className="w-full h-full rounded-2xl overflow-hidden relative">
+                      {item.image ? (
+                        <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-stone-100 group-hover:bg-stone-200 transition-colors duration-500">
+                          <DynamicIcon name={getItemFallbackIcon(item.category)} className="w-10 h-10 text-stone-300 group-hover:scale-110 transition-transform duration-500" />
                         </div>
                       )}
                     </div>
-                    <span className="text-base font-black text-stone-900 shrink-0">₹{Number(item.price) * (Number(item.quantity) || 1)}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-dashed border-stone-100">
-                    <span className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center">
-                      ₹{item.price} EA
-                    </span>
-                    <div className="flex items-center gap-1 bg-stone-50 rounded-xl p-1 border border-stone-100 shadow-inner">
-                      <button type="button"
-                        onClick={() => updateQuantity(item.cartItemId, -1)}
-                        className="w-7 h-7 rounded-lg bg-white text-stone-600 hover:text-stone-900 hover:shadow shadow-sm flex items-center justify-center transition-all"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <input
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value, 10);
-                          setCart(prev => prev.map(i => i.cartItemId === item.cartItemId ? { ...i, quantity: isNaN(val) ? 1 : Math.max(1, val) } : i));
-                        }}
-                        className="w-8 text-sm font-black text-center text-stone-700 bg-transparent outline-none appearance-none"
-                        min="1"
-                      />
-                      <button type="button"
-                        onClick={() => updateQuantity(item.cartItemId, 1)}
-                        className="w-7 h-7 rounded-lg bg-white text-stone-600 hover:text-stone-900 hover:shadow shadow-sm flex items-center justify-center transition-all"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="absolute top-3 right-3 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
-                    <button type="button"
-                      onClick={() => updateQuantity(item.cartItemId, -item.quantity)}
-                      className="w-7 h-7 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white flex items-center justify-center shadow-sm"
-                      title="Remove Item"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                    {item.isCustom && (
-                      <button type="button"
-                        onClick={() => setEditingCustomItem(item)}
-                        className="w-7 h-7 bg-stone-100 text-stone-600 rounded-lg hover:bg-dhaba-orange hover:text-white flex items-center justify-center shadow-sm"
-                        title="Edit Custom Item"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
+                    {item.dietaryPreference === 'veg' ? (
+                      <div className="absolute top-4 right-4 w-5 h-5 bg-white/90 backdrop-blur-sm rounded-md flex items-center justify-center border border-green-200 shadow-sm">
+                        <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+                      </div>
+                    ) : (
+                      <div className="absolute top-4 right-4 w-5 h-5 bg-white/90 backdrop-blur-sm rounded-md flex items-center justify-center border border-red-200 shadow-sm">
+                        <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                      </div>
                     )}
                   </div>
+                  <div className="p-4 sm:p-5 flex flex-col flex-1">
+                    <h3 className="text-sm sm:text-base font-black text-stone-800 leading-tight group-hover:text-dhaba-orange transition-colors">{item.name}</h3>
+                    <div className="mt-auto pt-4 flex items-center justify-between">
+                      <span className="text-stone-900 font-black text-lg">₹{item.price}</span>
+                      <div className="w-8 h-8 rounded-xl bg-stone-100 text-stone-500 flex items-center justify-center group-hover:bg-dhaba-orange group-hover:text-white transition-all duration-300 group-hover:rotate-90 shadow-sm">
+                        <Plus className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+              {filteredItems.length === 0 && (
+                <div className="col-span-full py-12 text-center text-stone-500">
+                  <Utensils className="w-12 h-12 mx-auto mb-3 text-stone-300" />
+                  <p>No items are currently available.</p>
                 </div>
-              ))
-            )}
-            <div ref={cartEndRef} />
+              )}
+            </div>
           </div>
 
-          <div className="p-3 bg-white border-t border-stone-100 relative z-20 shadow-[0_-4px_24px_rgba(0,0,0,0.02)] space-y-2">
-            <div className="flex items-center gap-2 text-sm font-black text-stone-600 justify-center mb-1">
-              <label className="flex items-center gap-3 cursor-pointer select-none bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-200 hover:bg-stone-100 transition-colors w-full justify-center">
-                <input
-                  type="checkbox"
-                  checked={generateGst}
-                  onChange={(e) => setGenerateGst(e.target.checked)}
-                  className="w-4 h-4 rounded border-stone-300 text-dhaba-orange focus:ring-dhaba-orange"
-                />
-                <span className="uppercase tracking-widest text-xs">Generate GST Bill</span>
-              </label>
+        </div>
+      </div>
+
+      {/* Right Column: Current Bill */}
+      <div
+        className="bg-white border-l border-stone-100 flex flex-col shrink-0 shadow-[-4px_0_24px_rgba(0,0,0,0.02)] z-10 relative"
+        style={{ width: `${cartWidth}px` }}
+      >
+        {/* Resize Handle */}
+        <div
+          className="absolute left-0 top-0 bottom-0 w-3 hover:bg-dhaba-orange/10 cursor-col-resize z-50 flex items-center justify-center transition-colors -translate-x-1.5 group/resizer"
+          onMouseDown={() => setIsResizingCart(true)}
+        >
+          <div className={`w-1 h-12 rounded-full transition-colors ${isResizingCart ? 'bg-dhaba-orange' : 'bg-stone-300 group-hover/resizer:bg-dhaba-orange/50'}`} />
+        </div>
+
+        <div className="px-4 py-3 border-b border-stone-100 bg-white shadow-sm relative z-20 flex justify-between items-center">
+          <h3 className="font-bold text-lg text-stone-800 flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-dhaba-orange/10 flex items-center justify-center">
+              <ShoppingBag className="w-3.5 h-3.5 text-dhaba-orange" />
             </div>
+            Current Bill
+          </h3>
+          <div className="flex items-center gap-2 pr-1">
+            <button type="button" onClick={toggleLock} title={isLocked ? "Unlock Screen" : "Lock Screen"} className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${isLocked ? 'text-dhaba-orange bg-dhaba-orange/10' : 'text-stone-500 hover:text-stone-700 hover:bg-stone-100'}`}>
+              {isLocked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+            </button>
+            <button type="button" onClick={() => setShowCartReceiptPreview(true)} disabled={cart.length === 0} title="Preview Bill" className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
+              <Eye className="w-5 h-5" />
+            </button>
+            <button type="button" onClick={() => submitOrder(false)} disabled={cart.length === 0 || isSubmitting} title="Save Bill" className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50">
+              <Save className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
 
-            <div
-              className="bg-stone-900 rounded-xl p-3 text-white shadow-lg relative mt-2 cursor-pointer transition-all hover:bg-stone-800"
-              onClick={() => setShowGstDetails(!showGstDetails)}
-            >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-dhaba-orange/20 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
-
-              <div className="space-y-1 relative z-10 pointer-events-none">
-                <div className="flex justify-between text-sm font-medium text-stone-400">
-                  <span>Subtotal</span>
-                  <span>₹{cartTotal}</span>
-                </div>
-                {generateGst && showGstDetails && (
-                  <>
-                    <div className="flex justify-between text-xs font-medium text-stone-500">
-                      <span>CGST (2.5%)</span>
-                      <span>₹{(cartTotal * 0.025).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs font-medium text-stone-500">
-                      <span>SGST (2.5%)</span>
-                      <span>₹{(cartTotal * 0.025).toFixed(2)}</span>
-                    </div>
-                  </>
-                )}
-                <div className="flex justify-between items-center pt-2 mt-1 border-t border-stone-700/50">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-black text-stone-300 uppercase tracking-widest">Total</span>
-                    {generateGst && (
-                      <ChevronDown className={`w-4 h-4 text-stone-500 transition-transform ${showGstDetails ? 'rotate-180' : ''}`} />
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f8f9fa] relative z-10">
+          {cart.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-stone-400 space-y-4">
+              <div className="w-20 h-20 rounded-full bg-white shadow-sm flex items-center justify-center mb-2">
+                <ShoppingBag className="w-8 h-8 opacity-40" />
+              </div>
+              <p className="text-sm font-bold uppercase tracking-widest text-stone-400">Cart is empty</p>
+            </div>
+          ) : (
+            cart.map(item => (
+              <div key={item.cartItemId} className="bg-white p-3.5 rounded-2xl border border-stone-100 shadow-sm flex flex-col gap-2 relative group hover:shadow-md hover:border-stone-200 transition-all">
+                <div className="flex justify-between items-start gap-2 pr-6">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-black text-stone-800 leading-tight pr-6">{item.name}</span>
+                    {(item.variantName || item.isHalf || item.isButter) && (
+                      <div className="flex gap-1.5 mt-1">
+                        {item.variantName && <span className="text-[10px] bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{item.variantName}</span>}
+                        {item.isHalf && <span className="text-[10px] bg-stone-100 text-stone-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Half</span>}
+                        {item.isButter && <span className="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">+Butter</span>}
+                      </div>
                     )}
                   </div>
-                  <span className="text-2xl font-black text-dhaba-orange drop-shadow-sm">₹{generateGst ? cartTotal + (cartTotal * 0.05) : cartTotal}</span>
+                  <span className="text-base font-black text-stone-900 shrink-0">₹{Number(item.price) * (Number(item.quantity) || 1)}</span>
+                </div>
+
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-dashed border-stone-100">
+                  <span className="text-xs font-bold text-stone-400 uppercase tracking-widest flex items-center">
+                    ₹{item.price} EA
+                  </span>
+                  <div className="flex items-center gap-1 bg-stone-50 rounded-xl p-1 border border-stone-100 shadow-inner">
+                    <button type="button"
+                      onClick={() => updateQuantity(item.cartItemId, -1)}
+                      className="w-7 h-7 rounded-lg bg-white text-stone-600 hover:text-stone-900 hover:shadow shadow-sm flex items-center justify-center transition-all"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setCart(prev => prev.map(i => i.cartItemId === item.cartItemId ? { ...i, quantity: isNaN(val) ? 1 : Math.max(1, val) } : i));
+                      }}
+                      className="w-8 text-sm font-black text-center text-stone-700 bg-transparent outline-none appearance-none"
+                      min="1"
+                    />
+                    <button type="button"
+                      onClick={() => updateQuantity(item.cartItemId, 1)}
+                      className="w-7 h-7 rounded-lg bg-white text-stone-600 hover:text-stone-900 hover:shadow shadow-sm flex items-center justify-center transition-all"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="absolute top-3 right-3 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                  <button type="button"
+                    onClick={() => updateQuantity(item.cartItemId, -item.quantity)}
+                    className="w-7 h-7 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white flex items-center justify-center shadow-sm"
+                    title="Remove Item"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                  {item.isCustom && (
+                    <button type="button"
+                      onClick={() => setEditingCustomItem(item)}
+                      className="w-7 h-7 bg-stone-100 text-stone-600 rounded-lg hover:bg-dhaba-orange hover:text-white flex items-center justify-center shadow-sm"
+                      title="Edit Custom Item"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
-            </div>
+            ))
+          )}
+          <div ref={cartEndRef} />
+        </div>
 
-            <div className="flex flex-col gap-2 mt-3">
-              {editingOrderId ? (
+        <div className="p-3 bg-white border-t border-stone-100 relative z-20 shadow-[0_-4px_24px_rgba(0,0,0,0.02)] space-y-2">
+          <div className="flex items-center gap-2 text-sm font-black text-stone-600 justify-center mb-1">
+            <label className="flex items-center gap-3 cursor-pointer select-none bg-stone-50 px-3 py-1.5 rounded-lg border border-stone-200 hover:bg-stone-100 transition-colors w-full justify-center">
+              <input
+                type="checkbox"
+                checked={generateGst}
+                onChange={(e) => setGenerateGst(e.target.checked)}
+                className="w-4 h-4 rounded border-stone-300 text-dhaba-orange focus:ring-dhaba-orange"
+              />
+              <span className="uppercase tracking-widest text-xs">Generate GST Bill</span>
+            </label>
+          </div>
+
+          <div
+            className="bg-stone-900 rounded-xl p-3 text-white shadow-lg relative mt-2 cursor-pointer transition-all hover:bg-stone-800"
+            onClick={() => setShowGstDetails(!showGstDetails)}
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-dhaba-orange/20 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+
+            <div className="space-y-1 relative z-10 pointer-events-none">
+              <div className="flex justify-between text-sm font-medium text-stone-400">
+                <span>Subtotal</span>
+                <span>₹{cartTotal}</span>
+              </div>
+              {generateGst && showGstDetails && (
                 <>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => submitOrder(true)} disabled={cart.length === 0 || isSubmitting} className="flex-1 py-2.5 px-2 bg-gradient-to-r from-dhaba-orange to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 text-white font-black rounded-lg shadow flex items-center justify-center gap-1.5 text-sm">
-                       {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Printer className="w-4 h-4" />} <span className="hidden sm:inline">Update & Print</span><span className="sm:hidden">Print</span>
-                    </button>
-                    <button type="button" onClick={() => submitOrder(false)} disabled={cart.length === 0 || isSubmitting} className="flex-1 py-2.5 px-2 bg-stone-800 hover:bg-black disabled:opacity-50 text-white font-black rounded-lg shadow flex items-center justify-center gap-1.5 text-sm">
-                       {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} <span className="hidden sm:inline">Update Only</span><span className="sm:hidden">Save</span>
-                    </button>
+                  <div className="flex justify-between text-xs font-medium text-stone-500">
+                    <span>CGST (2.5%)</span>
+                    <span>₹{(cartTotal * 0.025).toFixed(2)}</span>
                   </div>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => { clearEditingOrder(); setCart([]); setTableSelection(null); }} className="flex-1 py-2 px-2 bg-white hover:bg-stone-50 border border-stone-200 text-stone-600 font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 text-sm">
-                       <X className="w-4 h-4" /> Cancel Edit
-                    </button>
-                    <button type="button" onClick={handlePrintKOT} disabled={cart.length === 0} className="flex-1 py-2 px-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 text-sm">
-                       <FileText className="w-4 h-4" /> KOT
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => submitOrder(true)} disabled={cart.length === 0 || isSubmitting} className="flex-1 py-2.5 px-2 bg-gradient-to-r from-dhaba-orange to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 text-white font-black rounded-lg shadow flex items-center justify-center gap-1.5 text-sm">
-                       {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Printer className="w-4 h-4" />} <span className="hidden sm:inline">Save & Print</span><span className="sm:hidden">Print</span>
-                    </button>
-                    <button type="button" onClick={() => submitOrder(false)} disabled={cart.length === 0 || isSubmitting} className="flex-1 py-2.5 px-2 bg-stone-800 hover:bg-black disabled:opacity-50 text-white font-black rounded-lg shadow flex items-center justify-center gap-1.5 text-sm">
-                       {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} <span className="hidden sm:inline">Save Only</span><span className="sm:hidden">Save</span>
-                    </button>
-                  </div>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => setCart([])} disabled={cart.length === 0} className="flex-1 py-2 px-2 bg-white hover:bg-stone-50 border border-stone-200 text-stone-600 font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 text-sm">
-                       <Trash2 className="w-4 h-4" /> Clear Cart
-                    </button>
-                    <button type="button" onClick={handlePrintKOT} disabled={cart.length === 0} className="flex-1 py-2 px-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 text-sm">
-                       <FileText className="w-4 h-4" /> Print KOT
-                    </button>
+                  <div className="flex justify-between text-xs font-medium text-stone-500">
+                    <span>SGST (2.5%)</span>
+                    <span>₹{(cartTotal * 0.025).toFixed(2)}</span>
                   </div>
                 </>
               )}
+              <div className="flex justify-between items-center pt-2 mt-1 border-t border-stone-700/50">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black text-stone-300 uppercase tracking-widest">Total</span>
+                  {generateGst && (
+                    <ChevronDown className={`w-4 h-4 text-stone-500 transition-transform ${showGstDetails ? 'rotate-180' : ''}`} />
+                  )}
+                </div>
+                <span className="text-2xl font-black text-dhaba-orange drop-shadow-sm">₹{generateGst ? cartTotal + (cartTotal * 0.05) : cartTotal}</span>
+              </div>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2 mt-3">
+            {editingOrderId ? (
+              <>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => submitOrder(true)} disabled={cart.length === 0 || isSubmitting} className="flex-1 py-2.5 px-2 bg-gradient-to-r from-dhaba-orange to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 text-white font-black rounded-lg shadow flex items-center justify-center gap-1.5 text-sm">
+                    {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Printer className="w-4 h-4" />} <span className="hidden sm:inline">Update & Print</span><span className="sm:hidden">Print</span>
+                  </button>
+                  <button type="button" onClick={() => submitOrder(false)} disabled={cart.length === 0 || isSubmitting} className="flex-1 py-2.5 px-2 bg-stone-800 hover:bg-black disabled:opacity-50 text-white font-black rounded-lg shadow flex items-center justify-center gap-1.5 text-sm">
+                    {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} <span className="hidden sm:inline">Update Only</span><span className="sm:hidden">Save</span>
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => { clearEditingOrder(); setCart([]); setTableSelection(null); }} className="flex-1 py-2 px-2 bg-white hover:bg-stone-50 border border-stone-200 text-stone-600 font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 text-sm">
+                    <X className="w-4 h-4" /> Cancel Edit
+                  </button>
+                  <button type="button" onClick={handlePrintKOT} disabled={cart.length === 0} className="flex-1 py-2 px-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 text-sm">
+                    <FileText className="w-4 h-4" /> KOT
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => submitOrder(true)} disabled={cart.length === 0 || isSubmitting} className="flex-1 py-2.5 px-2 bg-gradient-to-r from-dhaba-orange to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 text-white font-black rounded-lg shadow flex items-center justify-center gap-1.5 text-sm">
+                    {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Printer className="w-4 h-4" />} <span className="hidden sm:inline">Save & Print</span><span className="sm:hidden">Print</span>
+                  </button>
+                  <button type="button" onClick={handlePrintCart} disabled={cart.length === 0 || isSubmitting} className="flex-1 py-2.5 px-2 bg-stone-800 hover:bg-black disabled:opacity-50 text-white font-black rounded-lg shadow flex items-center justify-center gap-1.5 text-sm">
+                    {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Printer className="w-4 h-4" />} <span className="hidden sm:inline">Print Bill</span><span className="sm:hidden">Print</span>
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setCart([])} disabled={cart.length === 0} className="flex-1 py-2 px-2 bg-white hover:bg-stone-50 border border-stone-200 text-stone-600 font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 text-sm">
+                    <Trash2 className="w-4 h-4" /> Clear Cart
+                  </button>
+                  <button type="button" onClick={handlePrintKOT} disabled={cart.length === 0} className="flex-1 py-2 px-2 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-lg shadow-sm flex items-center justify-center gap-1.5 text-sm">
+                    <FileText className="w-4 h-4" /> Print KOT
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

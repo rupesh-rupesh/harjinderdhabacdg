@@ -1064,26 +1064,29 @@ app.post('/api/admin/staff', async (req, res) => {
 
 app.put('/api/admin/staff/:id', async (req, res) => {
   try {
-    const { permissions, password, name } = req.body;
-    // Update in legacy users table
-    const user = await db.select().from(users).where(eq(users.id, Number(req.params.id))).limit(1);
-    if (user.length) {
-      if (password) {
-        try { await adminAuth.updateUser(user[0].uid, { password }); } catch (_) {}
-      }
-      const updateData: any = { permissions };
-      if (name) { updateData.name = name; try { await adminAuth.updateUser(user[0].uid, { displayName: name }); } catch (_) {} }
-      await db.update(users).set(updateData).where(eq(users.id, Number(req.params.id)));
-    }
-    // Update in staff_accounts table
-    const staffList = await db.select().from(staffAccounts)
-      .where(eq(staffAccounts.email, user[0]?.email || ''))
-      .limit(1);
-    if (staffList.length) {
+    const { permissions, password, name, email } = req.body;
+    const staffId = Number(req.params.id);
+    const staff = await db.select().from(staffAccounts).where(eq(staffAccounts.id, staffId)).limit(1);
+    
+    if (staff.length) {
       const staffUpdate: any = { permissions };
       if (name) staffUpdate.name = name;
+      if (email) staffUpdate.email = email.toLowerCase();
       if (password) staffUpdate.passwordHash = await bcrypt.hash(password, 12);
-      await db.update(staffAccounts).set(staffUpdate).where(eq(staffAccounts.id, staffList[0].id));
+      await db.update(staffAccounts).set(staffUpdate).where(eq(staffAccounts.id, staffId));
+      
+      // Also update legacy users table if it exists
+      const user = await db.select().from(users).where(eq(users.email, staff[0].email)).limit(1);
+      if (user.length) {
+        if (password) { try { await adminAuth.updateUser(user[0].uid, { password }); } catch (_) {} }
+        if (name) { try { await adminAuth.updateUser(user[0].uid, { displayName: name }); } catch (_) {} }
+        if (email) { try { await adminAuth.updateUser(user[0].uid, { email: email.toLowerCase() }); } catch (_) {} }
+        
+        const updateData: any = { permissions };
+        if (name) updateData.name = name;
+        if (email) updateData.email = email.toLowerCase();
+        await db.update(users).set(updateData).where(eq(users.id, user[0].id));
+      }
     }
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -1091,12 +1094,16 @@ app.put('/api/admin/staff/:id', async (req, res) => {
 
 app.delete('/api/admin/staff/:id', async (req, res) => {
   try {
-    const user = await db.select().from(users).where(eq(users.id, Number(req.params.id))).limit(1);
-    if (user.length) {
-      try { await adminAuth.deleteUser(user[0].uid); } catch (_) {}
-      // Remove from staff_accounts too
-      await db.delete(staffAccounts).where(eq(staffAccounts.email, user[0].email)).catch(() => {});
-      await db.delete(users).where(eq(users.id, Number(req.params.id)));
+    const staffId = Number(req.params.id);
+    const staff = await db.select().from(staffAccounts).where(eq(staffAccounts.id, staffId)).limit(1);
+    
+    if (staff.length) {
+      const user = await db.select().from(users).where(eq(users.email, staff[0].email)).limit(1);
+      if (user.length) {
+        try { await adminAuth.deleteUser(user[0].uid); } catch (_) {}
+        await db.delete(users).where(eq(users.id, user[0].id));
+      }
+      await db.delete(staffAccounts).where(eq(staffAccounts.id, staffId));
     }
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Menu, Search, ShoppingCart, Minus, Plus, ChevronRight, Clock, Star, Sun, Coffee, CupSoda, Pizza, ConciergeBell, Utensils, UtensilsCrossed, Flame, Soup, Droplets, Leaf } from 'lucide-react';
+import { ArrowLeft, Menu, Search, ShoppingCart, Minus, Plus, ChevronRight, Clock, Star, Sun, Coffee, CupSoda, Pizza, ConciergeBell, Utensils, UtensilsCrossed, Flame, Soup, Droplets, Leaf, Info } from 'lucide-react';
 import { NoodleBowlIcon } from './CustomIcons';
 
 interface OrderViewProps {
@@ -287,7 +287,15 @@ export default function OrderView({
                        <div key={item.id} className={`bg-white rounded-[2rem] shadow-sm hover:shadow-xl hover:shadow-stone-200/50 transition-all duration-500 overflow-hidden border border-stone-100 flex p-4 sm:p-5 gap-4 sm:gap-6 group transform hover:-translate-y-1 ${locked ? 'opacity-80 grayscale-[50%]' : ''}`}>
                          <div className="w-28 h-28 sm:w-40 sm:h-40 flex-shrink-0 rounded-2xl overflow-hidden bg-stone-100 relative">
                            {item.image ? (
-                             <img src={item.image} alt={item.name} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
+                             <>
+                               <img src={item.image} alt={item.name} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
+                               <div className="absolute bottom-2 left-2 bg-black/40 hover:bg-black/60 backdrop-blur-md p-1.5 rounded-full text-white cursor-help group/info z-30 transition-colors shadow-sm">
+                                 <Info className="w-3.5 h-3.5" />
+                                 <div className="absolute left-0 bottom-full mb-2 w-48 bg-stone-900 text-white text-[10px] p-2 rounded-lg shadow-xl opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all duration-300 pointer-events-none border border-white/10 z-40 text-left leading-tight">
+                                   Image is for reference only and may not represent the actual dish.
+                                 </div>
+                               </div>
+                             </>
                            ) : (
                              <div className="w-full h-full flex items-center justify-center transform group-hover:scale-110 transition-transform duration-700">
                                 {(() => {

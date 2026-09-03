@@ -144,9 +144,11 @@ export default function ManagerDashboard() {
               </div>
             </div>
           </div>
-          <button onClick={handleLock} className="p-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors border border-red-500/20 shadow-inner" title="Lock Dashboard">
-            <Lock className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setIsSidebarOpen(false)} className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-stone-400 hover:text-white transition-colors" title="Close Sidebar">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Nav Items */}
@@ -154,7 +156,10 @@ export default function ManagerDashboard() {
           {NAV_ITEMS.map(({ key, label, icon }) => (
             <button
               key={key}
-              onClick={() => navigate(key)}
+              onClick={() => {
+                navigate(key);
+                if (window.innerWidth < 1024) setIsSidebarOpen(false);
+              }}
               className={`dash-sidebar-item${activeModule === key ? ' active' : ''}`}
             >
               <span className="icon">{icon}</span>

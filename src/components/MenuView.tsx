@@ -162,23 +162,23 @@ export default function MenuView({
   return (
     <div className="flex flex-col h-[100dvh] bg-stone-50 overflow-hidden w-full font-sans">
       {/* Header */}
-      <nav className="flex-shrink-0 bg-white border-b border-stone-200 shadow-sm h-16 px-4 flex items-center justify-between z-40 relative sticky top-0">
+      <nav className="flex-shrink-0 bg-white/95 backdrop-blur-md border-b border-stone-200/60 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] h-16 px-4 sm:px-6 flex items-center justify-between z-40 relative sticky top-0">
         <div className="flex items-center flex-1">
-          <button onClick={onBack} className="text-stone-500 hover:text-dhaba-orange flex items-center font-medium transition-colors focus:outline-none p-2 -ml-2 rounded-full hover:bg-stone-100">
-            <ArrowLeft className="w-6 h-6" /> 
+          <button onClick={onBack} className="text-stone-500 hover:text-dhaba-orange flex items-center font-medium transition-colors focus:outline-none p-2 -ml-2 rounded-full hover:bg-orange-50 group">
+            <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 group-hover:-translate-x-1 transition-transform" /> 
           </button>
         </div>
         <div className="flex-1 flex justify-center">
-           <span className="font-serif text-lg sm:text-xl font-bold text-dhaba-dark text-center whitespace-nowrap tracking-wide">View Menu</span>
+           <span className="font-serif text-xl sm:text-2xl font-extrabold text-dhaba-dark text-center whitespace-nowrap tracking-tight">Our Menu</span>
         </div>
         <div className="flex items-center flex-1 justify-end">
           <button 
            onClick={openCart}
-           className="relative p-2 text-stone-600 hover:text-dhaba-orange transition-colors duration-300 group focus:outline-none bg-stone-100 rounded-full hover:bg-orange-50"
+           className="relative p-2.5 text-stone-600 hover:text-dhaba-orange transition-all duration-300 group focus:outline-none bg-stone-50 hover:bg-orange-50 rounded-full border border-stone-100 hover:border-orange-200 shadow-sm hover:shadow-md"
           >
-            <ShoppingCart className="h-5 w-5" />
+            <ShoppingCart className="h-5 w-5 transform group-hover:scale-110 transition-transform" />
             {cartCount > 0 && (
-              <span className="absolute top-0 right-0 bg-dhaba-orange text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center -translate-y-1/4 translate-x-1/4 shadow-sm border border-white">
+              <span className="absolute -top-1 -right-1 bg-dhaba-orange text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-md border-2 border-white animate-bounce-short">
                 {cartCount}
               </span>
             )}
@@ -187,27 +187,27 @@ export default function MenuView({
       </nav>
 
       {/* Search and Filters */}
-      <div className="flex-shrink-0 bg-white border-b border-stone-200 py-3 px-4 z-30 shadow-sm">
-        <div className="relative max-w-4xl mx-auto mb-3">
+      <div className="flex-shrink-0 bg-white border-b border-stone-200/50 py-3 px-4 z-30 shadow-[0_4px_15px_-10px_rgba(0,0,0,0.03)] relative">
+        <div className="relative max-w-4xl mx-auto mb-4">
           <input 
             type="text" 
-            placeholder="Search dishes..." 
+            placeholder="Search for your favorite dishes..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-stone-100 border-none rounded-xl focus:ring-2 focus:ring-dhaba-orange/50 transition-all text-sm font-medium text-stone-700"
+            className="w-full pl-11 pr-4 py-3 bg-stone-50 border border-stone-200/80 rounded-2xl focus:ring-4 focus:ring-dhaba-orange/10 focus:border-dhaba-orange transition-all text-sm sm:text-base font-medium text-stone-700 shadow-inner placeholder-stone-400 outline-none"
           />
-          <Search className="w-5 h-5 text-stone-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+          <Search className="w-5 h-5 text-stone-400 absolute left-4 top-1/2 transform -translate-y-1/2" />
         </div>
         
-        <div className="flex overflow-x-auto hide-scrollbar gap-2 max-w-4xl mx-auto pb-1" data-lenis-prevent="true">
+        <div className="flex overflow-x-auto hide-scrollbar gap-2.5 max-w-4xl mx-auto pb-1" data-lenis-prevent="true">
           {filters.map(filter => (
             <button
               key={filter}
               onClick={() => setFilterType(filter)}
-              className={`whitespace-nowrap px-5 py-2 rounded-full text-xs font-semibold transition-all duration-300 border ${
+              className={`whitespace-nowrap px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 border ${
                 filterType === filter 
-                ? 'bg-gradient-to-r from-dhaba-dark to-dhaba-coffee text-white border-transparent shadow-lg transform scale-105' 
-                : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-100 hover:border-stone-300 shadow-sm hover:shadow'
+                ? 'bg-gradient-to-r from-dhaba-orange to-[#e67500] text-white border-transparent shadow-[0_4px_15px_rgba(217,119,6,0.3)] transform -translate-y-0.5' 
+                : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50 hover:border-stone-300 shadow-sm hover:shadow-md'
               }`}
             >
               {filter}
@@ -219,23 +219,25 @@ export default function MenuView({
       {/* Main Content Area (Two Columns) */}
       <div className="flex flex-1 overflow-hidden relative max-w-7xl mx-auto w-full">
         {/* Left Sidebar */}
-        <div className="w-[28%] md:w-64 flex-shrink-0 bg-white border-r border-stone-100 overflow-y-auto flex flex-col hide-scrollbar shadow-[2px_0_15px_-3px_rgba(0,0,0,0.02)] z-10" data-lenis-prevent="true">
-          <div className="p-3 sm:p-4 space-y-2">
+        <div className="w-[28%] md:w-72 flex-shrink-0 bg-white border-r border-stone-100 overflow-y-auto flex flex-col hide-scrollbar shadow-[4px_0_24px_-10px_rgba(0,0,0,0.03)] z-10" data-lenis-prevent="true">
+          <div className="p-3 sm:p-5 space-y-2">
             <button
               onClick={() => handleCategoryClick('All')}
-              className={`relative w-full text-left flex items-center p-3 rounded-xl transition-all duration-300 group ${
+              className={`relative w-full text-left flex flex-col sm:flex-row items-center sm:items-start p-2 sm:p-3 rounded-2xl transition-all duration-300 group ${
                 activeCategory === 'All' 
-                ? 'bg-orange-50 text-dhaba-orange font-bold shadow-sm ring-1 ring-orange-100/50' 
-                : 'bg-transparent text-stone-500 font-medium hover:bg-stone-50 hover:text-stone-800'
+                ? 'bg-orange-50/80 border border-orange-100 shadow-sm' 
+                : 'bg-transparent border border-transparent hover:bg-stone-50'
               }`}
             >
-              {activeCategory === 'All' && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-dhaba-orange rounded-r-full"></div>}
-              <div className={`w-10 h-10 rounded-full flex-shrink-0 mr-3 flex items-center justify-center transition-colors duration-300 ${
-                 activeCategory === 'All' ? 'bg-white shadow-sm' : 'bg-stone-100 group-hover:bg-white group-hover:shadow-sm'
+              {activeCategory === 'All' && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-10 bg-dhaba-orange rounded-r-full hidden sm:block"></div>}
+              <div className={`w-12 h-12 rounded-2xl sm:mr-4 mb-2 sm:mb-0 flex-shrink-0 flex items-center justify-center transition-all duration-300 ${
+                 activeCategory === 'All' ? 'bg-white shadow-md text-dhaba-orange scale-105' : 'bg-stone-100 text-stone-400 group-hover:bg-white group-hover:shadow-sm'
               }`}>
-                <span className={`text-[10px] uppercase tracking-wider ${activeCategory === 'All' ? 'text-dhaba-orange font-bold' : 'text-stone-400'}`}>All</span>
+                <span className="text-xs font-black uppercase tracking-widest">ALL</span>
               </div>
-              <span className="text-sm tracking-wide line-clamp-2">All Items</span>
+              <div className="flex flex-col items-center sm:items-start justify-center flex-1 min-w-0 pt-1">
+                <span className={`text-xs sm:text-sm font-bold truncate w-full text-center sm:text-left ${activeCategory === 'All' ? 'text-dhaba-orange' : 'text-stone-600 group-hover:text-stone-800'}`}>All Items</span>
+              </div>
             </button>
 
             <div className="w-full h-px bg-gradient-to-r from-transparent via-stone-200 to-transparent my-4 opacity-70"></div>
@@ -246,23 +248,26 @@ export default function MenuView({
                 <button
                   key={category.id}
                   onClick={() => handleCategoryClick(category.name)}
-                  className={`relative w-full text-left flex items-center p-3 rounded-xl transition-all duration-300 group ${
+                  className={`relative w-full text-left flex flex-col sm:flex-row items-center sm:items-start p-2 sm:p-3 rounded-2xl transition-all duration-300 group overflow-hidden ${
                     isActive 
-                    ? 'bg-orange-50 text-dhaba-orange font-bold shadow-sm ring-1 ring-orange-100/50' 
-                    : 'bg-transparent text-stone-500 font-medium hover:bg-stone-50 hover:text-stone-800'
+                    ? 'bg-orange-50/80 border border-orange-100 shadow-sm' 
+                    : 'bg-transparent border border-transparent hover:bg-stone-50'
                   }`}
                 >
-                  {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-dhaba-orange rounded-r-full"></div>}
+                  {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-10 bg-dhaba-orange rounded-r-full hidden sm:block"></div>}
+                  
                   {category.image ? (
-                      <div className={`w-10 h-10 rounded-full overflow-hidden flex-shrink-0 mr-3 transition-transform duration-300 ${isActive ? 'ring-2 ring-white shadow-md transform scale-105' : 'ring-1 ring-stone-200 group-hover:ring-stone-300 group-hover:shadow-sm'}`}>
+                      <div className={`w-12 h-12 rounded-2xl overflow-hidden flex-shrink-0 sm:mr-4 mb-2 sm:mb-0 transition-transform duration-300 ${isActive ? 'ring-2 ring-white shadow-md scale-105' : 'ring-1 ring-stone-200/50 group-hover:ring-stone-300 group-hover:shadow-sm'}`}>
                         <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
                       </div>
                   ) : (
-                      <div className={`w-10 h-10 rounded-full flex-shrink-0 mr-3 flex items-center justify-center transition-colors duration-300 ${isActive ? 'bg-white shadow-sm' : 'bg-stone-100 group-hover:bg-white group-hover:shadow-sm'}`}>
-                         <span className={`text-[10px] uppercase tracking-wider ${isActive ? 'text-dhaba-orange font-bold' : 'text-stone-400'}`}>C</span>
+                      <div className={`w-12 h-12 rounded-2xl flex-shrink-0 sm:mr-4 mb-2 sm:mb-0 flex items-center justify-center transition-all duration-300 ${isActive ? 'bg-white shadow-md text-dhaba-orange scale-105' : 'bg-stone-100 text-stone-400 group-hover:bg-white group-hover:shadow-sm'}`}>
+                         <span className="text-xs font-black uppercase tracking-widest">{category.name.substring(0,2)}</span>
                       </div>
                   )}
-                  <span className="text-sm tracking-wide line-clamp-2">{category.name}</span>
+                  <div className="flex flex-col items-center sm:items-start justify-center flex-1 min-w-0 pt-1">
+                    <span className={`text-[11px] sm:text-sm font-bold line-clamp-2 w-full text-center sm:text-left leading-tight ${isActive ? 'text-dhaba-orange' : 'text-stone-600 group-hover:text-stone-800'}`}>{category.name}</span>
+                  </div>
                 </button>
               );
             })}
@@ -305,25 +310,34 @@ export default function MenuView({
               const locked = isItemLocked(item);
               const category = dbCategories.find(c => c.name === item.category);
               return (
-              <div key={item.id} className={`bg-white rounded-[2rem] shadow-sm hover:shadow-xl hover:shadow-stone-200/50 transition-all duration-500 overflow-hidden border border-stone-100 flex flex-col group transform hover:-translate-y-1 ${locked ? 'opacity-80 grayscale-[50%]' : 'cursor-pointer'}`} onClick={() => !locked && setSelectedItemDetail(item)}>
-                <div className="relative h-48 sm:h-56 overflow-hidden bg-stone-100 border-b border-stone-100/50">
+              <div key={item.id} className={`bg-white rounded-[2rem] shadow-[0_2px_15px_-5px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_30px_-10px_rgba(217,119,6,0.2)] transition-all duration-500 overflow-hidden border border-stone-100/80 flex flex-col group transform hover:-translate-y-1.5 ${locked ? 'opacity-80 grayscale-[50%]' : 'cursor-pointer'}`} onClick={() => !locked && setSelectedItemDetail(item)}>
+                <div className="relative h-48 sm:h-56 overflow-hidden bg-stone-50 border-b border-stone-100/50">
                   {item.image ? (
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
+                    <>
+                      <img src={item.image} alt={item.name} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
+                      <div className="absolute bottom-3 left-3 bg-black/30 hover:bg-black/50 backdrop-blur-md p-1.5 rounded-full text-white cursor-help group/info z-30 transition-colors shadow-sm border border-white/20">
+                        <Info className="w-4 h-4" />
+                        <div className="absolute left-0 bottom-full mb-2 w-48 bg-stone-900/95 text-white text-[10px] p-2.5 rounded-xl shadow-xl opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all duration-300 pointer-events-none border border-white/10 z-40 backdrop-blur-md leading-relaxed">
+                          Image is for reference only and may not represent the actual dish.
+                        </div>
+                      </div>
+                    </>
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center transform group-hover:scale-110 transition-transform duration-700">
-                      <DynamicIcon name={getItemFallbackIcon(item.category)} className="w-20 h-20 text-stone-300" />
+                    <div className="w-full h-full flex items-center justify-center transform group-hover:scale-110 transition-transform duration-700 bg-gradient-to-br from-stone-100 to-stone-200">
+                      <DynamicIcon name={getItemFallbackIcon(item.category)} className="w-20 h-20 text-stone-300/80" />
                     </div>
                   )}
                   {locked && (
-                    <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-                      <div className="bg-stone-900/80 text-white font-bold text-xs sm:text-sm px-4 py-2 rounded-xl backdrop-blur-md shadow-2xl transform -rotate-12 border border-stone-700 mx-4 text-center">
+                    <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none bg-stone-900/10 backdrop-blur-[2px]">
+                      <div className="bg-stone-900/90 text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-2xl backdrop-blur-md shadow-2xl transform -rotate-6 border border-stone-700 mx-4 text-center">
                         {item.outOfStock ? 'Out of Stock' : <DevEmptyStateText />}
                       </div>
                     </div>
                   )}
-                  <div className="absolute top-3 right-3 flex flex-col gap-1.5">
+                  <div className="absolute top-3 right-3 flex flex-col gap-2 z-30">
                     {item.dietaryPreference && (
-                      <div className="bg-white/90 backdrop-blur px-1.5 py-1.5 rounded shadow-sm flex items-center justify-center">
+                      <div className="bg-white/95 backdrop-blur-md px-1.5 py-1.5 rounded-lg shadow-md flex items-center justify-center border border-stone-200/50">
                         <div className={`w-3.5 h-3.5 border ${item.dietaryPreference === 'veg' ? 'border-green-600' : 'border-red-600'} flex items-center justify-center rounded-sm bg-white`}>
                           <div className={`w-2 h-2 rounded-full ${item.dietaryPreference === 'veg' ? 'bg-green-600' : 'bg-red-600'}`}></div>
                         </div>
@@ -331,65 +345,69 @@ export default function MenuView({
                     )}
                   </div>
                   {item.isBestSeller && (
-                     <div className="absolute top-3 left-3 bg-dhaba-orange text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">
+                     <div className="absolute top-3 left-3 bg-gradient-to-r from-dhaba-orange to-[#e67500] text-white text-[10px] font-black tracking-widest px-2.5 py-1.5 rounded-lg shadow-lg shadow-orange-500/30 z-30 flex items-center gap-1 border border-white/20">
+                       <Star className="w-3 h-3 fill-current" />
                        BEST SELLER
                      </div>
                   )}
                 </div>
                 
-                <div className="p-4 flex flex-col flex-1">
-                  <div className="flex justify-between items-start mb-1 gap-2">
-                    <h3 className="font-serif font-bold text-stone-800 text-lg sm:text-xl leading-tight group-hover:text-dhaba-orange transition-colors">{item.name}</h3>
-                    <div className="font-sans font-bold text-dhaba-orange whitespace-nowrap text-xl flex flex-col items-end">
-                              <div>₹{item.price}</div>
-                              {item.fullPortionPieces && <div className="text-xs text-stone-500 font-normal">({item.fullPortionPieces} pcs)</div>}
-                            </div>
+                <div className="p-4 sm:p-5 flex flex-col flex-1 bg-white relative">
+                  <div className="flex justify-between items-start mb-2 gap-3">
+                    <h3 className="font-serif font-extrabold text-stone-800 text-lg sm:text-xl leading-tight group-hover:text-dhaba-orange transition-colors">{item.name}</h3>
+                    <div className="font-sans font-black text-dhaba-dark whitespace-nowrap text-xl flex flex-col items-end">
+                      <div className="flex items-start">
+                        <span className="text-sm mt-1 mr-0.5 opacity-60">₹</span>
+                        {item.price}
+                      </div>
+                      {item.fullPortionPieces && <div className="text-[10px] text-stone-400 font-medium uppercase tracking-wider mt-0.5">({item.fullPortionPieces} pcs)</div>}
+                    </div>
                   </div>
                   
-                  <p className="text-stone-500 text-sm font-light leading-relaxed line-clamp-2 mb-4 mt-2 flex-1">{item.description}</p>
+                  <p className="text-stone-500 text-xs sm:text-sm font-medium leading-relaxed line-clamp-2 mb-4 flex-1">{item.description}</p>
                   
                   <div className="flex items-center gap-3 text-xs font-medium text-stone-500 mb-4">
                     {item.spiceLevel && item.spiceLevel !== 'mild' && (
-                       <div className="flex items-center text-red-500">
-                         {item.spiceLevel === 'medium' && <><Flame className="w-3.5 h-3.5 fill-current" /><Flame className="w-3.5 h-3.5 fill-current" /></>}
-                         {item.spiceLevel === 'spicy' && <><Flame className="w-3.5 h-3.5 fill-current" /><Flame className="w-3.5 h-3.5 fill-current" /><Flame className="w-3.5 h-3.5 fill-current" /></>}
+                       <div className="flex items-center gap-0.5 bg-red-50 px-2 py-1 rounded-md text-red-600 border border-red-100">
+                         {item.spiceLevel === 'medium' && <><Flame className="w-3 h-3 fill-current" /><Flame className="w-3 h-3 fill-current" /></>}
+                         {item.spiceLevel === 'spicy' && <><Flame className="w-3 h-3 fill-current" /><Flame className="w-3 h-3 fill-current" /><Flame className="w-3 h-3 fill-current" /></>}
                        </div>
                     )}
                   </div>
                   
-                  <div className="mt-auto pt-3 border-t border-stone-100 flex items-center justify-between">
+                  <div className="mt-auto pt-4 border-t border-stone-100/80 flex items-center justify-between relative z-10">
                     {locked ? (
-                      <div className="w-full bg-stone-100 text-stone-500 font-semibold py-3 rounded-2xl flex flex-col justify-center items-center text-xs shadow-inner cursor-not-allowed">
+                      <div className="w-full bg-stone-50 text-stone-400 font-bold py-3.5 rounded-2xl flex flex-col justify-center items-center text-xs shadow-inner cursor-not-allowed border border-stone-100">
                         <span>{getLockReason(item)}</span>
-                        <span className="text-[10px] font-normal">{getLockSubReason(item)}</span>
+                        <span className="text-[10px] font-medium opacity-80 mt-0.5">{getLockSubReason(item)}</span>
                       </div>
                     ) : (item.hasHalfPortion || item.hasButterOption || (item.variants && item.variants.length > 0)) ? (
                       <button 
                         onClick={(e) => { e.stopPropagation(); setSelectedItemDetail(item); }}
-                        className="w-full bg-white hover:bg-gradient-to-r hover:from-dhaba-orange hover:to-dhaba-yellow border border-stone-200 hover:border-transparent text-dhaba-dark hover:text-white font-semibold py-3 rounded-2xl transition-all duration-300 flex justify-center items-center text-sm shadow-sm hover:shadow-lg active:scale-95"
+                        className="w-full bg-white hover:bg-orange-50 border-2 border-dhaba-orange/20 hover:border-dhaba-orange text-dhaba-orange font-bold py-3.5 rounded-2xl transition-all duration-300 flex justify-center items-center text-sm shadow-sm active:scale-95 group/btn"
                       >
-                        <Plus className="w-4 h-4 mr-1" /> Add
+                        <span className="flex items-center gap-1.5"><Plus className="w-4 h-4 transition-transform group-hover/btn:rotate-90" /> Options</span>
                       </button>
                     ) : (
                       getQuantity(item) === 0 ? (
                         <button 
                           onClick={(e) => { e.stopPropagation(); addToCart({ ...item, isHalf: false }); }}
-                          className="w-full bg-white hover:bg-gradient-to-r hover:from-dhaba-orange hover:to-dhaba-yellow border border-stone-200 hover:border-transparent text-dhaba-dark hover:text-white font-semibold py-3 rounded-2xl transition-all duration-300 flex justify-center items-center text-sm shadow-sm hover:shadow-lg active:scale-95"
+                          className="w-full bg-dhaba-dark hover:bg-stone-800 text-white font-bold py-3.5 rounded-2xl transition-all duration-300 flex justify-center items-center text-sm shadow-md hover:shadow-lg active:scale-95 group/add"
                         >
-                          <Plus className="w-4 h-4 mr-1" /> Add
+                          <span className="flex items-center gap-1.5">Add to Cart</span>
                         </button>
                       ) : (
-                        <div className="w-full flex items-center justify-between bg-dhaba-orange text-white rounded-xl overflow-hidden shadow-md shadow-dhaba-orange/20 animate-pop-in">
+                        <div className="w-full flex items-center justify-between bg-dhaba-orange text-white rounded-2xl overflow-hidden shadow-lg shadow-dhaba-orange/30 animate-pop-in p-1">
                           <button 
                             onClick={(e) => { e.stopPropagation(); updateQuantity(item.name, item.isHalf || false, item.isButter || false, -1); }}
-                            className="p-3 bg-black/10 hover:bg-black/20 transition-colors"
+                            className="p-3 bg-black/10 hover:bg-black/20 rounded-xl transition-colors active:scale-95"
                           >
                             <Minus className="w-4 h-4" />
                           </button>
-                          <span className="font-bold min-w-[2rem] text-center">{getQuantity(item)}</span>
+                          <span className="font-black text-lg min-w-[2rem] text-center">{getQuantity(item)}</span>
                           <button 
                             onClick={(e) => { e.stopPropagation(); updateQuantity(item.name, item.isHalf || false, item.isButter || false, 1); }}
-                            className="p-3 bg-black/10 hover:bg-black/20 transition-colors"
+                            className="p-3 bg-white text-dhaba-orange rounded-xl shadow-sm hover:bg-stone-50 transition-colors active:scale-95"
                           >
                             <Plus className="w-4 h-4" />
                           </button>

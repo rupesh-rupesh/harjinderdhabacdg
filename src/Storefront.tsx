@@ -7,7 +7,7 @@ import Testimonials from './components/Testimonials.tsx';
 
 import { DevEmptyStateText } from './components/DevEmptyStateText';
 import React, { useState, useEffect } from 'react';
-import { MapPin, Phone, Clock, Truck, Coffee, Utensils, Star, ArrowRight, ArrowLeft, Instagram, Facebook, Menu, X, ShoppingBag, BookOpen, ShoppingCart, Minus, Plus, Trash2, Search, Layers, Image as ImageIcon, TrendingUp, Flame, Lock, ChevronRight, ChefHat, MessageCircle, Navigation } from 'lucide-react';
+import { MapPin, Phone, Clock, Truck, Coffee, Utensils, Star, ArrowRight, ArrowLeft, Instagram, Facebook, Menu, X, ShoppingBag, BookOpen, ShoppingCart, Minus, Plus, Trash2, Search, Layers, Image as ImageIcon, TrendingUp, Flame, Lock, ChevronRight, ChefHat, MessageCircle, Navigation, Info } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -512,26 +512,36 @@ export default function Storefront() {
           <div className={`fixed inset-0 z-[110] xl:hidden transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>
             <div className={`absolute top-0 left-0 w-4/5 max-w-sm h-full bg-[#16100B] shadow-2xl transition-transform duration-500 ease-in-out flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-              <div className="p-6 flex justify-between items-center border-b border-white/5 mt-2">
-                <div className="flex items-center gap-2">
-                  <span className="flex flex-col items-center justify-center gap-[3px]">
-                    <span className="block w-[2px] h-2 bg-[var(--color-gold)] opacity-70 rounded-full"></span>
-                    <span className="block w-[4px] h-[4px] rounded-full bg-[var(--color-gold)]"></span>
-                    <span className="block w-[2px] h-2 bg-[var(--color-gold)] opacity-70 rounded-full"></span>
-                  </span>
-                  <span className="text-xl font-bold font-serif text-white tracking-widest">Harjinder</span>
+              <div className="p-6 pb-8 flex justify-between items-start border-b border-white/10 relative overflow-hidden bg-gradient-to-b from-black/40 to-transparent">
+                {/* Subtle gold glow */}
+                <div className="absolute top-0 left-0 w-48 h-48 bg-[var(--color-gold)]/10 rounded-full blur-3xl pointer-events-none"></div>
+                
+                <div className="flex items-start gap-4 relative z-10">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[var(--color-gold)] to-[#b38827] flex items-center justify-center flex-shrink-0 shadow-lg shadow-[var(--color-gold)]/20 p-[2px]">
+                    <div className="w-full h-full bg-[#16100B] rounded-[14px] flex items-center justify-center">
+                       <span className="font-serif font-extrabold text-[var(--color-gold)] text-xl">H</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col pt-1">
+                    <span className="text-xl font-black font-serif text-white tracking-widest leading-none">HARJINDER</span>
+                    <span className="text-[10px] font-bold text-[var(--color-gold)] tracking-[0.25em] uppercase mt-2 opacity-90">Tourist Dhaba</span>
+                  </div>
                 </div>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 rounded-full bg-white/5 text-stone-400 hover:text-white hover:bg-white/10 transition-colors focus:outline-none border border-white/5"
+                  className="p-2.5 rounded-full bg-white/5 text-stone-400 hover:text-white hover:bg-white/10 transition-colors focus:outline-none border border-white/10 backdrop-blur-md relative z-10 active:scale-95"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto py-8 px-4 flex flex-col gap-2">
-                <a href="#" onClick={(e) => { e.preventDefault(); setIsMobileMenuOpen(false); setCurrentView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group ${activeSection === 'home' ? 'text-[var(--color-gold)] bg-white/10' : 'text-stone-400 hover:text-[var(--color-gold)] hover:bg-white/5'}`}>
-                  <span className={`text-lg tracking-wide transition-all duration-300 ${activeSection === 'home' ? 'pl-2' : 'group-hover:pl-2'}`}>Home</span>
+              <div className="flex-1 overflow-y-auto py-8 px-4 flex flex-col gap-2 relative">
+                {/* Background Pattern */}
+                <div className="absolute inset-0 opacity-5 bg-[url('/pattern.png')] bg-repeat pointer-events-none"></div>
+
+                <a href="#" onClick={(e) => { e.preventDefault(); setIsMobileMenuOpen(false); setCurrentView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group relative overflow-hidden z-10 ${activeSection === 'home' ? 'text-[var(--color-gold)] bg-white/10 shadow-lg border border-white/10' : 'text-stone-400 hover:text-white hover:bg-white/5 border border-transparent'}`}>
+                  {activeSection === 'home' && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1/2 bg-[var(--color-gold)] rounded-r-full shadow-[0_0_10px_rgba(212,175,55,0.5)]"></div>}
+                  <span className={`text-lg tracking-wide transition-all duration-300 ${activeSection === 'home' ? 'pl-2 font-bold' : 'group-hover:pl-2'}`}>Home</span>
                   <ChevronRight className={`w-5 h-5 transition-all duration-300 ${activeSection === 'home' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'}`} />
                 </a>
                 <a href="#specials" onClick={(e) => {
@@ -541,12 +551,14 @@ export default function Storefront() {
                     setCurrentView('home');
                     setTimeout(() => document.getElementById('specials')?.scrollIntoView({ behavior: 'smooth' }), 100);
                   }
-                }} className={`flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group ${activeSection === 'specials' ? 'text-[var(--color-gold)] bg-white/10' : 'text-stone-400 hover:text-[var(--color-gold)] hover:bg-white/5'}`}>
-                  <span className={`text-lg tracking-wide transition-all duration-300 ${activeSection === 'specials' ? 'pl-2' : 'group-hover:pl-2'}`}>Dhaba Specials</span>
+                }} className={`flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group relative overflow-hidden z-10 ${activeSection === 'specials' ? 'text-[var(--color-gold)] bg-white/10 shadow-lg border border-white/10' : 'text-stone-400 hover:text-white hover:bg-white/5 border border-transparent'}`}>
+                  {activeSection === 'specials' && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1/2 bg-[var(--color-gold)] rounded-r-full shadow-[0_0_10px_rgba(212,175,55,0.5)]"></div>}
+                  <span className={`text-lg tracking-wide transition-all duration-300 ${activeSection === 'specials' ? 'pl-2 font-bold' : 'group-hover:pl-2'}`}>Dhaba Specials</span>
                   <ChevronRight className={`w-5 h-5 transition-all duration-300 ${activeSection === 'specials' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'}`} />
                 </a>
-                <button onClick={(e) => { e.preventDefault(); setIsMobileMenuOpen(false); setCurrentView('menu'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`w-full text-left flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group ${activeSection === 'menu' ? 'text-[var(--color-gold)] bg-white/10' : 'text-stone-400 hover:text-[var(--color-gold)] hover:bg-white/5'}`}>
-                  <span className={`text-lg tracking-wide transition-all duration-300 ${activeSection === 'menu' ? 'pl-2' : 'group-hover:pl-2'}`}>Menu</span>
+                <button onClick={(e) => { e.preventDefault(); setIsMobileMenuOpen(false); setCurrentView('menu'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`w-full text-left flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group relative overflow-hidden z-10 ${activeSection === 'menu' ? 'text-[var(--color-gold)] bg-white/10 shadow-lg border border-white/10' : 'text-stone-400 hover:text-white hover:bg-white/5 border border-transparent'}`}>
+                  {activeSection === 'menu' && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1/2 bg-[var(--color-gold)] rounded-r-full shadow-[0_0_10px_rgba(212,175,55,0.5)]"></div>}
+                  <span className={`text-lg tracking-wide transition-all duration-300 ${activeSection === 'menu' ? 'pl-2 font-bold' : 'group-hover:pl-2'}`}>Menu</span>
                   <ChevronRight className={`w-5 h-5 transition-all duration-300 ${activeSection === 'menu' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'}`} />
                 </button>
                 <a href="#about" onClick={(e) => {
@@ -556,19 +568,20 @@ export default function Storefront() {
                     setCurrentView('home');
                     setTimeout(() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }), 100);
                   }
-                }} className={`flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group ${activeSection === 'about' ? 'text-[var(--color-gold)] bg-white/10' : 'text-stone-400 hover:text-[var(--color-gold)] hover:bg-white/5'}`}>
-                  <span className={`text-lg tracking-wide transition-all duration-300 ${activeSection === 'about' ? 'pl-2' : 'group-hover:pl-2'}`}>About Us</span>
+                }} className={`flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group relative overflow-hidden z-10 ${activeSection === 'about' ? 'text-[var(--color-gold)] bg-white/10 shadow-lg border border-white/10' : 'text-stone-400 hover:text-white hover:bg-white/5 border border-transparent'}`}>
+                  {activeSection === 'about' && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1/2 bg-[var(--color-gold)] rounded-r-full shadow-[0_0_10px_rgba(212,175,55,0.5)]"></div>}
+                  <span className={`text-lg tracking-wide transition-all duration-300 ${activeSection === 'about' ? 'pl-2 font-bold' : 'group-hover:pl-2'}`}>About Us</span>
                   <ChevronRight className={`w-5 h-5 transition-all duration-300 ${activeSection === 'about' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'}`} />
                 </a>
               </div>
 
-              <div className="p-6 border-t border-white/10 bg-black/20">
+              <div className="p-6 border-t border-white/10 bg-black/40 relative z-10 backdrop-blur-md">
                 <a
                   href="https://zoma.to/r/22202855"
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="w-full bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold)]/80 hover:from-[#E6B355] hover:to-[var(--color-gold)] text-white px-4 py-4 rounded-2xl font-semibold flex items-center justify-center transition-all duration-300 shadow-xl active:scale-95 mb-3"
+                  className="w-full bg-gradient-to-r from-[var(--color-gold)] to-[#b38827] hover:from-[#E6B355] hover:to-[var(--color-gold)] text-white px-4 py-4 rounded-2xl font-bold flex items-center justify-center transition-all duration-300 shadow-lg shadow-[var(--color-gold)]/20 active:scale-95 mb-2 border border-white/10"
                 >
                   <ShoppingBag className="w-5 h-5 mr-2" /> Order Online
                 </a>
@@ -731,11 +744,19 @@ export default function Storefront() {
                             </div>
                           </div>
                           {item.image ? (
-                            <img
-                              src={item.image}
-                              alt={item.name}
-                              className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700 ease-in-out"
-                            />
+                            <>
+                              <img
+                                src={item.image}
+                                alt={item.name}
+                                className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700 ease-in-out"
+                              />
+                              <div className="absolute bottom-4 left-4 bg-black/40 hover:bg-black/60 backdrop-blur-md p-1.5 rounded-full text-white cursor-help group/info z-30 transition-colors shadow-sm">
+                                <Info className="w-4 h-4" />
+                                <div className="absolute left-0 bottom-full mb-2 w-48 bg-stone-900 text-white text-[10px] p-2 rounded-lg shadow-xl opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all duration-300 pointer-events-none border border-white/10 z-40 text-left leading-tight">
+                                  Image is for reference only and may not represent the actual dish.
+                                </div>
+                              </div>
+                            </>
                           ) : (
                             <div className="w-full h-full bg-stone-100 flex items-center justify-center transform group-hover:scale-110 transition-transform duration-700 ease-in-out">
                               <DynamicIcon name={getItemFallbackIcon(item.category)} className="w-16 h-16 text-stone-300" />
@@ -1055,11 +1076,18 @@ export default function Storefront() {
           <section id="about" className="py-24 md:py-32 bg-[var(--color-ivory)] relative overflow-hidden">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
-                <div className="lg:w-5/12 w-full relative group">
+                <div className="lg:w-5/12 w-full relative group perspective-1000">
+                  {/* Decorative Elements */}
+                  <div className="absolute -top-8 -left-8 w-32 h-32 bg-[var(--color-gold)]/10 rounded-full blur-2xl animate-pulse" />
+                  <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-[var(--color-brown)]/10 rounded-full blur-3xl" />
+                  
                   {/* Glowing Animated Backdrop */}
-                  <div className="absolute inset-0 rounded-[2.5rem] bg-[var(--color-gold)] opacity-30 blur-[40px] animate-pulse group-hover:opacity-50 transition-opacity duration-700 mt-4"></div>
+                  <div className="absolute inset-0 rounded-[2.5rem] bg-gradient-to-tr from-[var(--color-gold)] to-[#E6B355] opacity-20 blur-[40px] group-hover:opacity-40 group-hover:blur-[50px] transition-all duration-700 mt-4"></div>
 
-                  <div className="relative w-full aspect-[4/5] sm:h-[600px] rounded-[2rem] overflow-hidden border-[2px] border-[var(--color-gold)] shadow-[0_0_25px_rgba(212,175,55,0.4)] group-hover:shadow-[0_0_50px_rgba(212,175,55,0.6)] transition-shadow duration-700 z-10 bg-stone-900">
+                  <div className="relative w-full aspect-[4/5] sm:h-[600px] rounded-[2.5rem] overflow-hidden border-[6px] border-white shadow-2xl group-hover:shadow-[0_20px_50px_rgba(212,175,55,0.3)] transition-all duration-700 z-10 bg-stone-900 group-hover:-translate-y-2 sm:group-hover:rotate-1">
+                    {/* Inner gold border */}
+                    <div className="absolute inset-3 border border-[var(--color-gold)]/50 rounded-[2rem] z-20 pointer-events-none transition-all duration-700 group-hover:scale-[0.98]" />
+                    
                     {journeyMedia.length > 0 ? (
                       journeyMedia.map((media, index) => (
                         media.type === 'video' ? (
@@ -1074,7 +1102,7 @@ export default function Storefront() {
                             key={media.id}
                             src={media.url || undefined}
                             alt={`Harjinder Tourist Dhaba — ${media.caption || 'our journey since 1991'}`}
-                            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${index === currentJourneyIndex ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}
+                            className={`absolute inset-0 w-full h-full object-cover transition-transform duration-[20s] ease-linear ${index === currentJourneyIndex ? 'opacity-100 z-10 scale-110' : 'opacity-0 z-0 pointer-events-none scale-100'}`}
                           />
                         )
                       ))
@@ -1085,38 +1113,57 @@ export default function Storefront() {
                         className="absolute inset-0 w-full h-full object-cover transform hover:scale-[1.02] transition-transform duration-1000"
                       />
                     )}
+                    
+                    {/* Overlay gradient for depth */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent z-10 pointer-events-none" />
                   </div>
 
                   {/* Gold "SINCE 1991" Badge Image */}
-                  <div className="absolute -bottom-10 right-4 sm:-right-10 z-20 w-36 h-36 sm:w-44 sm:h-44 flex items-center justify-center">
+                  <div className="absolute -bottom-8 -right-4 sm:-right-8 z-30 w-40 h-40 sm:w-48 sm:h-48 flex items-center justify-center transform group-hover:scale-110 sm:group-hover:rotate-6 transition-all duration-700 drop-shadow-2xl">
                     <img
                       src="/since-1991.webp"
                       alt="Harjinder Tourist Dhaba — Serving Since 1991"
-                      width="176"
-                      height="176"
+                      width="192"
+                      height="192"
                       loading="lazy"
-                      className="w-full h-full object-contain drop-shadow-2xl"
+                      className="w-full h-full object-contain filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)]"
                     />
                   </div>
                 </div>
 
                 <div className="lg:w-7/12 w-full mt-16 lg:mt-0 relative z-20">
-                  <div className="flex items-center gap-4 mb-6">
-                    <span className="text-sm font-bold tracking-[0.2em] uppercase text-[var(--color-gold)]">Our Journey</span>
-                    <div className="h-px w-16 bg-[var(--color-gold)]/40"></div>
+                  <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-white shadow-sm border border-stone-100 mb-8">
+                    <div className="w-2 h-2 rounded-full bg-[var(--color-gold)] animate-pulse" />
+                    <span className="text-xs font-bold tracking-[0.25em] uppercase text-[var(--color-gold)]">Our Journey</span>
                   </div>
-                  <h2 className="text-4xl sm:text-5xl md:text-6xl font-serif font-bold text-[var(--color-brown)] mb-8 leading-[1.1] tracking-tight">{journeySettings.header}</h2>
-                  <div className="space-y-6">
+                  
+                  <h2 className="text-4xl sm:text-5xl md:text-6xl font-serif font-extrabold text-[var(--color-brown)] mb-8 leading-[1.15] tracking-tight relative">
+                    <span className="relative z-10">{journeySettings.header}</span>
+                    {/* Decorative text watermark behind */}
+                    <span className="absolute -top-8 -left-8 text-7xl md:text-9xl font-serif font-black text-[var(--color-gold)]/5 select-none -z-10 whitespace-nowrap hidden sm:block pointer-events-none">1991</span>
+                  </h2>
+
+                  <div className="space-y-6 relative before:absolute before:inset-y-2 before:-left-6 before:w-1 before:bg-gradient-to-b before:from-[var(--color-gold)] before:to-transparent before:rounded-full ml-6">
                     {journeySettings.description.split('\n').map((paragraph, idx) => paragraph.trim() ? (
-                      <p key={idx} className="text-[#5A4A42] text-lg leading-relaxed">
+                      <p key={idx} className={`leading-relaxed ${idx === 0 ? 'text-[var(--color-brown)] font-medium text-xl md:text-2xl' : 'text-[#5A4A42]/90 text-lg'}`}>
                         {paragraph}
                       </p>
                     ) : null)}
                   </div>
-                  <p className="text-[var(--color-brown)] text-xl mt-8 font-medium italic">
-                    {journeySettings.signature}<br />
-                    <span className="text-[var(--color-gold)] font-bold non-italic text-sm tracking-widest uppercase mt-2 block">{journeySettings.subSignature}</span>
-                  </p>
+
+                  <div className="mt-12 flex items-center gap-5 pt-8 border-t border-stone-200/60">
+                    <div className="w-16 h-16 shrink-0 rounded-full bg-gradient-to-br from-[var(--color-gold)] to-[#b38827] flex items-center justify-center p-[3px] shadow-lg shadow-[var(--color-gold)]/20">
+                      <div className="w-full h-full rounded-full border border-white/30 flex items-center justify-center bg-[var(--color-brown)] overflow-hidden">
+                         <span className="font-serif font-bold text-[var(--color-gold)] text-2xl">H</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[var(--color-brown)] text-2xl sm:text-3xl font-serif font-bold italic tracking-wide">
+                        {journeySettings.signature}
+                      </p>
+                      <span className="text-[var(--color-gold)] font-bold text-xs tracking-[0.2em] uppercase mt-1 block">{journeySettings.subSignature}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1424,11 +1471,19 @@ export default function Storefront() {
             </button>
             <div className="h-[35vh] sm:h-80 relative flex-shrink-0 bg-stone-100">
               {selectedItemDetail.image ? (
-                <img
-                  src={selectedItemDetail.image}
-                  alt={selectedItemDetail.name}
-                  className="w-full h-full object-cover"
-                />
+                <>
+                  <img
+                    src={selectedItemDetail.image}
+                    alt={selectedItemDetail.name}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute bottom-4 left-4 bg-black/40 hover:bg-black/60 backdrop-blur-md p-1.5 rounded-full text-white cursor-help group/info z-30 transition-colors shadow-sm">
+                    <Info className="w-4 h-4" />
+                    <div className="absolute left-0 bottom-full mb-2 w-48 bg-stone-900 text-white text-[10px] p-2 rounded-lg shadow-xl opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all duration-300 pointer-events-none border border-white/10 z-40 text-left leading-tight">
+                      Image is for reference only and may not represent the actual dish.
+                    </div>
+                  </div>
+                </>
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <DynamicIcon name={getItemFallbackIcon(selectedItemDetail.category)} className="w-24 h-24 text-stone-300" />

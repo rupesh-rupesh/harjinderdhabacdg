@@ -53,77 +53,7 @@ interface CredentialCardProps {
   onClose: () => void;
 }
 
-function CredentialCard({ name, email, password, onClose }: CredentialCardProps) {
-  const [allCopied, setAllCopied] = useState(false);
-  const loginUrl = window.location.origin + '/htd-ctrl-9x7k2m/manager';
-  
-  const emailTemplateText = `Subject: Welcome to Harjinder Tourist Dhaba - Manager Access
-Hello ${name},
-Your manager account has been created for Harjinder Tourist Dhaba.
 
-Login URL: ${loginUrl}
-Email: ${email}
-Password: ${password}
-
-Each login requires a 6-digit verification code sent to your email.
-⚠️ Please change your password after your first login.`;
-
-  const copyTemplate = () => {
-    navigator.clipboard.writeText(emailTemplateText);
-    setAllCopied(true);
-    setTimeout(() => setAllCopied(false), 2000);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-stone-900/70 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        
-        {/* Header */}
-        <div className="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-6 text-white text-center">
-          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
-            <CheckCheck className="w-8 h-8" />
-          </div>
-          <h3 className="font-bold text-2xl leading-tight">Manager Created!</h3>
-          <p className="text-green-100 text-sm mt-1">An email with credentials has been sent.</p>
-        </div>
-
-        <div className="p-6 space-y-4">
-          <div>
-            <p className="text-xs text-stone-400 font-medium mb-1">Email / Username</p>
-            <div className="flex items-center justify-between bg-stone-50 rounded-xl px-4 py-3 border border-stone-100">
-              <p className="font-bold text-stone-700 font-mono text-sm truncate mr-2">{email}</p>
-              <CopyBtn text={email} />
-            </div>
-          </div>
-          
-          <div>
-            <p className="text-xs text-stone-400 font-medium mb-1">Password</p>
-            <div className="flex items-center justify-between bg-amber-50 rounded-xl px-4 py-3 border border-amber-100">
-              <p className="font-bold text-stone-800 font-mono text-sm tracking-widest">{password}</p>
-              <CopyBtn text={password} />
-            </div>
-          </div>
-
-          <div className="pt-4 flex gap-3">
-            <button
-              onClick={copyTemplate}
-              className="flex-1 py-3 bg-stone-100 text-stone-700 rounded-xl text-sm font-bold hover:bg-stone-200 transition-colors flex items-center justify-center gap-2 border border-stone-200"
-            >
-              {allCopied ? <CheckCheck className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-              {allCopied ? 'Copied Details' : 'Copy All Details'}
-            </button>
-            <button
-              onClick={onClose}
-              className="flex-1 py-3 bg-stone-900 text-white rounded-xl text-sm font-bold hover:bg-stone-800 transition-colors"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function AdminManagers() {
@@ -134,8 +64,6 @@ export default function AdminManagers() {
   const [editingManager, setEditingManager] = useState<any | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
 
-  // Credential success dialog
-  const [createdCreds, setCreatedCreds] = useState<{ name: string; email: string; password: string } | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -221,11 +149,11 @@ export default function AdminManagers() {
 
       if (res.ok) {
         if (!editingManager) {
-          // Show credential card with the details
-          setCreatedCreds({ name: formData.name, email: formData.email, password: formData.password });
+          toast.success('Manager created successfully. Email sent!');
         } else {
           toast.success('Manager updated successfully');
         }
+
         setIsFormOpen(false);
         fetchManagers();
       } else {
@@ -253,27 +181,18 @@ export default function AdminManagers() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-stone-900">Manage Staff</h2>
-          <p className="text-stone-500 text-sm mt-0.5">
-            Create Admin and Manager accounts. A welcome email with login credentials is sent automatically.
+          <h2 className="text-3xl font-extrabold text-stone-900 tracking-tight">Manage Staff</h2>
+          <p className="text-stone-500 text-sm mt-1">
+            Create and manage Admin and Manager accounts for the system.
           </p>
         </div>
         <button
           onClick={handleAddNew}
-          className="bg-dhaba-dark text-white px-5 py-2.5 rounded-xl font-bold hover:bg-stone-800 transition-colors flex items-center gap-2 shadow-md shrink-0 self-start sm:self-auto"
+          className="bg-dhaba-dark text-white px-5 py-2.5 rounded-2xl font-bold hover:bg-stone-800 transition-all hover:shadow-lg flex items-center gap-2 shadow-md shrink-0 self-start sm:self-auto hover:-translate-y-0.5"
         >
           <Plus className="w-5 h-5" />
           Add Staff
         </button>
-      </div>
-
-      {/* Info banner */}
-      <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl text-sm text-blue-700">
-        <Send className="w-4 h-4 mt-0.5 shrink-0 text-blue-500" />
-        <span>
-          When you create a staff member, an <strong>automatic welcome email</strong> is sent to their address with the login URL, email, and password.
-          Make sure your <strong>Resend API key</strong> and <strong>EMAIL_FROM</strong> are configured in your environment variables.
-        </span>
       </div>
 
       {/* Manager cards */}
@@ -281,68 +200,81 @@ export default function AdminManagers() {
         {managers.map(manager => (
           <div
             key={manager.id}
-            className="bg-white rounded-3xl p-6 shadow-sm border border-stone-100 hover:shadow-lg transition-all group flex flex-col"
+            className="relative bg-white rounded-[2rem] p-6 shadow-sm border border-stone-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group flex flex-col overflow-hidden"
           >
+            {/* Top decorative gradient line */}
+            <div className={`absolute top-0 left-0 w-full h-1.5 ${manager.role === 'admin' ? 'bg-gradient-to-r from-amber-400 to-amber-600' : 'bg-gradient-to-r from-stone-400 to-stone-600'}`} />
+
             {/* Avatar + name */}
-            <div className="flex justify-between items-start mb-5">
-              <div className="flex items-center gap-4">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-serif font-bold text-2xl uppercase shadow-inner ${manager.role === 'admin' ? 'bg-gradient-to-br from-amber-100 to-amber-300 text-amber-900' : 'bg-gradient-to-br from-stone-100 to-stone-300 text-stone-700'}`}>
+            <div className="flex justify-between items-start mb-6">
+              <div className="flex items-center gap-5">
+                <div className={`w-16 h-16 rounded-[1.25rem] flex items-center justify-center font-serif font-bold text-2xl uppercase shadow-md ${manager.role === 'admin' ? 'bg-gradient-to-br from-amber-50 to-amber-200 text-amber-900 border border-amber-300/50' : 'bg-gradient-to-br from-stone-50 to-stone-200 text-stone-800 border border-stone-300/50'}`}>
                   {(manager.name || 'S')[0]}
                 </div>
-                <div>
-                  <h3 className="font-bold text-stone-900 leading-tight uppercase">{manager.name}</h3>
-                  <p className="text-xs text-stone-400 font-mono mt-0.5">{manager.email}</p>
-                  <div className="flex items-center gap-1 mt-1">
+                <div className="flex flex-col">
+                  <h3 className="font-extrabold text-stone-900 text-lg leading-tight uppercase tracking-tight">{manager.name}</h3>
+                  <p className="text-sm text-stone-500 mt-0.5">{manager.email}</p>
+                  <div className="flex items-center gap-2 mt-2">
                     {manager.role === 'admin' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold uppercase tracking-wider mr-1">
-                        <ShieldCheck className="w-3 h-3" /> Admin
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100/80 text-amber-900 rounded-lg text-xs font-bold uppercase tracking-wider">
+                        <ShieldCheck className="w-3.5 h-3.5" /> Admin
                       </span>
                     )}
                     {manager.isActive !== false
-                      ? <><UserCheck className="w-3 h-3 text-green-500" /><span className="text-[11px] text-green-600 font-semibold">Active</span></>
-                      : <><UserX className="w-3 h-3 text-red-400" /><span className="text-[11px] text-red-500 font-semibold">Inactive</span></>
+                      ? <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 rounded-lg text-xs font-bold tracking-wide"><UserCheck className="w-3.5 h-3.5 text-green-500" /> Active</span>
+                      : <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-700 rounded-lg text-xs font-bold tracking-wide"><UserX className="w-3.5 h-3.5 text-red-500" /> Inactive</span>
                     }
                   </div>
                 </div>
               </div>
-              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  onClick={() => handleEdit(manager)}
-                  title="Edit"
-                  className="p-2 text-stone-400 hover:text-dhaba-orange hover:bg-orange-50 rounded-xl transition-colors"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(manager.id, manager.name)}
-                  title="Delete"
-                  className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
             </div>
 
+            {/* Actions (Always visible on mobile, subtle on desktop) */}
+            <div className="absolute top-5 right-5 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
+              <button
+                onClick={() => handleEdit(manager)}
+                title="Edit"
+                className="p-2.5 text-stone-400 hover:text-dhaba-orange hover:bg-orange-50 rounded-xl transition-colors shadow-sm bg-white border border-stone-100 hover:border-orange-200"
+              >
+                <Edit className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => handleDelete(manager.id, manager.name)}
+                title="Delete"
+                className="p-2.5 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors shadow-sm bg-white border border-stone-100 hover:border-red-200"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div className="w-full h-px bg-gradient-to-r from-transparent via-stone-200 to-transparent my-4" />
+
             {/* Last login */}
-            <div className="flex items-center gap-1.5 text-xs text-stone-400 mb-4">
-              <Clock className="w-3.5 h-3.5" />
-              <span>Last login: {formatDate(manager.lastLogin || manager.last_login)}</span>
+            <div className="flex items-center gap-2 text-sm text-stone-500 mb-5 font-medium">
+              <div className="p-1.5 rounded-lg bg-stone-50">
+                <Clock className="w-4 h-4 text-stone-400" />
+              </div>
+              <span>Last login: <span className="text-stone-700">{formatDate(manager.lastLogin || manager.last_login)}</span></span>
             </div>
 
             {/* Permission badges */}
-            <div className="mt-auto pt-4 border-t border-stone-100 flex flex-wrap gap-2">
+            <div className="mt-auto flex flex-wrap gap-2">
               {manager.permissions?.canEditMenu && (
-                <span className="inline-flex items-center px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50/80 text-blue-700 border border-blue-200/50 rounded-xl text-xs font-bold shadow-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
                   Menu Edit
                 </span>
               )}
               {manager.permissions?.canControlAccess && (
-                <span className="inline-flex items-center px-2.5 py-1 bg-purple-50 text-purple-700 rounded-full text-xs font-bold">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50/80 text-purple-700 border border-purple-200/50 rounded-xl text-xs font-bold shadow-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
                   Access Control
                 </span>
               )}
               {!manager.permissions?.canEditMenu && !manager.permissions?.canControlAccess && (
-                <span className="inline-flex items-center px-2.5 py-1 bg-stone-50 text-stone-400 rounded-full text-xs font-semibold">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-50 text-stone-500 border border-stone-200/50 rounded-xl text-xs font-bold shadow-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-stone-400" />
                   View Only
                 </span>
               )}
@@ -376,9 +308,6 @@ export default function AdminManagers() {
                   <h2 className={`text-lg font-bold leading-tight ${editingManager ? 'text-stone-900' : 'text-white'}`}>
                     {editingManager ? 'Edit Staff Member' : 'Create New Staff Member'}
                   </h2>
-                  {!editingManager && (
-                    <p className="text-xs text-stone-400 mt-0.5">Welcome email will be sent automatically</p>
-                  )}
                 </div>
               </div>
               <button
@@ -438,7 +367,7 @@ export default function AdminManagers() {
               {/* Email */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-stone-600 uppercase tracking-wider">
-                  Email Address <span className="text-stone-400 normal-case font-normal">(used for login & welcome email)</span>
+                  Email Address <span className="text-stone-400 normal-case font-normal">(used for login)</span>
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-300 pointer-events-none" />
@@ -452,9 +381,6 @@ export default function AdminManagers() {
                     className="w-full pl-10 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-dhaba-orange focus:border-dhaba-orange outline-none transition-shadow font-medium text-stone-800 placeholder-stone-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
-                {editingManager && (
-                  <p className="text-xs text-stone-400">Email cannot be changed after creation.</p>
-                )}
               </div>
 
               {/* Password */}
@@ -464,16 +390,14 @@ export default function AdminManagers() {
                     {editingManager ? 'New Password' : 'Password'}
                     {editingManager && <span className="text-stone-400 normal-case font-normal ml-1">(leave blank to keep current)</span>}
                   </label>
-                  {!editingManager && (
-                    <button
-                      type="button"
-                      onClick={() => { setFormData(p => ({ ...p, password: generatePassword() })); setShowPassword(true); }}
-                      className="text-xs text-dhaba-orange font-bold hover:underline flex items-center gap-1"
-                    >
-                      <RefreshCw className="w-3 h-3" />
-                      Generate
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setFormData(p => ({ ...p, password: generatePassword() })); setShowPassword(true); }}
+                    className="text-xs text-dhaba-orange font-bold hover:underline flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Generate
+                  </button>
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-300 pointer-events-none" />
@@ -496,24 +420,15 @@ export default function AdminManagers() {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                {!editingManager && formData.password && (
+                {formData.password && (
                   <p className="text-xs text-stone-400 flex items-center gap-1.5">
                     <KeyRound className="w-3 h-3" />
-                    This password will be emailed to the user. You can copy it before submitting.
+                    Make sure to copy and securely share this password.
                   </p>
                 )}
               </div>
 
 
-
-              {/* Welcome email notice (only on create) */}
-              {!editingManager && (
-                <div className="flex items-start gap-2.5 p-3.5 bg-green-50 border border-green-100 rounded-xl text-xs text-green-700">
-                  <span>
-                    A <strong>welcome email</strong> will be sent to <strong>{formData.email || 'the user'}</strong> with their login URL, email, and password.
-                  </span>
-                </div>
-              )}
 
               {/* Action buttons */}
               <div className="flex justify-end gap-3 pt-2">
@@ -534,23 +449,13 @@ export default function AdminManagers() {
                   ) : editingManager ? (
                     <><Save className="w-4 h-4" /><span>Save Changes</span></>
                   ) : (
-                    <><Send className="w-4 h-4" /><span>Create & Send Email</span></>
+                    <><Save className="w-4 h-4" /><span>Create Staff Member</span></>
                   )}
                 </button>
               </div>
             </form>
           </div>
         </div>
-      )}
-
-      {/* ── Credential success dialog ── */}
-      {createdCreds && (
-        <CredentialCard
-          name={createdCreds.name}
-          email={createdCreds.email}
-          password={createdCreds.password}
-          onClose={() => setCreatedCreds(null)}
-        />
       )}
 
       <ConfirmModal

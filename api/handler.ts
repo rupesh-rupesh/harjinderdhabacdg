@@ -340,11 +340,16 @@ async function sendOtpEmail(toEmail: string, name: string, code: string): Promis
           </div>
           <h2 style="color:#C89B3C;font-size:22px;margin-bottom:8px;">Verification Code</h2>
           <p style="color:#d6d3d1;margin-bottom:24px;">Hello ${name}, use this code to sign in:</p>
-          <div style="background:#0d0804;border:2px solid #C89B3C33;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px;">
-            <span style="font-size:42px;font-weight:700;letter-spacing:12px;color:#C89B3C;font-family:monospace;">${code}</span>
+          <div style="background:#0d0804;border:2px solid #C89B3C55;border-radius:12px;padding:28px;text-align:center;margin-bottom:24px;box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+            <div style="font-size:48px;font-weight:700;letter-spacing:16px;color:#C89B3C;font-family:monospace;user-select:all;cursor:pointer;">${code}</div>
+            <div style="margin-top:16px;font-size:12px;color:#a8a29e;">
+              <span style="display:inline-flex;align-items:center;padding:6px 12px;background:#1a1008;border-radius:16px;border:1px solid #33261c;">
+                📋 Double-click code to select and copy
+              </span>
+            </div>
           </div>
-          <p style="color:#78716c;font-size:13px;">This code expires in ${OTP_EXPIRY_MINUTES} minutes. Do not share it with anyone.</p>
-          <p style="color:#44403c;font-size:12px;margin-top:16px;">Harjinder Tourist Dhaba — Management System</p>
+          <p style="color:#78716c;font-size:13px;line-height:1.6;">This code expires in <strong>${OTP_EXPIRY_MINUTES} minutes</strong>. Do not share it with anyone.</p>
+          <p style="color:#44403c;font-size:12px;margin-top:16px;border-top:1px solid #33261c;padding-top:16px;">Harjinder Tourist Dhaba — Management System</p>
         </div>
       `,
     });
@@ -372,15 +377,39 @@ async function sendManagerWelcomeEmail(toEmail: string, name: string, password: 
             <h1 style="color:#ffffff;font-size:24px;font-weight:bold;margin:0;font-family:serif;">Harjinder Tourist <span style="color:#C89B3C;">Dhaba</span></h1>
           </div>
           <h2 style="color:#C89B3C;font-size:22px;margin-bottom:8px;">Welcome, ${name}!</h2>
-          <p style="color:#d6d3d1;margin-bottom:24px;">Your manager account has been created for Harjinder Tourist Dhaba.</p>
-          <table style="width:100%;background:#0d0804;border:1px solid #C89B3C22;border-radius:12px;padding:20px;border-spacing:0;margin-bottom:24px;">
-            <tr><td style="color:#78716c;padding:6px 0;font-size:13px;">Login URL</td><td style="color:#C89B3C;font-size:13px;">${loginUrl}</td></tr>
-            <tr><td style="color:#78716c;padding:6px 0;font-size:13px;">Email</td><td style="color:#f5f5f4;font-size:13px;">${toEmail}</td></tr>
-            <tr><td style="color:#78716c;padding:6px 0;font-size:13px;">Password</td><td style="color:#f5f5f4;font-family:monospace;font-size:14px;">${password}</td></tr>
-          </table>
-          <p style="color:#d6d3d1;font-size:13px;">Each login requires a 6-digit verification code sent to your email.</p>
-          <p style="color:#ef4444;font-size:12px;margin-top:8px;">⚠️ Please change your password after your first login.</p>
-          <p style="color:#44403c;font-size:12px;margin-top:24px;">Harjinder Tourist Dhaba — Management System</p>
+          <p style="color:#d6d3d1;margin-bottom:24px;line-height:1.6;">Your manager account has been successfully created. You can now access the management dashboard.</p>
+          <div style="background:#0d0804;border:1px solid #C89B3C33;border-radius:12px;padding:24px;margin-bottom:24px;box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+            <table style="width:100%;border-spacing:0;">
+              <tr>
+                <td style="color:#a8a29e;padding:12px 0;font-size:13px;border-bottom:1px solid #292524;width:90px;">Login URL</td>
+                <td style="color:#C89B3C;padding:12px 0;font-size:14px;border-bottom:1px solid #292524;">
+                  <a href="${loginUrl}" style="color:#C89B3C;text-decoration:none;font-weight:bold;">${loginUrl}</a>
+                </td>
+              </tr>
+              <tr>
+                <td style="color:#a8a29e;padding:12px 0;font-size:13px;border-bottom:1px solid #292524;">Email</td>
+                <td style="color:#f5f5f4;padding:12px 0;font-size:14px;border-bottom:1px solid #292524;user-select:all;">${toEmail}</td>
+              </tr>
+              <tr>
+                <td style="color:#a8a29e;padding:16px 0 0 0;font-size:13px;vertical-align:middle;">Password</td>
+                <td style="padding:16px 0 0 0;">
+                  <div style="display:inline-block;background:#1a1008;border:1px solid #C89B3C55;border-radius:8px;padding:10px 16px;color:#f5f5f4;font-family:monospace;font-size:18px;font-weight:bold;letter-spacing:2px;user-select:all;cursor:pointer;">
+                    ${password}
+                  </div>
+                  <div style="font-size:12px;color:#a8a29e;margin-top:8px;">
+                    <span style="display:inline-flex;align-items:center;padding:4px 8px;background:#1a1008;border-radius:12px;border:1px solid #33261c;">
+                      📋 Double-click password to select and copy
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </div>
+          <p style="color:#a8a29e;font-size:13px;line-height:1.6;">Each login requires a 6-digit verification code sent to your email.</p>
+          <div style="background:rgba(239,68,68,0.1);border-left:4px solid #ef4444;padding:12px 16px;border-radius:4px;margin-top:16px;margin-bottom:24px;">
+            <p style="color:#ef4444;font-size:13px;margin:0;font-weight:bold;">⚠️ Please change your password after your first login.</p>
+          </div>
+          <p style="color:#44403c;font-size:12px;margin-top:24px;border-top:1px solid #33261c;padding-top:16px;">Harjinder Tourist Dhaba — Management System</p>
         </div>
       `,
     });
@@ -972,20 +1001,10 @@ app.get('/api/analytics/dashboard', async (req, res) => {
   try {
     const allVisits = await db.select().from(visits);
     const allVisitors = await db.select().from(visitors);
-    const allDemoNotices = await db.select().from(demoNotices);
     const activeThreshold = new Date(Date.now() - 5 * 60000);
     await db.update(visits).set({ isActive: false }).where(lt(visits.lastPingAt, activeThreshold));
     const activeVisits = await db.select().from(visits).where(eq(visits.isActive, true));
-    res.json({ visits: allVisits, visitors: allVisitors, demoNotices: allDemoNotices, activeVisitors: activeVisits.length });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/analytics/demo-notice', async (req, res) => {
-  try {
-    const { name } = req.body;
-    if (!name) return res.status(400).json({ error: 'Name is required' });
-    const result = await db.insert(demoNotices).values({ name }).returning();
-    res.json(result[0]);
+    res.json({ visits: allVisits, visitors: allVisitors, activeVisitors: activeVisits.length });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1060,26 +1079,29 @@ app.post('/api/admin/staff', async (req, res) => {
 
 app.put('/api/admin/staff/:id', async (req, res) => {
   try {
-    const { permissions, password, name } = req.body;
-    // Update in legacy users table
-    const user = await db.select().from(users).where(eq(users.id, Number(req.params.id))).limit(1);
-    if (user.length) {
-      if (password) {
-        try { await adminAuth.updateUser(user[0].uid, { password }); } catch (_) {}
-      }
-      const updateData: any = { permissions };
-      if (name) { updateData.name = name; try { await adminAuth.updateUser(user[0].uid, { displayName: name }); } catch (_) {} }
-      await db.update(users).set(updateData).where(eq(users.id, Number(req.params.id)));
-    }
-    // Update in staff_accounts table
-    const staffList = await db.select().from(staffAccounts)
-      .where(eq(staffAccounts.email, user[0]?.email || ''))
-      .limit(1);
-    if (staffList.length) {
+    const { permissions, password, name, email } = req.body;
+    const staffId = Number(req.params.id);
+    const staff = await db.select().from(staffAccounts).where(eq(staffAccounts.id, staffId)).limit(1);
+    
+    if (staff.length) {
       const staffUpdate: any = { permissions };
       if (name) staffUpdate.name = name;
+      if (email) staffUpdate.email = email.toLowerCase();
       if (password) staffUpdate.passwordHash = await bcrypt.hash(password, 12);
-      await db.update(staffAccounts).set(staffUpdate).where(eq(staffAccounts.id, staffList[0].id));
+      await db.update(staffAccounts).set(staffUpdate).where(eq(staffAccounts.id, staffId));
+      
+      // Also update legacy users table if it exists
+      const user = await db.select().from(users).where(eq(users.email, staff[0].email)).limit(1);
+      if (user.length) {
+        if (password) { try { await adminAuth.updateUser(user[0].uid, { password }); } catch (_) {} }
+        if (name) { try { await adminAuth.updateUser(user[0].uid, { displayName: name }); } catch (_) {} }
+        if (email) { try { await adminAuth.updateUser(user[0].uid, { email: email.toLowerCase() }); } catch (_) {} }
+        
+        const updateData: any = { permissions };
+        if (name) updateData.name = name;
+        if (email) updateData.email = email.toLowerCase();
+        await db.update(users).set(updateData).where(eq(users.id, user[0].id));
+      }
     }
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -1087,12 +1109,16 @@ app.put('/api/admin/staff/:id', async (req, res) => {
 
 app.delete('/api/admin/staff/:id', async (req, res) => {
   try {
-    const user = await db.select().from(users).where(eq(users.id, Number(req.params.id))).limit(1);
-    if (user.length) {
-      try { await adminAuth.deleteUser(user[0].uid); } catch (_) {}
-      // Remove from staff_accounts too
-      await db.delete(staffAccounts).where(eq(staffAccounts.email, user[0].email)).catch(() => {});
-      await db.delete(users).where(eq(users.id, Number(req.params.id)));
+    const staffId = Number(req.params.id);
+    const staff = await db.select().from(staffAccounts).where(eq(staffAccounts.id, staffId)).limit(1);
+    
+    if (staff.length) {
+      const user = await db.select().from(users).where(eq(users.email, staff[0].email)).limit(1);
+      if (user.length) {
+        try { await adminAuth.deleteUser(user[0].uid); } catch (_) {}
+        await db.delete(users).where(eq(users.id, user[0].id));
+      }
+      await db.delete(staffAccounts).where(eq(staffAccounts.id, staffId));
     }
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }

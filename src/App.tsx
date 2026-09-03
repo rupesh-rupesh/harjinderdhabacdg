@@ -1,6 +1,5 @@
 import React, { useEffect, Suspense, lazy } from 'react';
 import AnalyticsTracker from './components/AnalyticsTracker';
-import DemoNoticeModal from './components/DemoNoticeModal';
 import Lenis from 'lenis';
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
@@ -93,7 +92,6 @@ export default function App() {
   return (
     <>
       <Toaster position="top-center" />
-      <DemoNoticeModal />
       <BrowserRouter>
         <RobotsManager />
         <AnalyticsTracker />
