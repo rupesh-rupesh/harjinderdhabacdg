@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import PanLoader from './PanLoader';
 import { DevEmptyStateText } from './DevEmptyStateText';
 import { Package, Clock, CheckCircle2, XCircle, Search, Trash2, Edit, FileText, X, Plus, Minus, Printer, Bell, ClipboardCheck, Filter, ChevronDown, ShoppingBag, Eye, Grid, Cloud, CloudOff, RefreshCw } from 'lucide-react';
 import { ThermalReceipt } from './ThermalReceipt';
@@ -7,8 +9,6 @@ import toast from 'react-hot-toast';
 import { PrinterPermissionCard } from './PrinterPermissionCard';
 
 export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: { onEditOrder?: (order: any) => void, managerName?: string }) {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'all' | 'table' | 'amount' | 'orderNo'>('all');
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'cancelled'>('active');
@@ -120,35 +120,32 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
     }
   };
 
-  const fetchOrders = async () => {
-    try {
+  const { data: serverOrders = [], isLoading: loading, refetch: fetchOrders } = useQuery({
+    queryKey: ['admin_orders'],
+    queryFn: async () => {
       const res = await fetch('/api/admin/orders');
       if (res.ok) {
         const ct = res.headers.get('content-type');
         if (ct && ct.includes('application/json')) {
-          const serverOrders = await res.json();
-          const sorted = serverOrders.sort((a: any, b: any) => new Date(b.createdAt || b.created_at).getTime() - new Date(a.createdAt || a.created_at).getTime());
-          setOrders(sorted);
+          const data = await res.json();
+          return data.sort((a: any, b: any) => new Date(b.createdAt || b.created_at).getTime() - new Date(a.createdAt || a.created_at).getTime());
         }
       }
-    } catch (e: any) {
-      if (e.message !== 'Failed to fetch') {
-        console.error(e);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+      return [];
+    },
+    refetchInterval: 10000,
+    staleTime: 10000
+  });
+
+  // Use the fetched orders directly
+  const orders = serverOrders;
 
   useEffect(() => {
-    fetchOrders();
     fetch('/api/storefront-data').then(res => res.json()).then(data => {
       if (data.menuItems) setMenuItems(data.menuItems);
     }).catch((e: any) => {
       if (e.message !== 'Failed to fetch') console.error(e);
     });
-    const interval = setInterval(fetchOrders, 10000);
-    return () => clearInterval(interval);
   }, []);
 
   const handleUpdateStatus = async (id: number | string, status: string, e?: React.MouseEvent) => {
@@ -503,10 +500,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
 
         <div className="bg-white/50 backdrop-blur-md rounded-3xl p-4 sm:p-6 border border-stone-100 shadow-sm min-h-[500px]">
           {loading ? (
-            <div className="flex flex-col items-center justify-center h-64 space-y-4">
-              <div className="w-10 h-10 border-4 border-stone-200 border-t-dhaba-orange rounded-full animate-spin"></div>
-              <div className="text-stone-500 font-bold uppercase tracking-widest text-sm">Loading Orders...</div>
-            </div>
+            <PanLoader text="Loading Orders..." />
           ) : filteredOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 px-4 bg-stone-50/80 backdrop-blur-sm rounded-3xl border border-dashed border-stone-200 text-center shadow-inner">
               <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-sm mb-6 relative">

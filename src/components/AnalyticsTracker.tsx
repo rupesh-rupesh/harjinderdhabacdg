@@ -89,7 +89,7 @@ export default function AnalyticsTracker() {
       } catch (e) {
         // Silently ignore ping errors
       }
-    }, 30000); // ping every 30 seconds
+    }, 120000); // ping every 2 minutes
 
     return () => clearInterval(pingInterval);
   }, [location.pathname]);

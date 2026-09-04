@@ -1,30 +1,34 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, TrendingUp, Package, Receipt, Clock, Info } from 'lucide-react';
 
 export default function ManagerDailyRevenue() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [orders, setOrders] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
-  const fetchOrders = async () => {
-    try {
-      const res = await fetch('/api/admin/orders');
-      if (res.ok) {
-        const data = await res.json();
-        setOrders(data);
-      }
-    } catch (e) {
-      if (e instanceof Error && e.message !== 'Failed to fetch') {
-         console.error(e);
-      }
-    }
-  };
+  const { data: dailyRevenueData = [] } = useQuery({
+    queryKey: ['admin_daily_revenue'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/daily-revenue');
+      if (res.ok) return res.json();
+      return [];
+    },
+    refetchInterval: 60000,
+    staleTime: 60000
+  });
 
-  useEffect(() => {
-    fetchOrders();
-    const interval = setInterval(fetchOrders, 3000);
-    return () => clearInterval(interval);
-  }, []);
+  const { data: selectedDayOrders = [], isFetching: isLoadingDayOrders } = useQuery({
+    queryKey: ['admin_orders', selectedDate?.toISOString().split('T')[0]],
+    queryFn: async () => {
+      if (!selectedDate) return [];
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      const res = await fetch(`/api/admin/orders?date=${dateStr}&status=completed&limit=500`);
+      if (res.ok) return res.json();
+      return [];
+    },
+    enabled: !!selectedDate,
+    staleTime: 60000
+  });
 
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
@@ -42,17 +46,17 @@ export default function ManagerDailyRevenue() {
 
   const getDayStats = (day: number) => {
     const dateObj = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-    const dateStrCheck = dateObj.toDateString();
+    const dateStrCheck = new Date(dateObj.getTime() - dateObj.getTimezoneOffset() * 60000).toISOString().split('T')[0];
     
-    const dayOrders = orders.filter((o: any) => 
-      o.status === 'completed' && new Date(o.createdAt).toDateString() === dateStrCheck
-    );
-
-    const revenue = dayOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-    const orderCount = dayOrders.length;
+    const revenueRecord = dailyRevenueData.find((r: any) => r.date_str.startsWith(dateStrCheck));
+    const revenue = revenueRecord ? Number(revenueRecord.revenue) : 0;
+    const orderCount = revenueRecord ? Number(revenueRecord.order_count) : 0;
+    
+    // For the detail view, if this is the selected date, use the fetched orders
+    const dayOrders = (selectedDate && selectedDate.getDate() === day && selectedDate.getMonth() === currentDate.getMonth()) ? selectedDayOrders : [];
     
     let subtotal = 0;
-    dayOrders.forEach(o => {
+    dayOrders.forEach((o: any) => {
       try {
         const items = typeof o.items === 'string' ? JSON.parse(o.items) : o.items;
         const orderSubtotal = items.reduce((s: number, i: any) => s + ((Number(i.price) || 0) * (Number(i.quantity) || 1)), 0);

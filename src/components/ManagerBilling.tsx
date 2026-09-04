@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import PanLoader from './PanLoader';
+import { useQuery } from '@tanstack/react-query';
 import { LayoutGrid, Package, Utensils, Grid, Search, Plus, Minus, Trash2, CheckCircle2, AlertCircle, ShoppingBag, ArrowLeft, ArrowRight, Table, X, CreditCard, Printer, FileText, Eye, UserCircle, Lock, Unlock, Save, ChevronDown, Edit2, Wifi, WifiOff } from 'lucide-react';
 import { ThermalReceipt } from './ThermalReceipt';
 import { managerPrinterService as printerService } from '../lib/printer/PrinterService';
@@ -122,7 +124,6 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
   const [cart, setCart] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedItemDetail, setSelectedItemDetail] = useState<any | null>(null);
-  const [activeOrders, setActiveOrders] = useState<any[]>([]);
 
   // Resize State
   const [cartWidth, setCartWidth] = useState(window.innerWidth > 1280 ? 420 : window.innerWidth > 1024 ? 384 : window.innerWidth > 640 ? 320 : 256);
@@ -344,27 +345,25 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
   };
 
 
-  const fetchOrders = async () => {
-    try {
-      let serverOrders: any[] = [];
+  const { data: serverOrders = [], refetch: fetchOrders } = useQuery({
+    queryKey: ['admin_orders'],
+    queryFn: async () => {
       const res = await fetch('/api/admin/orders');
       if (res.ok) {
         const ct = res.headers.get('content-type');
         if (ct && ct.includes('application/json')) {
-          serverOrders = await res.json();
+          const data = await res.json();
+          return data.sort((a: any, b: any) => new Date(b.createdAt || b.created_at).getTime() - new Date(a.createdAt || a.created_at).getTime());
         }
       }
-      setActiveOrders(serverOrders.filter((o: any) => o.status === 'pending' || o.status === 'processing'));
-    } catch (e: any) {
-      if (e.message !== 'Failed to fetch') console.error(e);
-    }
-  };
+      return [];
+    },
+    refetchInterval: 10000,
+    staleTime: 10000
+  });
 
-  useEffect(() => {
-    fetchOrders();
-    const interval = setInterval(fetchOrders, 10000);
-    return () => clearInterval(interval);
-  }, []);
+  const activeOrders = serverOrders.filter((o: any) => o.status === 'pending' || o.status === 'processing');
+
 
   const fetchData = async () => {
     try {
@@ -979,7 +978,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
   }
 
   if (loading) {
-    return <div className="p-12 text-center text-stone-500 animate-pulse">Loading POS system...</div>;
+    return <PanLoader text="Loading POS system..." />;
   }
 
   return (

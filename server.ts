@@ -13,6 +13,8 @@ import bcrypt from 'bcryptjs';
 import { Resend } from 'resend';
 import crypto from 'crypto';
 
+console.log('RELOADING BACKEND...');
+
 // ─── Schema ────────────────────────────────────────────────────────────────
 const users = pgTable('users', {
   id: serial('id').primaryKey(),
@@ -197,10 +199,11 @@ if (!dbUrl) {
   }
 }
 
-// Serverless best practice: max 1 connection per cold start
+// Serverless best practice: max 1 connection per cold start, but locally we need a pool
+const isVercel = process.env.VERCEL === '1';
 const queryClient = postgres(dbUrl || '', { 
-  max: 1, 
-  idle_timeout: 1, 
+  max: isVercel ? 1 : 10, 
+  idle_timeout: isVercel ? 1 : 30, 
   connect_timeout: 10,
   prepare: false // CRITICAL: Prevents prepared statement hangs with Supabase pooler
 });
@@ -979,13 +982,61 @@ app.post('/api/analytics/ping', async (req, res) => {
 
 app.get('/api/analytics/dashboard', async (req, res) => {
   try {
-    const allVisits = await db.select().from(visits).orderBy(desc(visits.visitTime)).limit(5000);
-    const allVisitors = await db.select().from(visitors).orderBy(desc(visitors.lastVisitAt)).limit(2000);
-    const allDemoNotices = await db.select().from(demoNotices).orderBy(desc(demoNotices.createdAt)).limit(100);
+    const [
+      allVisits,
+      allVisitors,
+      allDemoNotices,
+      totalVisitsCount,
+      uniqueVisitorsCount,
+      returningVisitorsCount,
+      avgSessionDuration,
+      todayVisitsCount,
+      weeklyVisitsCount,
+      monthlyVisitsCount,
+      deviceData,
+      browserData
+    ] = await Promise.all([
+      db.select().from(visits).orderBy(desc(visits.visitTime)).limit(100),
+      db.select().from(visitors).orderBy(desc(visitors.lastVisitAt)).limit(100),
+      db.select().from(demoNotices).orderBy(desc(demoNotices.createdAt)).limit(100),
+      db.execute(sql`SELECT COUNT(*) as count FROM visits`),
+      db.execute(sql`SELECT COUNT(*) as count FROM visitors`),
+      db.execute(sql`SELECT COUNT(*) as count FROM visitors WHERE total_visits > 1`),
+      db.execute(sql`SELECT AVG(duration_seconds) as avg_duration FROM visits`),
+      db.execute(sql`SELECT COUNT(*) as count FROM visits WHERE DATE(visit_time) = CURRENT_DATE`),
+      db.execute(sql`SELECT COUNT(*) as count FROM visits WHERE visit_time >= date_trunc('week', CURRENT_DATE)`),
+      db.execute(sql`SELECT COUNT(*) as count FROM visits WHERE visit_time >= date_trunc('month', CURRENT_DATE)`),
+      db.execute(sql`SELECT device_type, COUNT(*) as count FROM visitors GROUP BY device_type`),
+      db.execute(sql`SELECT browser, COUNT(*) as count FROM visitors GROUP BY browser`)
+    ]);
+
     const activeThreshold = new Date(Date.now() - 5 * 60000);
     await db.update(visits).set({ isActive: false }).where(lt(visits.lastPingAt, activeThreshold));
     const activeVisits = await db.select().from(visits).where(eq(visits.isActive, true));
-    res.json({ visits: allVisits, visitors: allVisitors, demoNotices: allDemoNotices, activeVisitors: activeVisits.length });
+    
+    res.json({ 
+      visits: allVisits, 
+      visitors: allVisitors, 
+      demoNotices: allDemoNotices, 
+      activeVisitors: activeVisits.length,
+      aggregates: {
+        totalVisits: Number(totalVisitsCount[0]?.count || 0),
+        uniqueVisitors: Number(uniqueVisitorsCount[0]?.count || 0),
+        returningVisitors: Number(returningVisitorsCount[0]?.count || 0),
+        avgSessionDuration: Math.round(Number(avgSessionDuration[0]?.avg_duration || 0)),
+        todayVisits: Number(todayVisitsCount[0]?.count || 0),
+        weeklyVisits: Number(weeklyVisitsCount[0]?.count || 0),
+        monthlyVisits: Number(monthlyVisitsCount[0]?.count || 0),
+        deviceData: deviceData.reduce((acc: any, row: any) => {
+          acc[row.device_type || 'Unknown'] = Number(row.count);
+          return acc;
+        }, {}),
+        browserData: browserData.reduce((acc: any, row: any) => {
+          acc[row.browser || 'Unknown'] = Number(row.count);
+          return acc;
+        }, {})
+      }
+    });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1137,7 +1188,42 @@ app.get('/api/admin/daily-revenue', async (req, res) => {
 });
 
 app.get('/api/admin/orders', async (req, res) => {
-  try { res.json(await db.select().from(orders).orderBy(desc(orders.createdAt)).limit(500)); }
+  try { 
+    const limitNum = Math.min(parseInt(req.query.limit as string) || 50, 500);
+    const offsetNum = parseInt(req.query.offset as string) || 0;
+    const lite = req.query.lite === 'true';
+    const statusFilter = req.query.status as string;
+    const dateFilter = req.query.date as string;
+
+    const conditions = [];
+    if (statusFilter) conditions.push(eq(orders.status, statusFilter));
+    // If dateFilter is provided, we use a raw SQL condition or ilike on text, but createdAt is timestamp.
+    // For simplicity, we cast it to date: eq(sql`DATE(created_at)`, dateFilter)
+    if (dateFilter) conditions.push(sql`DATE(created_at) = ${dateFilter}`);
+
+    const whereClause = conditions.length > 0 ? (conditions.length === 1 ? conditions[0] : and(...conditions)) : undefined;
+
+    let query: any;
+    if (lite) {
+      query = db.select({
+        id: orders.id,
+        userId: orders.userId,
+        total: orders.total,
+        status: orders.status,
+        createdAt: orders.createdAt
+      }).from(orders);
+    } else {
+      query = db.select().from(orders);
+    }
+
+    if (whereClause) {
+      query = query.where(whereClause);
+    }
+
+    query = query.orderBy(desc(orders.createdAt)).limit(limitNum).offset(offsetNum);
+    
+    res.json(await query);
+  }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

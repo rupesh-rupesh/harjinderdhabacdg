@@ -1,4 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
+import PanLoader from './PanLoader';
 import { ShoppingCart, Package, Activity, Calendar, Printer, ArrowLeft, Lock, UserCircle, X, LayoutDashboard, ChevronLeft, Menu } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -201,7 +202,7 @@ export default function ManagerDashboard() {
         {/* Scrollable Content */}
         <div className={`flex-1 ${activeModule === 'billing' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-8 pb-8'}`}>
           <div className={`${activeModule === 'billing' ? 'h-full' : 'max-w-6xl mx-auto w-full'}`}>
-            <Suspense fallback={<div className="flex h-64 items-center justify-center text-stone-500 animate-pulse">Loading module...</div>}>
+            <Suspense fallback={<PanLoader text="Loading module..." />}>
             {activeModule === 'billing' ? (
               <ManagerBilling editingOrder={editingOrder} clearEditingOrder={() => setEditingOrder(null)} />
             ) : activeModule === 'orders' ? (

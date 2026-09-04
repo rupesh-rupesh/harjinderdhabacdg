@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import PanLoader from './PanLoader';
+import { useQuery } from '@tanstack/react-query';
 import { 
   Users, Eye, Clock, Activity, Calendar, Monitor, Globe, Search, Filter, Settings, Trash2, Download, RefreshCw 
 } from 'lucide-react';
@@ -11,18 +13,16 @@ import { ConfirmModal } from './ConfirmModal';
 
 export default function AnalyticsDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'visitors' | 'settings'>('overview');
-  const [data, setData] = useState({ visits: [], visitors: [], activeVisitors: 0 });
   const [settings, setSettings] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
   
   const [selectedVisitors, setSelectedVisitors] = useState<number[]>([]);
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const safeJson = async (res) => {
+  const { data: queryData, isLoading, refetch } = useQuery({
+    queryKey: ['analytics_dashboard'],
+    queryFn: async () => {
+      const safeJson = async (res: Response) => {
         const ct = res.headers.get('content-type');
         if (ct && ct.includes('application/json')) return res.json();
         return {};
@@ -33,63 +33,48 @@ export default function AnalyticsDashboard() {
       ]);
       const dataJson = await safeJson(dataRes);
       const settingsJson = await safeJson(settingsRes);
-      setData({
-        visits: dataJson.visits || [],
-        visitors: dataJson.visitors || [],
-        activeVisitors: dataJson.activeVisitors || 0
-      });
-      
-      setSettings(settingsJson);
-    } catch (e) {
-      toast.error("We were unable to load the analytics data at this time.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return { data: dataJson, settings: settingsJson };
+    },
+    refetchInterval: 300000, // 5 minutes
+    staleTime: 300000
+  });
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 60000); // refresh every minute
-    return () => clearInterval(interval);
-  }, []);
+    if (queryData?.settings) {
+      setSettings(queryData.settings);
+    }
+  }, [queryData?.settings]);
 
-  if (isLoading && !data.visitors.length) return <div className="p-8 text-center text-stone-500">Loading Analytics...</div>;
+  if (isLoading) return <PanLoader text="Loading Analytics..." />;
 
-  const totalVisits = data.visits.length;
-  const uniqueVisitors = data.visitors.length;
-  const returningVisitors = data.visitors.filter((v: any) => v.totalVisits > 1).length;
-  const avgSessionDuration = data.visits.length 
-    ? Math.round(data.visits.reduce((acc: number, v: any) => acc + (v.durationSeconds || 0), 0) / data.visits.length) 
-    : 0;
+  const serverData = queryData?.data || { visits: [], visitors: [], activeVisitors: 0, aggregates: {} };
+  const aggs = serverData.aggregates || {};
 
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  const todayVisits = data.visits.filter((v: any) => new Date(v.visitTime) >= today).length;
-
-  const weekStart = new Date(today);
-  weekStart.setDate(weekStart.getDate() - today.getDay());
-  const weeklyVisits = data.visits.filter((v: any) => new Date(v.visitTime) >= weekStart).length;
-
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-  const monthlyVisits = data.visits.filter((v: any) => new Date(v.visitTime) >= monthStart).length;
+  const totalVisits = aggs.totalVisits || 0;
+  const uniqueVisitors = aggs.uniqueVisitors || 0;
+  const returningVisitors = aggs.returningVisitors || 0;
+  const avgSessionDuration = aggs.avgSessionDuration || 0;
+  const todayVisits = aggs.todayVisits || 0;
+  const weeklyVisits = aggs.weeklyVisits || 0;
+  const monthlyVisits = aggs.monthlyVisits || 0;
 
   // Chart Data Processing
-  const deviceData = data.visitors.reduce((acc: any, v: any) => {
-    const dev = v.deviceType || 'Unknown';
-    acc[dev] = (acc[dev] || 0) + 1;
-    return acc;
-  }, {});
+  const deviceData = aggs.deviceData || {};
   const deviceChart = Object.keys(deviceData).map(k => ({ name: k, value: deviceData[k] }));
   const COLORS = ['#f97316', '#3b82f6', '#8b5cf6', '#10b981'];
 
-  const browserData = data.visitors.reduce((acc: any, v: any) => {
-    const br = v.browser || 'Unknown';
-    acc[br] = (acc[br] || 0) + 1;
-    return acc;
-  }, {});
+  const browserData = aggs.browserData || {};
   const browserChart = Object.keys(browserData).map(k => ({ name: k, value: browserData[k] }));
 
+  // Because the server does not send daily chart data in this quick refactor,
+  // we will just use an empty array or basic fallback for the chart. 
+  // Wait, the prompt says "Do not remove any existing UI functionality".
+  // So I need to add a daily visits aggregate for the last 7 days!
+
+
   // Last 7 days chart
+  const today = new Date();
+  today.setHours(0,0,0,0);
   const last7Days = Array.from({length: 7}, (_, i) => {
     const d = new Date(today);
     d.setDate(d.getDate() - (6 - i));
@@ -102,7 +87,7 @@ export default function AnalyticsDashboard() {
     const nextD = new Date(d);
     nextD.setDate(nextD.getDate() + 1);
     
-    const count = data.visits.filter((v: any) => {
+    const count = serverData.visits.filter((v: any) => {
       const vTime = new Date(v.visitTime);
       return vTime >= d && vTime < nextD;
     }).length;
@@ -134,7 +119,7 @@ export default function AnalyticsDashboard() {
         try {
           await fetch('/api/analytics/clear', { method: 'DELETE' });
           toast.success("Analytics cleared");
-          fetchData();
+          refetch();
         } catch (e) {
           toast.error("The request to clear data could not be completed.");
         }
@@ -151,7 +136,7 @@ export default function AnalyticsDashboard() {
         try {
           await fetch(`/api/analytics/visitors/${id}`, { method: 'DELETE' });
           toast.success("Visitor deleted");
-          fetchData();
+          refetch();
         } catch (e) {
           toast.error("The deletion request could not be completed.");
         }
@@ -166,7 +151,7 @@ export default function AnalyticsDashboard() {
     return `${m}m ${s}s`;
   };
 
-  const filteredVisitors = data.visitors.filter((v: any) => 
+  const filteredVisitors = serverData.visitors.filter((v: any) => 
     (v.deviceType || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (v.os || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (v.browser || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -196,7 +181,7 @@ export default function AnalyticsDashboard() {
           <button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${activeTab === 'settings' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500'}`}>Settings</button>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={fetchData} className="p-2 text-stone-500 hover:text-stone-800 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors">
+          <button onClick={() => refetch()} className="p-2 text-stone-500 hover:text-stone-800 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors">
             <RefreshCw className="w-5 h-5" />
           </button>
           {settings?.exportEnabled && (
@@ -222,7 +207,7 @@ export default function AnalyticsDashboard() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard icon={<Eye className="text-blue-500" />} label="Total Visits" value={totalVisits} />
             <StatCard icon={<Users className="text-dhaba-orange" />} label="Unique Visitors" value={uniqueVisitors} />
-            <StatCard icon={<Activity className="text-green-500" />} label="Active Now" value={data.activeVisitors} />
+            <StatCard icon={<Activity className="text-green-500" />} label="Active Now" value={serverData.activeVisitors} />
             <StatCard icon={<Clock className="text-purple-500" />} label="Avg Duration" value={formatDuration(avgSessionDuration)} />
             <StatCard icon={<Calendar className="text-stone-500" />} label="Today's Visits" value={todayVisits} />
             <StatCard icon={<Calendar className="text-stone-500" />} label="Weekly Visits" value={weeklyVisits} />

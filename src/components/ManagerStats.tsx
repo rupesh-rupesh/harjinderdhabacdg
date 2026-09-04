@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import PanLoader from './PanLoader';
 import { Activity, TrendingUp, TrendingDown, Users, Package, ShoppingBag, Banknote, Calendar, BarChart3, Clock, ArrowRight, X, ChevronRight, CheckCircle2 } from 'lucide-react';
 
 export default function ManagerStats({ role = 'manager' }: { role?: 'admin' | 'manager' }) {
@@ -22,58 +24,55 @@ export default function ManagerStats({ role = 'manager' }: { role?: 'admin' | 'm
   const [showOrdersModal, setShowOrdersModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [isFetchingOrders, setIsFetchingOrders] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
   const handleViewOrders = async (dateStr?: string) => {
     setSelectedDateFilter(dateStr || null);
     setShowOrdersModal(true);
-    if (allOrders.length === 0) {
-      setIsFetchingOrders(true);
-      try {
-        const res = await fetch('/api/admin/orders');
-        if (res.ok) {
-          setAllOrders(await res.json());
-        }
-      } catch (e) {
-        console.error("Failed to fetch orders", e);
-      } finally {
-        setIsFetchingOrders(false);
+    
+    // Always fetch if there's a specific date we haven't loaded, or just refetch
+    setIsFetchingOrders(true);
+    try {
+      const qs = dateStr ? `?date=${dateStr}&limit=500` : `?limit=50`;
+      const res = await fetch(`/api/admin/orders${qs}`);
+      if (res.ok) {
+        setAllOrders(await res.json());
       }
+    } catch (e) {
+      console.error("Failed to fetch orders", e);
+    } finally {
+      setIsFetchingOrders(false);
     }
   };
 
+  const { data: statsData, isLoading } = useQuery({
+    queryKey: ['admin_stats'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/stats');
+      if (res.ok) return res.json();
+      return stats;
+    },
+    refetchInterval: 60000,
+    staleTime: 60000
+  });
+
+  const { data: revenueData } = useQuery({
+    queryKey: ['admin_daily_revenue'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/daily-revenue');
+      if (res.ok) return res.json();
+      return [];
+    },
+    refetchInterval: 60000,
+    staleTime: 60000
+  });
+
   useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        const [statsRes, revenueRes] = await Promise.all([
-          fetch('/api/admin/stats').catch(() => null),
-          fetch('/api/admin/daily-revenue').catch(() => null)
-        ]);
-        
-        let currentStats = stats;
-        if (statsRes?.ok) {
-          currentStats = await statsRes.json();
-          setStats(currentStats);
-        }
-        
-        if (revenueRes?.ok) {
-          const r = await revenueRes.json();
-          setDailyData(r);
-          calculateMetrics(r, currentStats);
-        } else {
-          calculateMetrics([], currentStats);
-        }
-      } catch (e) {
-        console.error("Failed to fetch stats", e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchAll();
-    const interval = setInterval(fetchAll, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    if (statsData) setStats(statsData);
+    if (revenueData) {
+      setDailyData(revenueData);
+      calculateMetrics(revenueData, statsData || stats);
+    }
+  }, [statsData, revenueData]);
 
   const calculateMetrics = (data: any[], currentStats: any) => {
     const today = new Date();
@@ -133,11 +132,7 @@ export default function ManagerStats({ role = 'manager' }: { role?: 'admin' | 'm
   const maxRev = Math.max(...last7Days.map(d => d.revenue), 1000);
 
   if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-dhaba-orange border-t-transparent"></div>
-      </div>
-    );
+    return <PanLoader text="Loading Stats..." />;
   }
 
   return (
