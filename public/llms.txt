@@ -1,0 +1,24 @@
+# Harjinder Tourist Dhaba
+
+Welcome to the Harjinder Tourist Dhaba website. This is an authentic Punjabi restaurant located on the Kharar–Kurali Highway (NH-24), Mohali, Punjab, India. 
+We have been serving fresh, traditional Punjabi food since 1991. We are open 24 hours a day, 7 days a week.
+
+## Navigation & Structure
+This is a single-page application built with React. The main sections are:
+- /#home : The hero section and introduction.
+- /#menu : The digital food menu, categorized into North Indian, Chinese, Tandoor, and Beverages.
+- /#banquet : Information about booking our Party Hall for events.
+- /#about : Our history and amenities.
+
+## Interactive Features
+- The menu features an interactive shopping cart. Users can add items, select variants (Half/Full, With/Without Butter), and proceed to a checkout view.
+- The site provides direct WhatsApp ordering functionality when the cart is submitted.
+
+## Contact Info
+- Phone: +919056655093
+- Address: Kharar-Kurali-Village-Sahauran, Teh-Kharar, NH-24, Opp. Indian Oil Petrol Bunk, Kharar, Punjab 140103, IN.
+- Coordinates: 30.790398619530514, 76.60875603332086
+
+## Administrative
+- Private manager and admin routes are strictly noindex.
+- Privacy policy is available at /privacy-policy.

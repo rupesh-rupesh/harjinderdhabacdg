@@ -197,11 +197,16 @@ if (!dbUrl) {
 // Serverless best practice: max 1 connection per cold start
 const queryClient = postgres(dbUrl || '', { 
   max: 1, 
-  idle_timeout: 1, 
-  connect_timeout: 10,
+  idle_timeout: 20, 
+  connect_timeout: 30, // Increased to handle cold DB starts
   prepare: false // CRITICAL: Prevents prepared statement hangs with Supabase pooler
 });
 const db = drizzle(queryClient, { schema });
+
+// ─── In-Memory Cache ────────────────────────────────────────────────────────
+// Caches storefront data for 60 seconds to prevent DB hammering on every page load
+let storefrontCache: { data: any; ts: number } | null = null;
+const STOREFRONT_CACHE_TTL_MS = 60_000; // 60 seconds
 
 // ─── Firebase Admin ─────────────────────────────────────────────────────────
 let adminAuth: any = {
@@ -648,6 +653,13 @@ app.get('/api/pos-data', async (req, res) => {
 app.get('/api/storefront-data', async (req, res) => {
   res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
   try {
+    // Serve from in-memory cache if it's still fresh (within 60s)
+    const now = Date.now();
+    if (storefrontCache && (now - storefrontCache.ts) < STOREFRONT_CACHE_TTL_MS) {
+      return res.json(storefrontCache.data);
+    }
+
+    // Cache miss — fetch fresh data from DB
     const [menu, cats, feats, settings] = await Promise.all([
       db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
       db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id),
@@ -657,7 +669,11 @@ app.get('/api/storefront-data', async (req, res) => {
     const visibleCats = cats.filter(c => !c.isHidden);
     const visibleCatNames = visibleCats.map(c => c.name);
     const visibleMenu = menu.filter(m => visibleCatNames.includes(m.category));
-    res.json({ menuItems: visibleMenu, categories: visibleCats, features: feats, journeySettings: settings[0] || { header: 'Our Journey', description: '' } });
+    const responseData = { menuItems: visibleMenu, categories: visibleCats, features: feats, journeySettings: settings[0] || { header: 'Our Journey', description: '' } };
+
+    // Store in cache
+    storefrontCache = { data: responseData, ts: now };
+    return res.json(responseData);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -763,6 +779,7 @@ app.post('/api/menu-items', async (req, res) => {
       endTime: item.hasTiming && item.endTime ? item.endTime : null,
       variants: item.variants ? item.variants : []
     }).returning();
+    storefrontCache = null; // Invalidate cache
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -786,12 +803,13 @@ app.put('/api/menu-items/:id', async (req, res) => {
       endTime: item.hasTiming && item.endTime ? item.endTime : null,
       variants: item.variants ? item.variants : []
     }).where(eq(menuItems.id, Number(req.params.id))).returning();
+    storefrontCache = null; // Invalidate cache
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/menu-items/:id', async (req, res) => {
-  try { await db.update(menuItems).set({ isDeleted: true }).where(eq(menuItems.id, Number(req.params.id))); res.json({ success: true }); }
+  try { await db.update(menuItems).set({ isDeleted: true }).where(eq(menuItems.id, Number(req.params.id))); storefrontCache = null; res.json({ success: true }); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

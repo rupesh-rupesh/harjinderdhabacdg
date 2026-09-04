@@ -512,6 +512,7 @@ export default function Storefront() {
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="p-2.5 rounded-full bg-white/5 text-stone-400 hover:text-white hover:bg-white/10 transition-colors focus:outline-none border border-white/10 backdrop-blur-md relative z-10 active:scale-95"
+                  aria-label="Close menu"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1179,10 +1180,10 @@ export default function Storefront() {
                     The ultimate pitstop for authentic Punjabi cuisine. Serving fresh, hot, and hygienic food 24/7.
                   </p>
                   <div className="flex space-x-4">
-                    <a href="https://www.facebook.com/share/1Jt8XKRJLV/" target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-gradient-to-r hover:from-[var(--color-gold)] hover:to-[#E6B355] hover:text-white hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                    <a href="https://www.facebook.com/share/1Jt8XKRJLV/" target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-gradient-to-r hover:from-[var(--color-gold)] hover:to-[#E6B355] hover:text-white hover:shadow-lg hover:-translate-y-1 transition-all duration-300" aria-label="Facebook">
                       <Facebook className="w-5 h-5" />
                     </a>
-                    <a href="https://www.instagram.com/harjinder_dhaba?igsh=YTV4MXFhdWszeTVq" target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-gradient-to-r hover:from-[var(--color-gold)] hover:to-[#E6B355] hover:text-white hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                    <a href="https://www.instagram.com/harjinder_dhaba?igsh=YTV4MXFhdWszeTVq" target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-gradient-to-r hover:from-[var(--color-gold)] hover:to-[#E6B355] hover:text-white hover:shadow-lg hover:-translate-y-1 transition-all duration-300" aria-label="Instagram">
                       <Instagram className="w-5 h-5" />
                     </a>
                   </div>
@@ -1342,6 +1343,7 @@ export default function Storefront() {
             <button
               onClick={() => setIsCartOpen(false)}
               className="text-stone-400 hover:text-stone-600 transition-colors p-2 focus:outline-none"
+              aria-label="Close cart"
             >
               <X className="h-6 w-6" />
             </button>
@@ -1417,6 +1419,7 @@ export default function Storefront() {
                         <button
                           onClick={(e) => { e.stopPropagation(); updateQuantity(item.name, item.isHalf || false, item.isButter || false, -1, item.variantName); }}
                           className="text-stone-500 hover:bg-white hover:text-[var(--color-gold)] hover:shadow-sm w-7 h-7 rounded-md flex items-center justify-center transition-all focus:outline-none"
+                          aria-label="Decrease quantity"
                         >
                           <Minus className="h-3 w-3" />
                         </button>
@@ -1424,6 +1427,7 @@ export default function Storefront() {
                         <button
                           onClick={(e) => { e.stopPropagation(); updateQuantity(item.name, item.isHalf || false, item.isButter || false, 1, item.variantName); }}
                           className="text-stone-500 hover:bg-white hover:text-[var(--color-gold)] hover:shadow-sm w-7 h-7 rounded-md flex items-center justify-center transition-all focus:outline-none"
+                          aria-label="Increase quantity"
                         >
                           <Plus className="h-3 w-3" />
                         </button>
