@@ -196,10 +196,10 @@ if (!dbUrl) {
 
 // Serverless best practice: max 1 connection per cold start
 const queryClient = postgres(dbUrl || '', { 
-  max: 1, 
-  idle_timeout: 20, 
-  connect_timeout: 30, // Increased to handle cold DB starts
-  prepare: false // CRITICAL: Prevents prepared statement hangs with Supabase pooler
+  max: 1,
+  idle_timeout: 20,
+  connect_timeout: 10, // Keep under Vercel's function timeout (10s hobby / 60s pro)
+  prepare: false,      // CRITICAL: Prevents prepared statement hangs with Supabase pooler
 });
 const db = drizzle(queryClient, { schema });
 
@@ -316,21 +316,38 @@ async function ensureAdminAccount() {
 }
 
 let staffTablesReady = false;
+// Cache the in-flight promise so concurrent cold-start requests don't
+// each fire their own DDL storm — they all await the same promise.
+let staffTablesInitPromise: Promise<void> | null = null;
 async function initStaffAuth() {
   if (staffTablesReady) return;
-  await ensureStaffTables();
-  await ensureAdminAccount();
-  staffTablesReady = true;
+  if (!staffTablesInitPromise) {
+    staffTablesInitPromise = (async () => {
+      await ensureStaffTables();
+      await ensureAdminAccount();
+      staffTablesReady = true;
+    })().catch(err => {
+      // Reset so it can retry on next request
+      staffTablesInitPromise = null;
+      console.error('[initStaffAuth] failed:', err);
+      throw err;
+    });
+  }
+  return staffTablesInitPromise;
 }
 
 async function createOtp(staffId: number): Promise<string> {
   const code = String(Math.floor(100000 + Math.random() * 900000));
+  // Cost 8 is sufficient for short-lived OTPs and much faster than 12 on serverless
   const hash = await bcrypt.hash(code, 8);
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
-  await db.update(otpSessions)
-    .set({ used: true })
-    .where(and(eq(otpSessions.staffId, staffId), eq(otpSessions.used, false)));
-  await db.insert(otpSessions).values({ staffId, otpHash: hash, expiresAt });
+  // Invalidate old OTPs and insert new one in parallel
+  await Promise.all([
+    db.update(otpSessions)
+      .set({ used: true })
+      .where(and(eq(otpSessions.staffId, staffId), eq(otpSessions.used, false))),
+    db.insert(otpSessions).values({ staffId, otpHash: hash, expiresAt }),
+  ]);
   return code;
 }
 
@@ -586,7 +603,8 @@ app.post('/api/staff/setup', async (req, res) => {
       return res.status(403).json({ error: 'An admin account already exists. Use the login form.' });
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    // Cost 10 balances security and serverless cold-start speed (12 is too slow on Vercel)
+    const passwordHash = await bcrypt.hash(password, 10);
     const [newAdmin] = await db.insert(staffAccounts).values({
       email: email.trim().toLowerCase(),
       name: name.trim(),
@@ -1074,7 +1092,8 @@ app.post('/api/admin/staff', async (req, res) => {
       return res.status(409).json({ error: 'A staff member with this email already exists.' });
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    // Cost 10 balances security and serverless cold-start speed (12 is too slow on Vercel)
+    const passwordHash = await bcrypt.hash(password, 10);
 
     // Also create Firebase user for legacy Firebase auth (if adminAuth is active)
     let fbUid = `staff_${Date.now()}`;
@@ -1110,7 +1129,7 @@ app.put('/api/admin/staff/:id', async (req, res) => {
       const staffUpdate: any = { permissions };
       if (name) staffUpdate.name = name;
       if (email) staffUpdate.email = email.toLowerCase();
-      if (password) staffUpdate.passwordHash = await bcrypt.hash(password, 12);
+      if (password) staffUpdate.passwordHash = await bcrypt.hash(password, 10);
       await db.update(staffAccounts).set(staffUpdate).where(eq(staffAccounts.id, staffId));
       
       // Also update legacy users table if it exists
@@ -1223,3 +1242,4 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   }
   return app(req as any, res as any);
 }
+
