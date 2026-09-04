@@ -195,7 +195,12 @@ if (!dbUrl) {
 }
 
 // Serverless best practice: max 1 connection per cold start
-const queryClient = postgres(dbUrl || '', { max: 1, idle_timeout: 10 });
+const queryClient = postgres(dbUrl || '', { 
+  max: 1, 
+  idle_timeout: 1, 
+  connect_timeout: 10,
+  prepare: false // CRITICAL: Prevents prepared statement hangs with Supabase pooler
+});
 const db = drizzle(queryClient, { schema });
 
 // ─── Firebase Admin ─────────────────────────────────────────────────────────
@@ -359,17 +364,17 @@ async function sendOtpEmail(toEmail: string, name: string, code: string): Promis
   }
 }
 
-async function sendManagerWelcomeEmail(toEmail: string, name: string, password: string): Promise<void> {
+async function sendManagerWelcomeEmail(toEmail: string, name: string, password: string, role: string): Promise<void> {
   const loginUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}/htd-ctrl-9x7k2m/manager`
-    : 'http://localhost:3000/htd-ctrl-9x7k2m/manager';
+    ? `https://www.harjindertouristdhaba.com/htd-ctrl-9x7k2m/${role}`
+    : `http://localhost:3000/htd-ctrl-9x7k2m/${role}`;
   try {
     await resendClient.emails.send({
       from: EMAIL_FROM,
       to: toEmail,
       subject: 'Your Manager Account — Harjinder Tourist Dhaba',
       html: `
-        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#1a1008;border-radius:16px;">
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#1a1008;border-radius:16px;">
           <div style="text-align:center;margin-bottom:32px;">
             <div style="display:inline-block;padding:6px 12px;background:rgba(200,155,60,0.1);border:1px solid rgba(200,155,60,0.2);border-radius:20px;margin-bottom:12px;">
               <span style="color:#C89B3C;font-size:10px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;">Secure Gateway</span>
@@ -381,14 +386,14 @@ async function sendManagerWelcomeEmail(toEmail: string, name: string, password: 
           <div style="background:#0d0804;border:1px solid #C89B3C33;border-radius:12px;padding:24px;margin-bottom:24px;box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
             <table style="width:100%;border-spacing:0;">
               <tr>
-                <td style="color:#a8a29e;padding:12px 0;font-size:13px;border-bottom:1px solid #292524;width:90px;">Login URL</td>
+                <td style="color:#a8a29e;padding:12px 0;font-size:13px;border-bottom:1px solid #292524;width:80px;vertical-align:top;">Login URL</td>
                 <td style="color:#C89B3C;padding:12px 0;font-size:14px;border-bottom:1px solid #292524;">
-                  <a href="${loginUrl}" style="color:#C89B3C;text-decoration:none;font-weight:bold;">${loginUrl}</a>
+                  <a href="${loginUrl}" style="color:#C89B3C;text-decoration:none;font-weight:bold;word-break:break-all;display:block;">${loginUrl}</a>
                 </td>
               </tr>
               <tr>
-                <td style="color:#a8a29e;padding:12px 0;font-size:13px;border-bottom:1px solid #292524;">Email</td>
-                <td style="color:#f5f5f4;padding:12px 0;font-size:14px;border-bottom:1px solid #292524;user-select:all;">${toEmail}</td>
+                <td style="color:#a8a29e;padding:12px 0;font-size:13px;border-bottom:1px solid #292524;vertical-align:top;">Email</td>
+                <td style="color:#f5f5f4;padding:12px 0;font-size:14px;border-bottom:1px solid #292524;user-select:all;word-break:break-all;">${toEmail}</td>
               </tr>
               <tr>
                 <td style="color:#a8a29e;padding:16px 0 0 0;font-size:13px;vertical-align:middle;">Password</td>
@@ -1071,7 +1076,7 @@ app.post('/api/admin/staff', async (req, res) => {
     }).returning();
 
     // Send welcome email (non-fatal if Resend not configured)
-    await sendManagerWelcomeEmail(email, upperName, password);
+    await sendManagerWelcomeEmail(email, upperName, password, role);
 
     res.json({ ...newStaff[0], passwordHash: undefined });
   } catch (e: any) { res.status(500).json({ error: e.message }); }

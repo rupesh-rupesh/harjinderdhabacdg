@@ -198,7 +198,12 @@ if (!dbUrl) {
 }
 
 // Serverless best practice: max 1 connection per cold start
-const queryClient = postgres(dbUrl || '', { max: 1, idle_timeout: 10 });
+const queryClient = postgres(dbUrl || '', { 
+  max: 1, 
+  idle_timeout: 1, 
+  connect_timeout: 10,
+  prepare: false // CRITICAL: Prevents prepared statement hangs with Supabase pooler
+});
 const db = drizzle(queryClient, { schema });
 
 // ─── Firebase Admin ─────────────────────────────────────────────────────────
@@ -358,17 +363,17 @@ async function sendOtpEmail(toEmail: string, name: string, code: string): Promis
   }
 }
 
-async function sendManagerWelcomeEmail(toEmail: string, name: string, password: string): Promise<void> {
+async function sendManagerWelcomeEmail(toEmail: string, name: string, password: string, role: string): Promise<void> {
   const loginUrl = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}/htd-ctrl-9x7k2m/manager`
-    : 'http://localhost:3000/htd-ctrl-9x7k2m/manager';
+    ? `https://www.harjindertouristdhaba.com/htd-ctrl-9x7k2m/${role}`
+    : `http://localhost:3000/htd-ctrl-9x7k2m/${role}`;
   try {
     await resendClient.emails.send({
       from: EMAIL_FROM,
       to: toEmail,
       subject: 'Your Manager Account — Harjinder Tourist Dhaba',
       html: `
-        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#1a1008;border-radius:16px;">
+        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px;background:#1a1008;border-radius:16px;">
           <div style="text-align:center;margin-bottom:32px;">
             <div style="display:inline-block;padding:6px 12px;background:rgba(200,155,60,0.1);border:1px solid rgba(200,155,60,0.2);border-radius:20px;margin-bottom:12px;">
               <span style="color:#C89B3C;font-size:10px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;">Secure Gateway</span>
@@ -378,9 +383,9 @@ async function sendManagerWelcomeEmail(toEmail: string, name: string, password: 
           <h2 style="color:#C89B3C;font-size:22px;margin-bottom:8px;">Welcome, ${name}!</h2>
           <p style="color:#d6d3d1;margin-bottom:24px;">Your manager account has been created for Harjinder Tourist Dhaba.</p>
           <table style="width:100%;background:#0d0804;border:1px solid #C89B3C22;border-radius:12px;padding:20px;border-spacing:0;margin-bottom:24px;">
-            <tr><td style="color:#78716c;padding:6px 0;font-size:13px;">Login URL</td><td style="color:#C89B3C;font-size:13px;">${loginUrl}</td></tr>
-            <tr><td style="color:#78716c;padding:6px 0;font-size:13px;">Email</td><td style="color:#f5f5f4;font-size:13px;">${toEmail}</td></tr>
-            <tr><td style="color:#78716c;padding:6px 0;font-size:13px;">Password</td><td style="color:#f5f5f4;font-family:monospace;font-size:14px;">${password}</td></tr>
+            <tr><td style="color:#78716c;padding:6px 0;font-size:13px;width:80px;vertical-align:top;">Login URL</td><td style="color:#C89B3C;font-size:13px;word-break:break-all;"><a href="${loginUrl}" style="color:#C89B3C;text-decoration:none;">${loginUrl}</a></td></tr>
+            <tr><td style="color:#78716c;padding:6px 0;font-size:13px;vertical-align:top;">Email</td><td style="color:#f5f5f4;font-size:13px;word-break:break-all;">${toEmail}</td></tr>
+            <tr><td style="color:#78716c;padding:6px 0;font-size:13px;vertical-align:top;">Password</td><td style="color:#f5f5f4;font-family:monospace;font-size:14px;">${password}</td></tr>
           </table>
           <p style="color:#d6d3d1;font-size:13px;">Each login requires a 6-digit verification code sent to your email.</p>
           <p style="color:#ef4444;font-size:12px;margin-top:8px;">⚠️ Please change your password after your first login.</p>
@@ -1056,7 +1061,7 @@ app.post('/api/admin/staff', async (req, res) => {
     }).returning();
 
     // Send welcome email (non-fatal if Resend not configured)
-    await sendManagerWelcomeEmail(email, upperName, password);
+    await sendManagerWelcomeEmail(email, upperName, password, role);
 
     res.json({ ...newStaff[0], passwordHash: undefined });
   } catch (e: any) { res.status(500).json({ error: e.message }); }

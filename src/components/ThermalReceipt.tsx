@@ -105,10 +105,16 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({ order, includeGs
           margin: 6px 0;
         }
       `}} />
-
       {/* Header */}
       <div className="text-center mb-2 flex flex-col items-center">
-        <img src="/bill-logo.png" alt="Logo" className="w-[300px] h-auto object-contain -mt-4 -mb-10 grayscale filter contrast-125 relative z-0" />
+        <div className="w-full text-center mt-2 mb-4">
+          <div className="text-[28px] font-bold uppercase tracking-widest leading-none" style={{ fontFamily: 'Georgia, serif' }}>
+            Harjinder
+          </div>
+          <div className="text-[12px] font-bold uppercase tracking-[0.2em] mt-1" style={{ fontFamily: 'Arial, sans-serif' }}>
+            Tourist Dhaba
+          </div>
+        </div>
         <p className="mb-0 z-10 relative">VPO-Sahauran, Teh-Kharar,</p>
         <p className="mb-0">Distt. Mohali (Punjab) - 140103</p>
         <p className="mb-0">Phone: 90566-55093</p>

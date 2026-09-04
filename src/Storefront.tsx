@@ -1,4 +1,5 @@
 import Testimonials from './components/Testimonials.tsx';
+import BanquetSection from './components/BanquetSection.tsx';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -177,29 +178,9 @@ export default function Storefront() {
   useEffect(() => {
     if (currentView !== 'home') {
       setActiveSection(currentView);
-      return;
+    } else if (activeSection === 'menu' || activeSection === 'order' || activeSection === 'checkout') {
+      setActiveSection('home');
     }
-
-    const handleScroll = () => {
-      const sections = ['home', 'specials', 'about'];
-      let current = 'home';
-      
-      for (const id of sections) {
-        const el = document.getElementById(id);
-        if (el) {
-          const rect = el.getBoundingClientRect();
-          if (rect.top <= 150) {
-            current = id;
-          }
-        }
-      }
-      setActiveSection(current);
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-    
-    return () => window.removeEventListener('scroll', handleScroll);
   }, [currentView]);
 
   useEffect(() => {
@@ -415,7 +396,7 @@ export default function Storefront() {
   const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
-    <div className={`min-h-[100dvh] bg-[var(--color-ivory)] text-[var(--color-brown)] font-sans selection:bg-dhaba-orange selection:text-white flex flex-col ${cartCount > 0 && currentView !== 'checkout' ? 'pb-20 sm:pb-24' : ''}`}>
+    <div className={`min-h-[100dvh] bg-[#fbf5eb] text-[var(--color-brown)] font-sans selection:bg-dhaba-orange selection:text-white flex flex-col ${cartCount > 0 && currentView !== 'checkout' ? 'pb-20 sm:pb-24' : ''}`}>
       {currentView === 'home' ? (
         <>
           {/* Navigation */}
@@ -469,10 +450,11 @@ export default function Storefront() {
 
                 {/* Centered Desktop Menu */}
                 <div className="hidden xl:flex absolute left-1/2 transform -translate-x-1/2 space-x-2 items-center">
-                  <a href="#" onClick={(e) => { e.preventDefault(); setCurrentView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`relative px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300 whitespace-nowrap after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:h-[2px] after:bg-[var(--color-gold)] after:rounded-full after:transition-all after:duration-300 hover:text-[var(--color-gold)] hover:after:w-1/2 ${activeSection === 'home' ? 'text-[var(--color-gold)] after:w-1/2' : 'text-stone-300 after:w-0'}`}>Home</a>
-                  <a href="#specials" onClick={(e) => { e.preventDefault(); if (currentView !== 'home') { setCurrentView('home'); setTimeout(() => document.getElementById('specials')?.scrollIntoView({ behavior: 'smooth' }), 100); } else { document.getElementById('specials')?.scrollIntoView({ behavior: 'smooth' }); } }} className={`relative px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300 whitespace-nowrap after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:h-[2px] after:bg-[var(--color-gold)] after:rounded-full after:transition-all after:duration-300 hover:text-[var(--color-gold)] hover:after:w-1/2 ${activeSection === 'specials' ? 'text-[var(--color-gold)] after:w-1/2' : 'text-stone-300 after:w-0'}`}>Dhaba Specials</a>
-                  <button onClick={(e) => { e.preventDefault(); setCurrentView('menu'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`relative px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300 whitespace-nowrap after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:h-[2px] after:bg-[var(--color-gold)] after:rounded-full after:transition-all after:duration-300 hover:text-[var(--color-gold)] hover:after:w-1/2 ${activeSection === 'menu' ? 'text-[var(--color-gold)] after:w-1/2' : 'text-stone-300 after:w-0'}`}>Menu</button>
-                  <a href="#about" onClick={(e) => { e.preventDefault(); if (currentView !== 'home') { setCurrentView('home'); setTimeout(() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }), 100); } else { document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }); } }} className={`relative px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300 whitespace-nowrap after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:h-[2px] after:bg-[var(--color-gold)] after:rounded-full after:transition-all after:duration-300 hover:text-[var(--color-gold)] hover:after:w-1/2 ${activeSection === 'about' ? 'text-[var(--color-gold)] after:w-1/2' : 'text-stone-300 after:w-0'}`}>About Us</a>
+                  <a href="#" onClick={(e) => { e.preventDefault(); setActiveSection('home'); setCurrentView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`relative px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300 whitespace-nowrap after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:h-[2px] after:bg-[var(--color-gold)] after:rounded-full after:transition-all after:duration-300 hover:text-[var(--color-gold)] hover:after:w-1/2 ${activeSection === 'home' ? 'text-[var(--color-gold)] after:w-1/2' : 'text-stone-300 after:w-0'}`}>Home</a>
+                  <a href="#specials" onClick={(e) => { e.preventDefault(); setActiveSection('specials'); if (currentView !== 'home') { setCurrentView('home'); setTimeout(() => document.getElementById('specials')?.scrollIntoView({ behavior: 'smooth' }), 100); } else { document.getElementById('specials')?.scrollIntoView({ behavior: 'smooth' }); } }} className={`relative px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300 whitespace-nowrap after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:h-[2px] after:bg-[var(--color-gold)] after:rounded-full after:transition-all after:duration-300 hover:text-[var(--color-gold)] hover:after:w-1/2 ${activeSection === 'specials' ? 'text-[var(--color-gold)] after:w-1/2' : 'text-stone-300 after:w-0'}`}>Dhaba Specials</a>
+                  <button onClick={(e) => { e.preventDefault(); setActiveSection('menu'); setCurrentView('menu'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`relative px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300 whitespace-nowrap after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:h-[2px] after:bg-[var(--color-gold)] after:rounded-full after:transition-all after:duration-300 hover:text-[var(--color-gold)] hover:after:w-1/2 ${activeSection === 'menu' ? 'text-[var(--color-gold)] after:w-1/2' : 'text-stone-300 after:w-0'}`}>Menu</button>
+                  <a href="#banquet" onClick={(e) => { e.preventDefault(); setActiveSection('banquet'); if (currentView !== 'home') { setCurrentView('home'); setTimeout(() => document.getElementById('banquet')?.scrollIntoView({ behavior: 'smooth' }), 100); } else { document.getElementById('banquet')?.scrollIntoView({ behavior: 'smooth' }); } }} className={`relative px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300 whitespace-nowrap after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:h-[2px] after:bg-[var(--color-gold)] after:rounded-full after:transition-all after:duration-300 hover:text-[var(--color-gold)] hover:after:w-1/2 ${activeSection === 'banquet' ? 'text-[var(--color-gold)] after:w-1/2' : 'text-stone-300 after:w-0'}`}>Party & Events</a>
+                  <a href="#about" onClick={(e) => { e.preventDefault(); setActiveSection('about'); if (currentView !== 'home') { setCurrentView('home'); setTimeout(() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }), 100); } else { document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }); } }} className={`relative px-4 py-2 text-sm font-medium tracking-wide transition-colors duration-300 whitespace-nowrap after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:h-[2px] after:bg-[var(--color-gold)] after:rounded-full after:transition-all after:duration-300 hover:text-[var(--color-gold)] hover:after:w-1/2 ${activeSection === 'about' ? 'text-[var(--color-gold)] after:w-1/2' : 'text-stone-300 after:w-0'}`}>About Us</a>
                 </div>
 
                 <div className="flex items-center justify-end flex-1 space-x-2 md:space-x-4">
@@ -539,34 +521,55 @@ export default function Storefront() {
                 {/* Background Pattern */}
                 <div className="absolute inset-0 opacity-5 bg-[url('/pattern.png')] bg-repeat pointer-events-none"></div>
 
-                <a href="#" onClick={(e) => { e.preventDefault(); setIsMobileMenuOpen(false); setCurrentView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group relative overflow-hidden z-10 ${activeSection === 'home' ? 'text-[var(--color-gold)] bg-white/10 shadow-lg border border-white/10' : 'text-stone-400 hover:text-white hover:bg-white/5 border border-transparent'}`}>
+                <a href="#" onClick={(e) => { e.preventDefault(); setIsMobileMenuOpen(false); setActiveSection('home'); setCurrentView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group relative overflow-hidden z-10 ${activeSection === 'home' ? 'text-[var(--color-gold)] bg-white/10 shadow-lg border border-white/10' : 'text-stone-400 hover:text-white hover:bg-white/5 border border-transparent'}`}>
                   {activeSection === 'home' && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1/2 bg-[var(--color-gold)] rounded-r-full shadow-[0_0_10px_rgba(212,175,55,0.5)]"></div>}
                   <span className={`text-lg tracking-wide transition-all duration-300 ${activeSection === 'home' ? 'pl-2 font-bold' : 'group-hover:pl-2'}`}>Home</span>
                   <ChevronRight className={`w-5 h-5 transition-all duration-300 ${activeSection === 'home' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'}`} />
                 </a>
                 <a href="#specials" onClick={(e) => {
                   setIsMobileMenuOpen(false);
+                  setActiveSection('specials');
                   if (currentView !== 'home') {
                     e.preventDefault();
                     setCurrentView('home');
                     setTimeout(() => document.getElementById('specials')?.scrollIntoView({ behavior: 'smooth' }), 100);
+                  } else {
+                    document.getElementById('specials')?.scrollIntoView({ behavior: 'smooth' });
                   }
                 }} className={`flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group relative overflow-hidden z-10 ${activeSection === 'specials' ? 'text-[var(--color-gold)] bg-white/10 shadow-lg border border-white/10' : 'text-stone-400 hover:text-white hover:bg-white/5 border border-transparent'}`}>
                   {activeSection === 'specials' && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1/2 bg-[var(--color-gold)] rounded-r-full shadow-[0_0_10px_rgba(212,175,55,0.5)]"></div>}
                   <span className={`text-lg tracking-wide transition-all duration-300 ${activeSection === 'specials' ? 'pl-2 font-bold' : 'group-hover:pl-2'}`}>Dhaba Specials</span>
                   <ChevronRight className={`w-5 h-5 transition-all duration-300 ${activeSection === 'specials' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'}`} />
                 </a>
-                <button onClick={(e) => { e.preventDefault(); setIsMobileMenuOpen(false); setCurrentView('menu'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`w-full text-left flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group relative overflow-hidden z-10 ${activeSection === 'menu' ? 'text-[var(--color-gold)] bg-white/10 shadow-lg border border-white/10' : 'text-stone-400 hover:text-white hover:bg-white/5 border border-transparent'}`}>
+                <button onClick={(e) => { e.preventDefault(); setIsMobileMenuOpen(false); setActiveSection('menu'); setCurrentView('menu'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`w-full text-left flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group relative overflow-hidden z-10 ${activeSection === 'menu' ? 'text-[var(--color-gold)] bg-white/10 shadow-lg border border-white/10' : 'text-stone-400 hover:text-white hover:bg-white/5 border border-transparent'}`}>
                   {activeSection === 'menu' && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1/2 bg-[var(--color-gold)] rounded-r-full shadow-[0_0_10px_rgba(212,175,55,0.5)]"></div>}
                   <span className={`text-lg tracking-wide transition-all duration-300 ${activeSection === 'menu' ? 'pl-2 font-bold' : 'group-hover:pl-2'}`}>Menu</span>
                   <ChevronRight className={`w-5 h-5 transition-all duration-300 ${activeSection === 'menu' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'}`} />
                 </button>
+                <a href="#banquet" onClick={(e) => {
+                  setIsMobileMenuOpen(false);
+                  setActiveSection('banquet');
+                  if (currentView !== 'home') {
+                    e.preventDefault();
+                    setCurrentView('home');
+                    setTimeout(() => document.getElementById('banquet')?.scrollIntoView({ behavior: 'smooth' }), 100);
+                  } else {
+                    document.getElementById('banquet')?.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }} className={`flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group relative overflow-hidden z-10 ${activeSection === 'banquet' ? 'text-[var(--color-gold)] bg-white/10 shadow-lg border border-white/10' : 'text-stone-400 hover:text-white hover:bg-white/5 border border-transparent'}`}>
+                  {activeSection === 'banquet' && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1/2 bg-[var(--color-gold)] rounded-r-full shadow-[0_0_10px_rgba(212,175,55,0.5)]"></div>}
+                  <span className={`text-lg tracking-wide transition-all duration-300 ${activeSection === 'banquet' ? 'pl-2 font-bold' : 'group-hover:pl-2'}`}>Party & Events</span>
+                  <ChevronRight className={`w-5 h-5 transition-all duration-300 ${activeSection === 'banquet' ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'}`} />
+                </a>
                 <a href="#about" onClick={(e) => {
                   setIsMobileMenuOpen(false);
+                  setActiveSection('about');
                   if (currentView !== 'home') {
                     e.preventDefault();
                     setCurrentView('home');
                     setTimeout(() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }), 100);
+                  } else {
+                    document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' });
                   }
                 }} className={`flex items-center justify-between px-6 py-4 rounded-2xl font-medium transition-all duration-300 group relative overflow-hidden z-10 ${activeSection === 'about' ? 'text-[var(--color-gold)] bg-white/10 shadow-lg border border-white/10' : 'text-stone-400 hover:text-white hover:bg-white/5 border border-transparent'}`}>
                   {activeSection === 'about' && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1/2 bg-[var(--color-gold)] rounded-r-full shadow-[0_0_10px_rgba(212,175,55,0.5)]"></div>}
@@ -666,7 +669,7 @@ export default function Storefront() {
           )}
 
           {/* Our Specials (Responsive Grid/Scroll) */}
-          <section id="specials" className="relative z-20 -mt-12 pt-24 pb-24 bg-[var(--color-ivory)] border-b border-stone-200/50 overflow-hidden rounded-t-[3rem] shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.1)]">
+          <section id="specials" className="relative z-20 -mt-12 pt-24 pb-12 bg-[var(--color-ivory)] border-b border-stone-200/50 overflow-hidden rounded-t-[3rem] shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.1)]">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10">
               <div className="flex flex-col items-center text-center gap-4">
                 <div className="flex items-center justify-center gap-4 mb-2">
@@ -824,15 +827,15 @@ export default function Storefront() {
           </section>
 
           {/* Popular & Best Sellers */}
-          <section id="menu" className="py-32 bg-[var(--color-brown)] text-white relative">
+          <section id="menu" className="pt-16 pb-16 md:pt-20 md:pb-24 text-[var(--color-brown)] relative z-10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-6 md:gap-0">
                 <div className="max-w-2xl">
-                  <span className="text-[var(--color-gold)] font-semibold tracking-[0.2em] uppercase text-sm mb-4 block drop-shadow-md">
+                  <span className="text-[var(--color-gold)] font-semibold tracking-[0.2em] uppercase text-sm mb-4 block drop-shadow-sm">
                     Crowd Favorites
                   </span>
-                  <h2 className="text-4xl sm:text-5xl md:text-6xl font-serif font-bold mb-6 drop-shadow-xl">Popular & Best Sellers</h2>
-                  <p className="text-stone-300 text-base sm:text-lg font-light leading-relaxed">Our most loved dishes, handpicked by our regular patrons.</p>
+                  <h2 className="text-4xl sm:text-5xl md:text-6xl font-serif font-bold mb-6 text-[var(--color-brown)]">Popular & Best Sellers</h2>
+                  <p className="text-stone-600 text-base sm:text-lg font-medium leading-relaxed">Our most loved dishes, handpicked by our regular patrons.</p>
                 </div>
               </div>
 
@@ -843,8 +846,8 @@ export default function Storefront() {
                       key={cat}
                       onClick={() => setSelectedCategory(cat)}
                       className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 shadow-sm ${selectedCategory === cat
-                        ? 'bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold)]/80 text-white border-transparent shadow-lg transform scale-105'
-                        : 'bg-white/5 text-stone-300 border border-white/10 hover:bg-white/10 hover:text-white hover:border-white/20 backdrop-blur-md'
+                        ? 'bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold)]/80 text-white border-transparent shadow-[0_10px_20px_rgba(200,155,60,0.2)] transform scale-105'
+                        : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50 hover:text-[var(--color-brown)] hover:border-[var(--color-gold)]/50'
                         }`}
                     >
                       {cat}
@@ -861,132 +864,125 @@ export default function Storefront() {
                     placeholder={selectedCategory === 'All' ? "Search menu..." : `Search in ${selectedCategory}...`}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-12 pr-6 py-3.5 bg-white/5 border border-white/10 rounded-full focus:ring-2 focus:ring-dhaba-orange focus:border-[var(--color-gold)] outline-none text-white placeholder-stone-400 transition-all text-sm backdrop-blur-md shadow-inner"
+                    className="w-full pl-12 pr-6 py-3.5 bg-white border border-stone-200 rounded-full focus:ring-2 focus:ring-[var(--color-gold)]/50 focus:border-[var(--color-gold)] outline-none text-[var(--color-brown)] placeholder-stone-400 transition-all text-sm shadow-sm"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
                 {isLoading ? (
-                  [1, 2, 3, 4].map(i => (
-                    <div key={i} className="relative overflow-hidden rounded-[2rem] bg-white/5 border border-white/10 flex flex-col sm:flex-row h-64 animate-pulse">
-                      <div className="sm:w-2/5 h-48 sm:h-full bg-stone-700"></div>
-                      <div className="sm:w-3/5 p-6 md:p-8 flex flex-col justify-between relative bg-stone-800">
-                        <div>
-                          <div className="flex justify-between items-start mb-3 gap-4">
-                            <div className="h-6 bg-stone-600 rounded w-1/2"></div>
-                            <div className="h-6 bg-stone-600 rounded w-1/4"></div>
-                          </div>
-                          <div className="h-4 bg-stone-600 rounded w-full mb-2"></div>
-                          <div className="h-4 bg-stone-600 rounded w-3/4"></div>
-                        </div>
-                        <div className="mt-auto pt-5 border-t border-stone-700/50 flex justify-end">
-                          <div className="h-10 bg-stone-600 rounded w-24"></div>
+                  [1, 2, 3, 4, 5, 6].map(i => (
+                    <div key={i} className="relative overflow-hidden rounded-[2rem] bg-white border border-stone-100 flex flex-col h-[420px] animate-pulse shadow-sm">
+                      <div className="w-full h-56 bg-stone-200 shrink-0"></div>
+                      <div className="p-6 flex flex-col flex-grow">
+                        <div className="h-6 bg-stone-200 rounded w-1/2 mb-4"></div>
+                        <div className="h-4 bg-stone-200 rounded w-full mb-2"></div>
+                        <div className="h-4 bg-stone-200 rounded w-3/4"></div>
+                        <div className="mt-auto pt-4 border-t border-stone-100 flex justify-between items-center">
+                          <div className="h-4 bg-stone-200 rounded w-16"></div>
+                          <div className="h-10 bg-stone-200 rounded w-24"></div>
                         </div>
                       </div>
                     </div>
                   ))
                 ) : filteredMenu.length > 0 ? (
                   filteredMenu.map((item, idx) => (
-                    <div key={idx} onClick={() => setSelectedItemDetail(item)} className="group relative overflow-hidden rounded-[2rem] bg-white/5 border border-white/10 flex flex-col sm:flex-row h-full transition-all duration-500 hover:bg-white/10 hover:border-white/20 hover:shadow-2xl backdrop-blur-sm transform hover:-translate-y-1 cursor-pointer">
-                      <div className="sm:w-2/5 h-48 sm:h-auto relative overflow-hidden">
+                    <div key={idx} onClick={() => setSelectedItemDetail(item)} className="group relative overflow-hidden rounded-[2rem] bg-white flex flex-col h-full transition-all duration-500 shadow-sm hover:shadow-[0_12px_30px_-10px_rgba(0,0,0,0.12)] transform hover:-translate-y-1 cursor-pointer z-10 hover:z-20 border border-stone-100/80 hover:border-stone-200">
+                      
+                      {/* Image Top */}
+                      <div className="w-full h-56 relative overflow-hidden bg-stone-50 shrink-0">
                         <div className="absolute top-4 left-4 z-20 flex gap-2 group/tooltip">
-                          <div className="bg-white/90 backdrop-blur-sm p-1.5 rounded shadow-sm flex items-center justify-center cursor-help">
+                          <div className="bg-white/95 backdrop-blur-md p-1.5 rounded-xl shadow-sm flex items-center justify-center cursor-help border border-stone-100">
                             <DietaryBadge type={item.dietaryPreference} />
                           </div>
-                          {item.dietaryPreference === 'veg' && (
-                            <div className="absolute left-0 top-full mt-2 w-64 bg-stone-900 text-stone-200 p-4 rounded-xl shadow-2xl text-xs opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 pointer-events-none transform origin-top-left scale-95 group-hover/tooltip:scale-100 border border-stone-700 text-left">
-                              <div className="font-bold text-green-500 mb-1.5 text-sm border-b border-stone-700 pb-1.5">Fresh • Wholesome • Delicious</div>
-                              <p className="text-stone-300 mt-1.5 leading-relaxed">Enjoy a wide selection of vegetarian delicacies made with fresh farm vegetables, premium dairy, and aromatic Indian spices. Perfect for every vegetarian food lover.</p>
-                            </div>
-                          )}
                         </div>
-                        <img
-                          src={item.image || undefined}
-                          alt={item.name}
-                          onClick={() => setSelectedItemDetail(item)}
-                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 cursor-pointer"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-stone-900/90 via-stone-900/40 to-transparent sm:bg-gradient-to-r sm:from-transparent sm:via-stone-800/80 sm:to-stone-800"></div>
-
-                        <div className="absolute bottom-4 left-4 sm:hidden">
-                          <span className="bg-stone-900/80 backdrop-blur-md text-stone-200 text-xs font-medium px-2.5 py-1 rounded-md border border-stone-700">
-                            {item.category}
-                          </span>
+                        {item.image ? (
+                          <img src={item.image} alt={item.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center group-hover:scale-105 transition-transform duration-700">
+                             <ChefHat className="w-16 h-16 text-stone-200" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.02)] pointer-events-none"></div>
+                        
+                        {/* Tags on Image */}
+                        <div className="absolute top-4 right-4 flex flex-col items-end gap-2 z-20">
+                           {item.isBestSeller && (
+                              <span className="bg-white/95 backdrop-blur-md text-[var(--color-gold)] text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm border border-[var(--color-gold)]/20 flex items-center gap-1">
+                                <Star className="w-3 h-3 fill-current" /> Bestseller
+                              </span>
+                           )}
+                           {item.spiceLevel && item.spiceLevel !== 'None' && (
+                              <span className="bg-white/95 backdrop-blur-md text-red-500 text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm border border-red-500/20 flex items-center gap-1">
+                                🔥 Spicy
+                              </span>
+                           )}
+                        </div>
+                        
+                        {/* Price Overlay */}
+                        <div className="absolute bottom-3 right-3 z-20 transition-transform duration-500 group-hover:-translate-y-1">
+                           <span className="bg-white/95 backdrop-blur-md text-[var(--color-brown)] font-black text-lg px-4 py-1.5 rounded-xl shadow-md border border-white flex items-center gap-1">
+                             ₹{item.price}
+                           </span>
                         </div>
                       </div>
-                      <div className="sm:w-3/5 p-6 md:p-8 flex flex-col justify-between relative z-10 bg-gradient-to-t from-stone-800 via-stone-800 to-transparent sm:bg-none">
-                        <div>
-                          <div className="flex justify-between items-start mb-3 gap-4">
-                            <div>
-                              <div className="hidden sm:inline-block mb-2">
-                                <span className="bg-stone-700/50 text-stone-300 text-xs font-medium px-2.5 py-1 rounded-md border border-stone-600/50">
-                                  {item.category}
-                                </span>
-                              </div>
-                              <h3 onClick={() => setSelectedItemDetail(item)} className="text-2xl font-bold font-serif text-white leading-tight group-hover:text-[var(--color-gold)] transition-colors cursor-pointer">{item.name}</h3>
-                            </div>
-                            <div className="flex flex-col items-end text-right">
-                              <span className="font-sans font-bold text-[var(--color-gold)] whitespace-nowrap text-2xl">₹{item.price}</span>
-                              {item.fullPortionPieces && <span className="text-stone-400 font-medium text-[13px] mt-0.5">{item.fullPortionPieces} Pieces</span>}
-                            </div>
-                          </div>
-                          <p onClick={() => setSelectedItemDetail(item)} className="text-stone-400 mb-6 text-sm leading-relaxed cursor-pointer">{item.description}</p>
-                        </div>
 
-                        <div className="flex items-center justify-between mt-auto pt-5 border-t border-stone-700/50">
-                          <div className="flex items-center gap-2">
-                            {item.spiceLevel && item.spiceLevel !== 'None' && (
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-red-400 bg-red-400/10 px-2 py-1 rounded-md border border-red-400/20">
-                                🔥 {item.spiceLevel}
-                              </span>
-                            )}
-                            {item.isBestSeller && (
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-yellow-400 bg-yellow-400/10 px-2 py-1 rounded-md border border-yellow-400/20 flex items-center">
-                                <Star className="w-3 h-3 mr-1 fill-current" /> Bestseller
-                              </span>
-                            )}
-                            {item.isDhabaSpecial && (
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-red-500 bg-red-500/10 px-2 py-1 rounded-md border border-red-500/20">
-                                Dhaba Special
-                              </span>
-                            )}
-                            {item.isWithoutButter && (
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 bg-blue-400/10 px-2 py-1 rounded-md border border-blue-400/20">
-                                Without Butter
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex gap-2 w-full justify-end">
+                      {/* Content Bottom */}
+                      <div className="p-6 flex flex-col flex-grow bg-white">
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                          <span className="bg-stone-50 text-[var(--color-brown)] text-[10px] font-bold px-3 py-1.5 rounded-lg border border-stone-200 uppercase tracking-widest transition-colors group-hover:bg-[#fcfaf5] group-hover:border-[var(--color-gold)]/30">
+                            {item.category}
+                          </span>
+                          {item.fullPortionPieces && (
+                            <span className="text-stone-400 font-medium text-[10px] uppercase tracking-wider">{item.fullPortionPieces} Pieces</span>
+                          )}
+                          {item.isDhabaSpecial && (
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-red-500 bg-red-50 px-2 py-1 rounded-md border border-red-100">
+                              Special
+                            </span>
+                          )}
+                          {item.isWithoutButter && (
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-blue-500 bg-blue-50 px-2 py-1 rounded-md border border-blue-100">
+                              No Butter
+                            </span>
+                          )}
+                        </div>
+                        
+                        <h3 className="text-xl font-bold font-serif text-[#3a2e28] leading-tight mb-2 transition-colors line-clamp-1 group-hover:text-amber-900" title={item.name}>{item.name}</h3>
+                        <p className="text-[#6b5a52] text-sm leading-relaxed mb-5 flex-grow line-clamp-2 font-light">{item.description}</p>
+
+                        {/* Action Footer */}
+                        <div className="mt-auto pt-4 border-t border-stone-100 transition-colors group-hover:border-[var(--color-gold)]/10">
+                           <div className="w-full">
                             {(item.hasHalfPortion || item.hasButterOption) ? (
                               <button
                                 onClick={() => setSelectedItemDetail(item)}
-                                className="bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold)]/80 hover:from-[#E6B355] hover:to-[var(--color-gold)] text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg flex items-center justify-center gap-2 transform hover:-translate-y-1 active:scale-95 h-[48px]"
+                                className="w-full bg-[var(--color-ivory)] hover:bg-[var(--color-brown)] border border-[var(--color-gold)]/20 hover:border-transparent text-[var(--color-brown)] hover:text-[var(--color-gold)] font-semibold py-3 rounded-xl transition-all duration-500 flex items-center justify-center gap-2 shadow-sm group/btn"
                               >
-                                <ShoppingCart className="w-4 h-4" />
-                                <span className="hidden sm:inline">Add</span>
+                                <span>Add to Order</span>
+                                <ShoppingCart className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
                               </button>
                             ) : (
                               getQuantity(item) === 0 ? (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); addToCart({ ...item, isHalf: false }); }}
-                                  className="bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold)]/80 hover:from-[#E6B355] hover:to-[var(--color-gold)] text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg flex items-center justify-center gap-2 transform hover:-translate-y-1 active:scale-95 h-[48px]"
+                                  className="w-full bg-[var(--color-ivory)] hover:bg-[var(--color-brown)] border border-[var(--color-gold)]/20 hover:border-transparent text-[var(--color-brown)] hover:text-[var(--color-gold)] font-semibold py-3 rounded-xl transition-all duration-500 flex items-center justify-center gap-2 shadow-sm group/btn"
                                 >
-                                  <ShoppingCart className="w-4 h-4" />
-                                  <span className="hidden sm:inline">Add</span>
+                                  <span>Add to Order</span>
+                                  <ShoppingCart className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
                                 </button>
                               ) : (
-                                <div className="flex items-center justify-between bg-dhaba-orange text-white rounded-xl overflow-hidden shadow-lg h-[48px] animate-in fade-in zoom-in-75 duration-300">
+                                <div className="flex items-center justify-between bg-dhaba-orange text-white rounded-xl overflow-hidden shadow-sm h-[48px] w-full animate-in fade-in zoom-in-75 duration-300">
                                   <button
                                     onClick={(e) => { e.stopPropagation(); updateQuantity(item.name, item.isHalf || false, item.isButter || false, -1, item.variantName); }}
-                                    className="px-4 h-full bg-black/10 hover:bg-black/20 transition-colors flex items-center justify-center"
+                                    className="h-full bg-black/10 hover:bg-black/20 transition-colors flex items-center justify-center flex-1"
                                   >
                                     <Minus className="w-4 h-4" />
                                   </button>
-                                  <span className="font-bold min-w-[2.5rem] text-center text-lg">{getQuantity(item)}</span>
+                                  <span className="font-bold text-center text-lg flex-[2]">{getQuantity(item)}</span>
                                   <button
                                     onClick={(e) => { e.stopPropagation(); updateQuantity(item.name, item.isHalf || false, item.isButter || false, 1, item.variantName); }}
-                                    className="px-4 h-full bg-black/10 hover:bg-black/20 transition-colors flex items-center justify-center"
+                                    className="h-full bg-black/10 hover:bg-black/20 transition-colors flex items-center justify-center flex-1"
                                   >
                                     <Plus className="w-4 h-4" />
                                   </button>
@@ -1022,7 +1018,7 @@ export default function Storefront() {
           </section>
 
           {/* Features/Amenities */}
-          <section id="features" className="py-24 bg-[var(--color-ivory)] text-[var(--color-brown)] relative z-10">
+          <section id="features" className="py-16 md:py-24 text-[var(--color-brown)] relative z-10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="text-center max-w-2xl mx-auto mb-16">
                 <div className="flex items-center justify-center gap-4 mb-4">
@@ -1073,7 +1069,7 @@ export default function Storefront() {
           </section>
 
           {/* About Section */}
-          <section id="about" className="py-24 md:py-32 bg-[var(--color-ivory)] relative overflow-hidden">
+          <section id="about" className="py-24 md:py-32 relative overflow-hidden">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex flex-col lg:flex-row items-center gap-16 lg:gap-24">
                 <div className="lg:w-5/12 w-full relative group perspective-1000">
@@ -1153,8 +1149,8 @@ export default function Storefront() {
 
                   <div className="mt-12 flex items-center gap-5 pt-8 border-t border-stone-200/60">
                     <div className="w-16 h-16 shrink-0 rounded-full bg-gradient-to-br from-[var(--color-gold)] to-[#b38827] flex items-center justify-center p-[3px] shadow-lg shadow-[var(--color-gold)]/20">
-                      <div className="w-full h-full rounded-full border border-white/30 flex items-center justify-center bg-[var(--color-brown)] overflow-hidden">
-                         <span className="font-serif font-bold text-[var(--color-gold)] text-2xl">H</span>
+                      <div className="w-full h-full rounded-full border border-white/30 flex items-center justify-center bg-white overflow-hidden">
+                         <img src="/Browser-tab.webp" alt="Harjinder Tourist Dhaba Logo" className="w-full h-full object-cover" />
                       </div>
                     </div>
                     <div>
@@ -1168,15 +1164,16 @@ export default function Storefront() {
               </div>
             </div>
           </section>
+          <BanquetSection />
           <Testimonials />
           {/* Footer & Contact */}
-          <footer id="contact" className="bg-[var(--color-brown)] text-stone-400 pt-24 border-t-4 border-[var(--color-gold)] relative">
+          <footer id="contact" className="text-stone-700 pt-24 border-t border-[var(--color-gold)]/30 relative">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
 
                 <div className="lg:col-span-1">
                   <span className="font-serif text-2xl font-bold tracking-tight text-[var(--color-gold)] mb-6 block">
-                    <span className="text-[var(--color-gold)]">H</span>arjinder <span className="text-white font-light">Dhaba</span>
+                    <span className="text-[var(--color-gold)]">H</span>arjinder <span className="text-stone-800 font-light">Dhaba</span>
                   </span>
                   <p className="mb-6 leading-relaxed">
                     The ultimate pitstop for authentic Punjabi cuisine. Serving fresh, hot, and hygienic food 24/7.
@@ -1192,7 +1189,7 @@ export default function Storefront() {
                 </div>
 
                 <div>
-                  <h4 className="text-white font-serif font-bold mb-8 text-2xl tracking-wide">Contact Us</h4>
+                  <h4 className="text-[var(--color-brown)] font-serif font-bold mb-8 text-2xl tracking-wide">Contact Us</h4>
                   <address>
                   <ul className="space-y-4 not-italic">
                     <li className="flex items-start">
@@ -1202,7 +1199,7 @@ export default function Storefront() {
                     <li className="flex flex-col gap-2">
                       <div className="flex items-center">
                         <Phone className="w-6 h-6 text-[var(--color-gold)] mr-3 flex-shrink-0" />
-                        <a href="tel:+919056655093" className="hover:text-[var(--color-gold)] transition-colors font-medium text-white">
+                        <a href="tel:+919056655093" className="hover:text-[var(--color-gold)] transition-colors font-medium text-stone-800">
                           +91 90566 55093
                         </a>
                       </div>
@@ -1225,7 +1222,7 @@ export default function Storefront() {
                 </div>
 
                 <div>
-                  <h4 className="text-white font-serif font-bold mb-8 text-2xl tracking-wide">Quick Links</h4>
+                  <h4 className="text-[var(--color-brown)] font-serif font-bold mb-8 text-2xl tracking-wide">Quick Links</h4>
                   <ul className="space-y-3">
                     <li><a href="#about" onClick={(e) => { e.preventDefault(); if (currentView !== 'home') { setCurrentView('home'); setTimeout(() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }), 100); } else { document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }); } }} className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-block">About Us</a></li>
                     <li><button onClick={() => { setCurrentView('menu'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-block focus:outline-none">Food Menu</button></li>
@@ -1234,8 +1231,8 @@ export default function Storefront() {
                 </div>
 
                 <div className="flex flex-col h-full">
-                  <h4 className="text-white font-serif font-bold mb-8 text-2xl tracking-wide">Location Map</h4>
-                  <div className="w-full flex-grow min-h-[180px] rounded-xl overflow-hidden border border-white/10 shadow-lg relative bg-white/5 backdrop-blur-sm">
+                  <h4 className="text-[var(--color-brown)] font-serif font-bold mb-8 text-2xl tracking-wide">Location Map</h4>
+                  <div className="w-full flex-grow min-h-[180px] rounded-xl overflow-hidden shadow-lg relative bg-white/40 border border-[#d4af37]/20">
                     <iframe
                       src="https://maps.google.com/maps?q=Harjinder+Tourist+Dhaba,+Kharar,+Punjab&t=&z=14&ie=UTF8&iwloc=&output=embed"
                       className="absolute inset-0 w-full h-full"
@@ -1260,7 +1257,7 @@ export default function Storefront() {
               </div>
             </div>
 
-            <div className="border-t border-stone-800 py-4 text-center px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+            <div className="border-t border-[var(--color-gold)]/20 py-4 text-center px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
               <p className="text-stone-500 text-xs md:text-sm tracking-wide flex items-center justify-center gap-2 flex-wrap">
                 <span>Every dish takes 15-20 minutes to serve</span>
                 <span className="hidden sm:inline">|</span>
@@ -1270,11 +1267,11 @@ export default function Storefront() {
               </p>
             </div>
             
-            <div className="border-t border-stone-800 py-6 flex flex-col md:flex-row justify-between items-center text-sm max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <p className="mb-4 md:mb-0 text-stone-400">&copy; {new Date().getFullYear()} Harjinder Tourist Dhaba. All rights reserved.</p>
-              <a href="https://rupeshkumar.online" target="_blank" rel="noopener noreferrer" className="relative flex items-center gap-2 bg-black/50 hover:bg-black/80 px-4 py-1.5 rounded-full border border-green-500/30 hover:border-green-400 transition-all duration-500 group overflow-hidden shadow-[0_0_10px_rgba(34,197,94,0.1)] hover:shadow-[0_0_20px_rgba(34,197,94,0.4)] scale-90 md:scale-100 origin-right">
+            <div className="border-t border-[var(--color-gold)]/20 py-6 flex flex-col md:flex-row justify-between items-center text-sm max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <p className="mb-4 md:mb-0 text-stone-500">&copy; {new Date().getFullYear()} Harjinder Tourist Dhaba. All rights reserved.</p>
+              <a href="https://rupeshkumar.online" target="_blank" rel="noopener noreferrer" className="relative flex items-center gap-2 bg-stone-100 hover:bg-stone-200 px-4 py-1.5 rounded-full border border-green-500/30 hover:border-green-400 transition-all duration-500 group overflow-hidden shadow-sm hover:shadow-md scale-90 md:scale-100 origin-right">
                 <div className="absolute inset-0 bg-green-400/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out"></div>
-                <span className="text-stone-400 font-mono text-[10px] group-hover:text-green-400 transition-colors z-10 flex items-center uppercase tracking-wider">
+                <span className="text-stone-500 font-mono text-[10px] group-hover:text-green-600 transition-colors z-10 flex items-center uppercase tracking-wider">
                   <span className="text-green-500 mr-1 opacity-0 w-0 group-hover:w-auto overflow-hidden group-hover:opacity-100 transition-all duration-300 font-bold">&gt;_</span>
                   Built by
                 </span>
@@ -1283,7 +1280,7 @@ export default function Storefront() {
                     <img src="/Rup.png" alt="Rupesh" className="w-5 h-5 rounded-full object-cover object-center border border-green-500/30 group-hover:border-green-400 transition-colors relative z-10" />
                     <div className="absolute inset-0 rounded-full bg-green-400 opacity-0 group-hover:animate-ping group-hover:opacity-20 z-0"></div>
                   </div>
-                  <span className="font-bold text-white font-mono text-xs tracking-widest group-hover:text-green-300 group-hover:drop-shadow-[0_0_8px_rgba(74,222,128,0.8)] transition-all uppercase">
+                  <span className="font-bold text-stone-800 font-mono text-xs tracking-widest group-hover:text-green-700 transition-all uppercase">
                     Rupesh
                   </span>
                 </div>
