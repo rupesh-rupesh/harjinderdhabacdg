@@ -1234,7 +1234,7 @@ export default function Storefront() {
                   <h4 className="text-[var(--color-brown)] font-serif font-bold mb-8 text-2xl tracking-wide">Location Map</h4>
                   <div className="w-full flex-grow min-h-[180px] rounded-xl overflow-hidden shadow-lg relative bg-white/40 border border-[#d4af37]/20">
                     <iframe
-                      src="https://maps.google.com/maps?q=Harjinder+Tourist+Dhaba,+Kharar,+Punjab&t=&z=14&ie=UTF8&iwloc=&output=embed"
+                      src="https://maps.google.com/maps?q=30.790398619530514,76.60875603332086&t=&z=15&ie=UTF8&iwloc=&output=embed"
                       className="absolute inset-0 w-full h-full"
                       style={{ border: 0 }}
                       allowFullScreen={true}
@@ -1244,7 +1244,7 @@ export default function Storefront() {
                     ></iframe>
                   </div>
                   <a
-                    href="https://www.google.com/maps/dir/?api=1&destination=Harjinder+Tourist+Dhaba,+Kharar,+Punjab"
+                    href="https://www.google.com/maps/dir/?api=1&destination=30.790398619530514,76.60875603332086"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-3 w-full bg-gradient-to-r from-[var(--color-gold)] to-amber-600 hover:brightness-110 text-stone-950 font-bold py-2.5 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-sm"
