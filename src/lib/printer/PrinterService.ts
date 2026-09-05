@@ -377,10 +377,16 @@ class PrinterService {
     }
 
     if (!isTest) {
-      await generator.printImage('/bill-logo.png');
+      try {
+        await generator.printImage('/bill-logo.png');
+      } catch (e) {
+        // Fallback to text if logo is missing
+      }
     }
 
     generator.alignCenter();
+    generator.newline(1);
+    generator.bold(true).textLine("HARJINDER TOURIST DHABA").bold(false);
     generator.textLine("VPO-Sahauran, Teh-Kharar,");
     generator.textLine("Distt. Mohali (Punjab) - 140103");
     generator.textLine("Phone: 90566-55093");

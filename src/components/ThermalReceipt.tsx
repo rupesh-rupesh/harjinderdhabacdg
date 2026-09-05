@@ -74,23 +74,25 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({ order, includeGs
   };
 
   return (
-    <div ref={forwardedRef} className="thermal-receipt-container font-mono text-black bg-white p-4 max-w-[350px] mx-auto text-[13px] leading-tight">
+    <div ref={forwardedRef} className="thermal-receipt-container font-sans text-black bg-white py-4 px-0 max-w-[350px] mx-auto text-[13px] leading-tight">
       <style dangerouslySetInnerHTML={{
         __html: `
         @media print {
-          body * {
-            visibility: hidden;
+          @page {
+            margin: 0;
+            size: 58mm auto;
           }
-          .thermal-receipt-container, .thermal-receipt-container * {
-            visibility: visible;
+          html, body {
+            width: 58mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
           }
           .thermal-receipt-container {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 80mm;
-            padding: 2mm !important;
-            margin: 0 !important;
+            width: 58mm !important;
+            max-width: 58mm !important;
+            padding: 2mm 0 !important;
+            margin: 0 auto !important;
           }
         }
         .thermal-receipt-container {
@@ -106,20 +108,15 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({ order, includeGs
         }
       `}} />
       {/* Header */}
-      <div className="text-center mb-2 flex flex-col items-center">
-        <div className="w-full text-center mt-2 mb-4">
-          <div className="text-[28px] font-bold uppercase tracking-widest leading-none" style={{ fontFamily: 'Georgia, serif' }}>
-            Harjinder
-          </div>
-          <div className="text-[12px] font-bold uppercase tracking-[0.2em] mt-1" style={{ fontFamily: 'Arial, sans-serif' }}>
-            Tourist Dhaba
-          </div>
+      <div className="text-center mb-2 flex flex-col items-center leading-tight">
+        <div className="w-full text-center uppercase mb-1 font-bold text-[14px]">
+          HARJINDER TOURIST DHABA
         </div>
-        <p className="mb-0 z-10 relative">VPO-Sahauran, Teh-Kharar,</p>
-        <p className="mb-0">Distt. Mohali (Punjab) - 140103</p>
-        <p className="mb-0">Phone: 90566-55093</p>
-        <p className="mb-0">FSSAI: 22120036000138</p>
-        {includeGst && <p className="mb-0 font-bold mt-1">GSTIN: 03AAKFH5744C1Z0</p>}
+        <div className="mb-0">VPO-Sahauran, Teh-Kharar,</div>
+        <div className="mb-0">Distt. Mohali (Punjab) - 140103</div>
+        <div className="mb-0">Phone: 90566-55093</div>
+        <div className="mb-0">FSSAI: 22120036000138</div>
+        {includeGst && <div className="mb-0">GSTIN: 03AAKFH5744C1Z0</div>}
       </div>
 
       <div className="divider"></div>
@@ -198,9 +195,9 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({ order, includeGs
 
       <div className="border-t-[2px] border-black my-1"></div>
 
-      <div className="flex justify-between font-black text-xl mb-2 py-1 uppercase">
+      <div className="flex justify-between font-black text-[17px] items-center mb-2 py-1 uppercase whitespace-nowrap">
         <span>Grand Total</span>
-        <span>Rs. {grandTotal.toFixed(2)}</span>
+        <span className="text-[22px]">Rs. {grandTotal.toFixed(2)}</span>
       </div>
 
       {/* Remark Box */}

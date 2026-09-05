@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { useQuery } from '@tanstack/react-query';
 import PanLoader from './PanLoader';
 import { DevEmptyStateText } from './DevEmptyStateText';
@@ -21,6 +22,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
   const [generateGst, setGenerateGst] = useState(true);
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
   const receiptRef = useRef<HTMLDivElement>(null);
+  const printReceiptAction = useReactToPrint({ contentRef: receiptRef });
 
   
   const handlePrintSpecificOrder = async (order: any) => {
@@ -42,7 +44,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
     if (printerService.getConfig().type === 'browser') {
       setSelectedOrder(order);
       setTimeout(() => {
-        if (receiptRef.current) window.print();
+        if (receiptRef.current) printReceiptAction();
       }, 100);
     } else {
       try {
@@ -76,7 +78,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
     if (printerService.getConfig().type === 'browser') {
 
       if (receiptRef.current) {
-        window.print();
+        printReceiptAction();
       }
     } else {
       if (selectedOrder) {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import PanLoader from './PanLoader';
 import { useQuery } from '@tanstack/react-query';
 import { LayoutGrid, Package, Utensils, Grid, Search, Plus, Minus, Trash2, CheckCircle2, AlertCircle, ShoppingBag, ArrowLeft, ArrowRight, Table, X, CreditCard, Printer, FileText, Eye, UserCircle, Lock, Unlock, Save, ChevronDown, Edit2, Wifi, WifiOff } from 'lucide-react';
@@ -192,6 +193,9 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
   const [showCartReceiptPreview, setShowCartReceiptPreview] = useState(false);
   const cartReceiptRef = useRef<HTMLDivElement>(null);
+  const printCartAction = useReactToPrint({ contentRef: cartReceiptRef });
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const printReceiptAction = useReactToPrint({ contentRef: receiptRef });
   const cartEndRef = useRef<HTMLDivElement>(null);
   const [showGstDetails, setShowGstDetails] = useState(false);
   const [isCustomItemModalOpen, setIsCustomItemModalOpen] = useState(false);
@@ -225,7 +229,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
   const handlePrintCart = async () => {
     if (printerService.getConfig().type === 'browser') {
       if (cartReceiptRef.current) {
-        window.print();
+        printCartAction();
       }
     } else {
       if (cart.length > 0) {
@@ -263,12 +267,10 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
     }
   };
 
-  const receiptRef = useRef<HTMLDivElement>(null);
-
   const handlePrint = async () => {
     if (printerService.getConfig().type === 'browser') {
       if (receiptRef.current) {
-        window.print();
+        printReceiptAction();
       }
     } else {
       if (checkoutTable?.order) {
@@ -544,7 +546,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
               await printerService.printReceipt(printOrder, false, true, generateGst);
             } else {
               draftOrder.id = String(printOrder.id);
-              if (cartReceiptRef.current) window.print();
+              if (cartReceiptRef.current) printCartAction();
             }
           } catch (printErr: any) {
             toast.error(printErr.message || "Failed to print bill");
