@@ -110,6 +110,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
   }, [isLocked]);
 
 
+  const [showMobileCart, setShowMobileCart] = useState(false);
   const [tableSelection, setTableSelection] = useState<number | null>(null);
   const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
   const [checkoutTable, setCheckoutTable] = useState<{ num: number, order: any } | null>(null);
@@ -189,7 +190,14 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
       if (clearEditingOrder) clearEditingOrder();
     }
   }, [editingOrder]);
-  const [generateGst, setGenerateGst] = useState(true);
+  const [gstTableStates, setGstTableStates] = useState<Record<string, boolean>>({});
+  const currentTableId = tableSelection || checkoutTable?.num;
+  const generateGst = currentTableId && gstTableStates[String(currentTableId)] !== undefined ? gstTableStates[String(currentTableId)] : true;
+  const setGenerateGst = (val: boolean) => {
+    if (currentTableId) {
+      setGstTableStates(prev => ({ ...prev, [String(currentTableId)]: val }));
+    }
+  };
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
   const [showCartReceiptPreview, setShowCartReceiptPreview] = useState(false);
   const cartReceiptRef = useRef<HTMLDivElement>(null);
@@ -767,6 +775,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                               fetchOrders();
                               setTableSelection(checkoutTable.num);
                               setCheckoutTable(null);
+                              setGenerateGst(true);
                               toast.success(`Order for Table ${checkoutTable.num} cancelled.`);
                             } catch (e: any) {
                               toast.error(e.message || "Failed to cancel order");
@@ -796,6 +805,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                               fetchOrders();
                               setTableSelection(checkoutTable.num);
                               setCheckoutTable(null);
+                              setGenerateGst(true);
                               toast.success(`Bill for Table ${checkoutTable.num} marked as paid.`);
                             } catch (e: any) {
                               toast.error(e.message || "Failed to mark order as paid");
@@ -1288,6 +1298,15 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
             >
               <Icons.Maximize className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
+            <button type="button"
+              onClick={() => setShowMobileCart(true)}
+              className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-xl transition-colors sm:hidden relative"
+            >
+              <Icons.ChevronLeft className="w-5 h-5" />
+              {cart.length > 0 && (
+                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-dhaba-orange rounded-full border-2 border-white"></span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -1295,7 +1314,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
         <div className="flex-1 flex overflow-hidden">
 
           {/* Left Column: Categories — floating pills look */}
-          <div className="w-20 sm:w-48 bg-stone-50 border-r border-stone-200 overflow-y-auto shrink-0 flex flex-col p-2 sm:p-4 gap-2">
+          <div className="w-24 sm:w-48 bg-stone-50 border-r border-stone-200 overflow-y-auto shrink-0 flex flex-col p-2 sm:p-4 gap-2">
             {categories.map(cat => (
               <button type="button"
                 key={cat.id}
@@ -1376,6 +1395,25 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                 </div>
               )}
             </div>
+
+            {/* Floating Cart Button for Mobile */}
+            {cart.length > 0 && !showMobileCart && (
+              <div className="sm:hidden fixed bottom-4 left-4 right-4 z-40 animate-in slide-in-from-bottom-4">
+                <button type="button"
+                  onClick={() => setShowMobileCart(true)}
+                  className="w-full bg-dhaba-orange text-white font-black py-4 px-6 rounded-2xl shadow-xl flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="w-5 h-5" />
+                    <span>{cart.length} {cart.length === 1 ? 'Item' : 'Items'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span>View Cart</span>
+                    <Icons.ChevronRight className="w-5 h-5" />
+                  </div>
+                </button>
+              </div>
+            )}
           </div>
 
         </div>
@@ -1383,8 +1421,8 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
 
       {/* Right Column: Current Bill */}
       <div
-        className="bg-white border-l border-stone-100 flex flex-col shrink-0 shadow-[-4px_0_24px_rgba(0,0,0,0.02)] z-10 relative"
-        style={{ width: `${cartWidth}px` }}
+        className={`bg-white border-l border-stone-100 flex flex-col shrink-0 shadow-[-4px_0_24px_rgba(0,0,0,0.02)] z-50 fixed sm:relative top-0 bottom-0 right-0 h-full transition-transform duration-300 ease-in-out ${showMobileCart ? 'translate-x-0 w-full' : 'translate-x-full sm:translate-x-0 sm:w-auto'}`}
+        style={window.innerWidth < 640 ? {} : { width: `${cartWidth}px` }}
       >
         {/* Resize Handle */}
         <div
@@ -1395,12 +1433,17 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
         </div>
 
         <div className="px-4 py-3 border-b border-stone-100 bg-white shadow-sm relative z-20 flex justify-between items-center">
-          <h3 className="font-bold text-lg text-stone-800 flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-dhaba-orange/10 flex items-center justify-center">
-              <ShoppingBag className="w-3.5 h-3.5 text-dhaba-orange" />
-            </div>
-            Current Bill
-          </h3>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setShowMobileCart(false)} className="p-1.5 -ml-2 mr-1 sm:hidden hover:bg-stone-100 rounded-lg text-stone-500">
+               <Icons.ChevronRight className="w-5 h-5" />
+            </button>
+            <h3 className="font-bold text-lg text-stone-800 flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-dhaba-orange/10 flex items-center justify-center">
+                <ShoppingBag className="w-3.5 h-3.5 text-dhaba-orange" />
+              </div>
+              Current Bill
+            </h3>
+          </div>
           <div className="flex items-center gap-2 pr-1">
             <button type="button" onClick={toggleLock} title={isLocked ? "Unlock Screen" : "Lock Screen"} className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${isLocked ? 'text-dhaba-orange bg-dhaba-orange/10' : 'text-stone-500 hover:text-stone-700 hover:bg-stone-100'}`}>
               {isLocked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}

@@ -633,9 +633,7 @@ app.get('/api/storefront-data', async (req, res) => {
       db.select().from(journeySettings).limit(1)
     ]);
     const visibleCats = cats.filter(c => !c.isHidden);
-    const visibleCatNames = visibleCats.map(c => c.name);
-    const visibleMenu = menu.filter(m => visibleCatNames.includes(m.category));
-    res.json({ menuItems: visibleMenu, categories: visibleCats, features: feats, journeySettings: settings[0] || { header: 'Our Journey', description: '' } });
+    res.json({ menuItems: menu, categories: visibleCats, features: feats, journeySettings: settings[0] || { header: 'Our Journey', description: '' } });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

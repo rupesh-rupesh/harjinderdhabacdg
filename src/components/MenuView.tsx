@@ -138,13 +138,16 @@ export default function MenuView({
 
   const filters = ['All', 'Veg', 'Non-Veg', 'Popular', 'Best Seller', 'Specials'];
 
-  const visibleCategories = dbCategories.filter(cat => !cat.isHidden).map(cat => cat.name);
+  const visibleCategories = dbCategories
+    .filter(cat => !cat.isHidden)
+    .map(cat => (cat.name || '').trim().toLowerCase());
 
   const filteredItems = menuItems.filter(item => {
-    if (!visibleCategories.includes(item.category)) return false;
+    const itemCat = (item.category || '').trim().toLowerCase();
+    if (!visibleCategories.includes(itemCat)) return false;
 
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          item.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (item.name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (item.description || '').toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
 
     if (filterType !== 'All') {
@@ -156,7 +159,7 @@ export default function MenuView({
     }
     
     if (activeCategory === 'All') return true;
-    return item.category === activeCategory;
+    return itemCat === (activeCategory || '').trim().toLowerCase();
   });
 
   return (

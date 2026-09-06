@@ -74,7 +74,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({ order, includeGs
   };
 
   return (
-    <div ref={forwardedRef} className="thermal-receipt-container font-sans text-black bg-white py-4 px-0 max-w-[350px] mx-auto text-[13px] leading-tight">
+    <div ref={forwardedRef} className="thermal-receipt-container font-sans text-black bg-white p-4 max-w-[350px] mx-auto text-[13px] leading-tight">
       <style dangerouslySetInnerHTML={{
         __html: `
         @media print {
@@ -91,7 +91,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({ order, includeGs
           .thermal-receipt-container {
             width: 58mm !important;
             max-width: 58mm !important;
-            padding: 2mm 0 !important;
+            padding: 2mm !important;
             margin: 0 auto !important;
           }
         }
