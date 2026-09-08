@@ -662,6 +662,7 @@ app.post("/api/categories/:id/toggle-visibility", async (req, res) => {
 });
 
 app.get('/api/categories', async (req, res) => {
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
   try { res.json(await db.select().from(categories).where(eq(categories.isDeleted, false))); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -716,6 +717,7 @@ app.delete('/api/categories/:id/permanent', async (req, res) => {
 
 // ─── Menu Items ───────────────────────────────────────────────────────────────
 app.get('/api/menu-items', async (req, res) => {
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
   try { res.json(await db.select().from(menuItems).where(eq(menuItems.isDeleted, false))); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
