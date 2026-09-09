@@ -74,6 +74,11 @@ const staticJourneyMedia = [
   { id: 4, type: 'image', url: '/4.webp', caption: 'our journey since 1991' }
 ];
 
+const staticHeroMedia = [
+  { id: 1, type: 'image', url: '/hero-bg.webp' },
+  { id: 2, type: 'image', url: '/herobg2.webp' },
+];
+
 const BackgroundVideo = ({ src }: { src: string }) => {
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
@@ -213,6 +218,7 @@ export default function Storefront() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [currentJourneyIndex, setCurrentJourneyIndex] = useState(0);
+  const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
 
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showAllSpecials, setShowAllSpecials] = useState(false);
@@ -293,6 +299,15 @@ export default function Storefront() {
     if (staticJourneyMedia.length > 0) {
       const interval = setInterval(() => {
         setCurrentJourneyIndex(prev => (prev + 1) % staticJourneyMedia.length);
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (staticHeroMedia.length > 0) {
+      const interval = setInterval(() => {
+        setCurrentHeroIndex(prev => (prev + 1) % staticHeroMedia.length);
       }, 5000);
       return () => clearInterval(interval);
     }
@@ -628,20 +643,54 @@ export default function Storefront() {
 
           {/* Hero Section */}
           <section id="home" className="relative min-h-[100dvh] flex items-center justify-center pt-16 pb-12 overflow-hidden">
-            <div
-              className="absolute inset-0 z-0"
-              style={{
-                backgroundImage: "url('/hero-bg.webp'), url('https://images.unsplash.com/photo-1517244683847-7456b63c5969?q=80&w=2070&auto=format&fit=crop')",
-                backgroundPosition: "center",
-                backgroundSize: "cover",
-              }}
-            >
-              <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(36,23,18,0.92) 0%, rgba(36,23,18,0.55) 45%, rgba(36,23,18,0.96) 100%)' }} />
+            {/* Animated Hero Background */}
+            <div className="absolute inset-0 z-0 bg-stone-900">
+              {staticHeroMedia.map((media, index) => (
+                <img
+                  key={media.id}
+                  src={media.url}
+                  alt="Harjinder Tourist Dhaba"
+                  className={`absolute inset-0 w-full h-full object-cover transition-transform duration-[20s] ease-linear ${index === currentHeroIndex ? 'opacity-100 z-10 scale-110' : 'opacity-0 z-0 pointer-events-none scale-100'}`}
+                />
+              ))}
+              
+              {/* Overlay gradient for text readability */}
+              <div className="absolute inset-0 z-10 pointer-events-none" style={{ background: 'linear-gradient(180deg, rgba(36,23,18,0.92) 0%, rgba(36,23,18,0.55) 45%, rgba(36,23,18,0.96) 100%)' }} />
+              
               {/* Decorative grain */}
-              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\' opacity=\'0.4\'/%3E%3C/svg%3E")', backgroundSize: '180px 180px' }} />
+              <div className="absolute inset-0 z-10 opacity-20 pointer-events-none" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\' opacity=\'0.4\'/%3E%3C/svg%3E")', backgroundSize: '180px 180px' }} />
+
+              {/* Pill-shaped Floating Progress Bar */}
+              <div className="absolute bottom-[20%] left-1/2 -translate-x-1/2 z-30 pointer-events-none opacity-70">
+                <div className="flex items-center gap-2 px-3 py-2 bg-black/10 backdrop-blur-md rounded-full border border-white/10">
+                  {staticHeroMedia.map((_, i) => {
+                    const isActive = i === currentHeroIndex;
+                    return (
+                      <div 
+                        key={i} 
+                        className={`relative rounded-full transition-all duration-500 overflow-hidden ${
+                          isActive ? 'w-8 h-2 bg-white' : 'w-2 h-2 bg-white/50'
+                        }`}
+                      >
+                        {isActive && (
+                          <div 
+                            key={`active-hero-${Date.now()}`}
+                            className="absolute inset-y-0 left-0 bg-[var(--color-gold)] origin-left rounded-full"
+                            style={{
+                              width: '100%',
+                              transform: 'scaleX(0)',
+                              animation: 'progressX 5s linear forwards'
+                            }}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
-            <div className="relative z-10 text-center px-5 sm:px-8 py-12 sm:py-16 max-w-4xl mx-auto w-full" style={{ marginTop: '5rem' }}>
+            <div className="relative z-20 text-center px-5 sm:px-8 py-12 sm:py-16 max-w-4xl mx-auto w-full" style={{ marginTop: '5rem' }}>
               {/* Eyebrow */}
               <div className="flex items-center justify-center gap-3 mb-6">
                 <div className="h-px w-8 sm:w-12" style={{ background: 'linear-gradient(90deg, transparent, #C89B3C)' }} />
