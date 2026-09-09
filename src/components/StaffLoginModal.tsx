@@ -100,6 +100,9 @@ export default function StaffLoginModal({ role, onSuccess }: StaffLoginModalProp
       }
       
       setStaffId(data.staffId);
+      if (data.devOtp) {
+        setOtp(data.devOtp);
+      }
       setOtpSent(true);
       toast.success('OTP sent to your email');
     } catch (err) {

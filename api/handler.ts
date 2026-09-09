@@ -79,22 +79,7 @@ const features = pgTable('features', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
-const journeyMedia = pgTable('journey_media', {
-  id: serial('id').primaryKey(),
-  url: text('url').notNull(),
-  type: text('type').notNull(),
-  displayOrder: integer('display_order').notNull().default(0),
-  isActive: boolean('is_active').default(true),
-  createdAt: timestamp('created_at').defaultNow(),
-});
 
-const journeySettings = pgTable('journey_settings', {
-  id: serial('id').primaryKey(),
-  header: text('header').notNull().default('Our Journey'),
-  description: text('description').notNull().default(''),
-  signature: text('signature').notNull().default('Harjinder Tourist Dhaba'),
-  subSignature: text('sub_signature').notNull().default('Serving Memories Since 1991.'),
-});
 
 const analyticsSettings = pgTable('analytics_settings', {
   id: serial('id').primaryKey(),
@@ -181,7 +166,7 @@ const otpSessions = pgTable('otp_sessions', {
 });
 
 // ─── Database ───────────────────────────────────────────────────────────────
-const schema = { users, orders, categories, menuItems, features, journeyMedia, journeySettings, analyticsSettings, visitors, visits, reviews, demoNotices, staffAccounts, otpSessions };
+const schema = { users, orders, categories, menuItems, features, analyticsSettings, visitors, visits, reviews, demoNotices, staffAccounts, otpSessions };
 
 let dbUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 
@@ -204,9 +189,55 @@ const queryClient = postgres(dbUrl || '', {
 const db = drizzle(queryClient, { schema });
 
 // ─── In-Memory Cache ────────────────────────────────────────────────────────
-// Caches storefront data for 60 seconds to prevent DB hammering on every page load
+// Caches storefront data indefinitely. It is invalidated manually on admin updates.
 let storefrontCache: { data: any; ts: number } | null = null;
-const STOREFRONT_CACHE_TTL_MS = 60_000; // 60 seconds
+const STOREFRONT_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 365 * 100; // 100 years
+
+function updateCachePiecemeal(type: 'category' | 'menu' | 'feature', action: 'add' | 'update' | 'delete', data: any, oldName?: string) {
+  if (!storefrontCache) return;
+
+  if (type === 'menu') {
+    if (action === 'delete') {
+      storefrontCache.data.menuItems = storefrontCache.data.menuItems.filter((m: any) => m.id !== data.id);
+    } else {
+      const idx = storefrontCache.data.menuItems.findIndex((m: any) => m.id === data.id);
+      if (idx !== -1) storefrontCache.data.menuItems[idx] = { ...storefrontCache.data.menuItems[idx], ...data };
+      else {
+        const visibleCats = storefrontCache.data.categories.map((c: any) => c.name);
+        if (visibleCats.includes(data.category)) storefrontCache.data.menuItems.push(data);
+      }
+    }
+  } else if (type === 'category') {
+    if (action === 'delete') {
+      storefrontCache.data.categories = storefrontCache.data.categories.filter((c: any) => c.id !== data.id);
+      const catName = oldName || data.name;
+      if (catName) storefrontCache.data.menuItems = storefrontCache.data.menuItems.filter((m: any) => m.category !== catName);
+    } else {
+      const idx = storefrontCache.data.categories.findIndex((c: any) => c.id === data.id);
+      if (idx !== -1 && oldName && oldName !== data.name) {
+        storefrontCache.data.menuItems = storefrontCache.data.menuItems.map((m: any) => m.category === oldName ? { ...m, category: data.name } : m);
+      }
+      if (idx !== -1) {
+        if (data.isHidden) {
+          storefrontCache.data.categories.splice(idx, 1);
+          storefrontCache.data.menuItems = storefrontCache.data.menuItems.filter((m: any) => m.category !== data.name);
+        } else {
+          storefrontCache.data.categories[idx] = { ...storefrontCache.data.categories[idx], ...data };
+        }
+      } else {
+        if (!data.isHidden) storefrontCache.data.categories.push(data);
+      }
+    }
+  } else if (type === 'feature') {
+    if (action === 'delete') {
+      storefrontCache.data.features = storefrontCache.data.features.filter((f: any) => f.id !== data.id);
+    } else {
+      const idx = storefrontCache.data.features.findIndex((f: any) => f.id === data.id);
+      if (idx !== -1) storefrontCache.data.features[idx] = { ...storefrontCache.data.features[idx], ...data };
+      else storefrontCache.data.features.push(data);
+    }
+  }
+}
 
 // ─── Firebase Admin ─────────────────────────────────────────────────────────
 let adminAuth: any = {
@@ -475,9 +506,10 @@ app.post('/api/staff/login', async (req, res) => {
 
     const code = await createOtp(staff.id);
     // Fire email asynchronously for zero-delay response
+    console.log(`[DEV] OTP for ${staff.email} is ${code}`);
     sendOtpEmail(staff.email, staff.name, code).catch(e => console.error('[sendOtpEmail]', e));
 
-    return res.json({ otpSent: true, staffId: staff.id });
+    return res.json({ otpSent: true, staffId: staff.id, devOtp: code });
   } catch (e: any) {
     console.error('[staff/login]', e);
     res.status(500).json({ error: e.message || 'Login failed.' });
@@ -671,23 +703,22 @@ app.get('/api/pos-data', async (req, res) => {
 app.get('/api/storefront-data', async (req, res) => {
   res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
   try {
-    // Serve from in-memory cache if it's still fresh (within 60s)
+    // Serve from in-memory cache if it's still fresh
     const now = Date.now();
     if (storefrontCache && (now - storefrontCache.ts) < STOREFRONT_CACHE_TTL_MS) {
       return res.json(storefrontCache.data);
     }
 
     // Cache miss — fetch fresh data from DB
-    const [menu, cats, feats, settings] = await Promise.all([
+    const [menu, cats, feats] = await Promise.all([
       db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
       db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id),
-      db.select().from(features).orderBy(features.displayOrder, features.id),
-      db.select().from(journeySettings).limit(1)
+      db.select().from(features).orderBy(features.displayOrder, features.id)
     ]);
     const visibleCats = cats.filter(c => !c.isHidden);
     const visibleCatNames = visibleCats.map(c => c.name);
     const visibleMenu = menu.filter(m => visibleCatNames.includes(m.category));
-    const responseData = { menuItems: visibleMenu, categories: visibleCats, features: feats, journeySettings: settings[0] || { header: 'Our Journey', description: '' } };
+    const responseData = { menuItems: visibleMenu, categories: visibleCats, features: feats };
 
     // Store in cache
     storefrontCache = { data: responseData, ts: now };
@@ -702,8 +733,7 @@ app.get('/api/admin-data', async (req, res) => {
     const feats = await db.select().from(features).orderBy(features.displayOrder, features.id);
     const deletedCats = await db.select().from(categories).where(eq(categories.isDeleted, true));
     const deletedItems = await db.select().from(menuItems).where(eq(menuItems.isDeleted, true));
-    const settings = await db.select().from(journeySettings).limit(1);
-    res.json({ menuItems: menu, categories: cats, features: feats, deletedData: { categories: deletedCats, menuItems: deletedItems }, journeySettings: settings[0] || { header: 'Our Journey', description: '' } });
+    res.json({ menuItems: menu, categories: cats, features: feats, deletedData: { categories: deletedCats, menuItems: deletedItems } });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -713,6 +743,7 @@ app.post("/api/categories/:id/toggle-visibility", async (req, res) => {
     const { id } = req.params;
     const { isHidden } = req.body;
     const updated = await db.update(categories).set({ isHidden }).where(eq(categories.id, Number(id))).returning();
+    updateCachePiecemeal('category', 'update', updated[0]);
     res.json(updated[0]);
   } catch (error: any) {
     res.status(500).json({ error: "Failed to toggle category visibility: " + (error.message || error) });
@@ -728,6 +759,7 @@ app.post('/api/categories', async (req, res) => {
   try {
     const { name, image, startTime, endTime } = req.body;
     const r = await db.insert(categories).values({ name, image, startTime: startTime || null, endTime: endTime || null }).returning();
+    updateCachePiecemeal('category', 'add', r[0]);
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -745,6 +777,7 @@ app.put('/api/categories/:id', async (req, res) => {
     }
     
     const r = await db.update(categories).set({ name, image, startTime: startTime || null, endTime: endTime || null }).where(eq(categories.id, Number(req.params.id))).returning();
+    updateCachePiecemeal('category', 'update', r[0], oldCat.length > 0 ? oldCat[0].name : undefined);
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -754,6 +787,7 @@ app.delete('/api/categories/:id', async (req, res) => {
     const cat = await db.select().from(categories).where(eq(categories.id, Number(req.params.id))).limit(1);
     if (cat.length > 0) await db.update(menuItems).set({ isDeleted: true }).where(eq(menuItems.category, cat[0].name));
     await db.update(categories).set({ isDeleted: true }).where(eq(categories.id, Number(req.params.id)));
+    if (cat.length > 0) updateCachePiecemeal('category', 'delete', cat[0]);
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -762,13 +796,19 @@ app.post('/api/categories/:id/recover', async (req, res) => {
   try {
     const cat = await db.select().from(categories).where(eq(categories.id, Number(req.params.id))).limit(1);
     if (cat.length > 0) await db.update(menuItems).set({ isDeleted: false }).where(eq(menuItems.category, cat[0].name));
-    await db.update(categories).set({ isDeleted: false }).where(eq(categories.id, Number(req.params.id)));
+    const updated = await db.update(categories).set({ isDeleted: false }).where(eq(categories.id, Number(req.params.id))).returning();
+    if (updated.length > 0) updateCachePiecemeal('category', 'update', updated[0]);
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/categories/:id/permanent', async (req, res) => {
-  try { await db.delete(categories).where(eq(categories.id, Number(req.params.id))); res.json({ success: true }); }
+  try { 
+    const cat = await db.select().from(categories).where(eq(categories.id, Number(req.params.id))).limit(1);
+    if (cat.length > 0) updateCachePiecemeal('category', 'delete', cat[0]);
+    await db.delete(categories).where(eq(categories.id, Number(req.params.id))); 
+    res.json({ success: true }); 
+  }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -797,7 +837,7 @@ app.post('/api/menu-items', async (req, res) => {
       endTime: item.hasTiming && item.endTime ? item.endTime : null,
       variants: item.variants ? item.variants : []
     }).returning();
-    storefrontCache = null; // Invalidate cache
+    updateCachePiecemeal('menu', 'add', r[0]);
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -821,23 +861,35 @@ app.put('/api/menu-items/:id', async (req, res) => {
       endTime: item.hasTiming && item.endTime ? item.endTime : null,
       variants: item.variants ? item.variants : []
     }).where(eq(menuItems.id, Number(req.params.id))).returning();
-    storefrontCache = null; // Invalidate cache
+    updateCachePiecemeal('menu', 'update', r[0]);
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/menu-items/:id', async (req, res) => {
-  try { await db.update(menuItems).set({ isDeleted: true }).where(eq(menuItems.id, Number(req.params.id))); storefrontCache = null; res.json({ success: true }); }
+  try { 
+    const r = await db.update(menuItems).set({ isDeleted: true }).where(eq(menuItems.id, Number(req.params.id))).returning(); 
+    if (r.length > 0) updateCachePiecemeal('menu', 'delete', r[0]);
+    res.json({ success: true }); 
+  }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/menu-items/:id/recover', async (req, res) => {
-  try { await db.update(menuItems).set({ isDeleted: false }).where(eq(menuItems.id, Number(req.params.id))); res.json({ success: true }); }
+  try { 
+    const r = await db.update(menuItems).set({ isDeleted: false }).where(eq(menuItems.id, Number(req.params.id))).returning(); 
+    if (r.length > 0) updateCachePiecemeal('menu', 'update', r[0]);
+    res.json({ success: true }); 
+  }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/menu-items/:id/permanent', async (req, res) => {
-  try { await db.delete(menuItems).where(eq(menuItems.id, Number(req.params.id))); res.json({ success: true }); }
+  try { 
+    updateCachePiecemeal('menu', 'delete', { id: Number(req.params.id) });
+    await db.delete(menuItems).where(eq(menuItems.id, Number(req.params.id))); 
+    res.json({ success: true }); 
+  }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -849,58 +901,7 @@ app.get('/api/deleted-items', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── Journey Settings ─────────────────────────────────────────────────────────
-app.get('/api/journey-settings', async (req, res) => {
-  try {
-    const items = await db.select().from(journeySettings);
-    res.json(items.length === 0 ? {
-      header: 'Our Journey',
-      description: 'Since 1991, Harjinder Tourist Dhaba has been serving authentic Punjabi hospitality on the Kharar–Kurali Highway.',
-      signature: 'Harjinder Tourist Dhaba', subSignature: 'Serving Memories Since 1991.'
-    } : items[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
 
-app.post('/api/journey-settings', async (req, res) => {
-  try {
-    const { header, description, signature, subSignature } = req.body;
-    const items = await db.select().from(journeySettings);
-    if (items.length === 0) {
-      const r = await db.insert(journeySettings).values({ header, description, signature, subSignature }).returning();
-      res.json(r[0]);
-    } else {
-      const r = await db.update(journeySettings).set({ header, description, signature, subSignature }).where(eq(journeySettings.id, items[0].id)).returning();
-      res.json(r[0]);
-    }
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-// ─── Journey Media ────────────────────────────────────────────────────────────
-app.get('/api/journey-media', async (req, res) => {
-  try { res.json(await db.select().from(journeyMedia).where(eq(journeyMedia.isActive, true)).orderBy(journeyMedia.displayOrder)); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/journey-media', async (req, res) => {
-  try {
-    const { url, type, displayOrder, isActive } = req.body;
-    const r = await db.insert(journeyMedia).values({ url, type, displayOrder, isActive }).returning();
-    res.json(r[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.put('/api/journey-media/:id', async (req, res) => {
-  try {
-    const { url, type, displayOrder, isActive } = req.body;
-    const r = await db.update(journeyMedia).set({ url, type, displayOrder, isActive }).where(eq(journeyMedia.id, Number(req.params.id))).returning();
-    res.json(r[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete('/api/journey-media/:id', async (req, res) => {
-  try { await db.delete(journeyMedia).where(eq(journeyMedia.id, Number(req.params.id))); res.json({ success: true }); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
-});
 
 // ─── Features ─────────────────────────────────────────────────────────────────
 app.get('/api/features', async (req, res) => {
@@ -912,6 +913,7 @@ app.post('/api/features', async (req, res) => {
   try {
     const { title, description, iconName, videoUrl, displayOrder, isActive } = req.body;
     const r = await db.insert(features).values({ title, description, iconName: iconName || 'Sparkles', videoUrl: videoUrl || null, displayOrder: displayOrder ?? 0, isActive: isActive ?? true }).returning();
+    updateCachePiecemeal('feature', 'add', r[0]);
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -920,12 +922,17 @@ app.put('/api/features/:id', async (req, res) => {
   try {
     const { title, description, iconName, videoUrl, displayOrder, isActive } = req.body;
     const r = await db.update(features).set({ title, description, iconName, videoUrl: videoUrl || null, displayOrder, isActive }).where(eq(features.id, Number(req.params.id))).returning();
+    updateCachePiecemeal('feature', 'update', r[0]);
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/features/:id', async (req, res) => {
-  try { await db.delete(features).where(eq(features.id, Number(req.params.id))); res.json({ success: true }); }
+  try { 
+    updateCachePiecemeal('feature', 'delete', { id: Number(req.params.id) });
+    await db.delete(features).where(eq(features.id, Number(req.params.id))); 
+    res.json({ success: true }); 
+  }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

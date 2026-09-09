@@ -8,9 +8,10 @@ import BanquetSection from './components/BanquetSection.tsx';
 
 import { DevEmptyStateText } from './components/DevEmptyStateText';
 import React, { useState, useEffect } from 'react';
-import { MapPin, Phone, Clock, Truck, Coffee, Utensils, Star, ArrowRight, ArrowLeft, Instagram, Facebook, Menu, X, ShoppingBag, BookOpen, ShoppingCart, Minus, Plus, Trash2, Search, Layers, Image as ImageIcon, TrendingUp, Flame, Lock, ChevronRight, ChefHat, MessageCircle, Navigation, Info } from 'lucide-react';
+import { MapPin, Phone, Clock, Truck, Coffee, Utensils, Star, ArrowRight, ArrowLeft, Instagram, Facebook, Menu, X, ShoppingBag, BookOpen, ShoppingCart, Minus, Plus, Trash2, Search, Layers, Image as ImageIcon, TrendingUp, Flame, Lock, ChevronRight, ChefHat, MessageCircle, Navigation, Info, CheckCircle2, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { generatePdfMenu } from './utils/generatePdfMenu';
 
 import * as Icons from 'lucide-react';
 import { NoodleBowlIcon } from './components/CustomIcons';
@@ -59,8 +60,19 @@ type CartItem = {
   variantName?: string;
 };
 
+const staticJourneySettings = {
+  header: 'Our Journey',
+  description: 'Since 1991, Harjinder Tourist Dhaba has been serving authentic Punjabi hospitality on the Kharar–Kurali Highway.\n\nWhat started as a humble roadside dhaba with a passion for honest food has grown into a trusted stop for travelers, families, students, and food lovers. For over three decades, we\'ve remained committed to the same values—fresh ingredients, traditional recipes, generous portions, and warm hospitality.\n\nEvery meal we serve carries the rich flavors of Punjab, crafted with care and the belief that great food brings people together. Whether you\'re beginning a journey, taking a break, or returning home, Harjinder Tourist Dhaba is always ready to welcome you with a delicious meal and a smile.',
+  signature: 'Harjinder Tourist Dhaba',
+  subSignature: 'Serving Memories Since 1991.'
+};
 
-
+const staticJourneyMedia = [
+  { id: 1, type: 'image', url: '/1.webp', caption: 'our journey since 1991' },
+  { id: 2, type: 'image', url: '/2.webp', caption: 'our journey since 1991' },
+  { id: 3, type: 'image', url: '/3.webp', caption: 'our journey since 1991' },
+  { id: 4, type: 'image', url: '/4.webp', caption: 'our journey since 1991' }
+];
 
 const BackgroundVideo = ({ src }: { src: string }) => {
   const videoRef = React.useRef<HTMLVideoElement>(null);
@@ -144,6 +156,7 @@ const BackgroundVideo = ({ src }: { src: string }) => {
 
 export default function Storefront() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [features, setFeatures] = useState<any[]>([]);
   const newsTickers = [
     { text: 'SPL DAL MAKHNI' },
@@ -197,8 +210,7 @@ export default function Storefront() {
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [dbCategories, setDbCategories] = useState<any[]>([]);
   const [specials, setSpecials] = useState<any[]>([]);
-  const [journeyMedia, setJourneyMedia] = useState<any[]>([]);
-  const [journeySettings, setJourneySettings] = useState({ header: 'Our Journey', description: 'Since 1991, Harjinder Tourist Dhaba has been serving authentic Punjabi hospitality on the Kharar–Kurali Highway.\n\nWhat started as a humble roadside dhaba with a passion for honest food has grown into a trusted stop for travelers, families, students, and food lovers. For over three decades, we\'ve remained committed to the same values—fresh ingredients, traditional recipes, generous portions, and warm hospitality.\n\nEvery meal we serve carries the rich flavors of Punjab, crafted with care and the belief that great food brings people together. Whether you\'re beginning a journey, taking a break, or returning home, Harjinder Tourist Dhaba is always ready to welcome you with a delicious meal and a smile.', signature: 'Harjinder Tourist Dhaba', subSignature: 'Serving Memories Since 1991.' });
+
   const [searchQuery, setSearchQuery] = useState('');
   const [currentJourneyIndex, setCurrentJourneyIndex] = useState(0);
 
@@ -207,6 +219,26 @@ export default function Storefront() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
+
+  const handleDownloadPdf = async () => {
+    if (!menuItems || menuItems.length === 0) {
+      toast.error('Menu data is not loaded yet. Please try again.');
+      return;
+    }
+    
+    setIsGeneratingPdf(true);
+    const loadingToast = toast.loading('Generating PDF Menu... Please wait.');
+    
+    try {
+      await generatePdfMenu(menuItems);
+      toast.success('Menu PDF downloaded successfully!', { id: loadingToast });
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      toast.error('Failed to generate PDF. Please try again.', { id: loadingToast });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   useEffect(() => {
     const safeFetch = async (url: string, retries = 3, delay = 1000): Promise<any> => {
@@ -245,8 +277,6 @@ export default function Storefront() {
         setSpecials(data.menuItems ? data.menuItems.filter((i: any) => i.isDhabaSpecial) : []);
         setDbCategories(data.categories || []);
         setFeatures(data.features || []);
-        if (data.journeySettings) setJourneySettings(data.journeySettings);
-
       } else if (!data || data.length === 0) {
         setApiError("Received empty response from API");
       }
@@ -257,19 +287,16 @@ export default function Storefront() {
       setIsLoading(false);
     });
 
-    safeFetch('/api/journey-media').then((data) => {
-      setJourneyMedia(data || []);
-    }).catch(console.error);
   }, []);
 
   useEffect(() => {
-    if (journeyMedia.length > 0) {
+    if (staticJourneyMedia.length > 0) {
       const interval = setInterval(() => {
-        setCurrentJourneyIndex(prev => (prev + 1) % journeyMedia.length);
+        setCurrentJourneyIndex(prev => (prev + 1) % staticJourneyMedia.length);
       }, 5000);
       return () => clearInterval(interval);
     }
-  }, [journeyMedia]);
+  }, []);
 
   const addToCart = (item: any) => {
     toast.success(`${item.name} added to cart!`);
@@ -397,6 +424,12 @@ export default function Storefront() {
 
   return (
     <div className={`min-h-[100dvh] bg-[#fbf5eb] text-[var(--color-brown)] font-sans selection:bg-dhaba-orange selection:text-white flex flex-col ${cartCount > 0 && currentView !== 'checkout' ? 'pb-20 sm:pb-24' : ''}`}>
+      <style>{`
+        @keyframes progressX {
+          from { transform: scaleX(0); }
+          to { transform: scaleX(1); }
+        }
+      `}</style>
       {currentView === 'home' ? (
         <>
           {/* Navigation */}
@@ -616,6 +649,7 @@ export default function Storefront() {
                 <div className="h-px w-8 sm:w-12" style={{ background: 'linear-gradient(90deg, #C89B3C, transparent)' }} />
               </div>
               <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-serif font-bold text-white mb-6 leading-[1.1] drop-shadow-xl">
+                <span className="sr-only">Harjinder Tourist Dhaba - The Best Family Dhaba for Veg & Non-Veg Food in Kharar, Mohali</span>
                 The True Taste of{' '}<br className="hidden sm:block" />
                 <span style={{ background: 'linear-gradient(135deg, #C89B3C, #e8bb5c, #C89B3C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Punjab</span>
               </h1>
@@ -1085,8 +1119,8 @@ export default function Storefront() {
                     {/* Inner gold border */}
                     <div className="absolute inset-3 border border-[var(--color-gold)]/50 rounded-[2rem] z-20 pointer-events-none transition-all duration-700 group-hover:scale-[0.98]" />
 
-                    {journeyMedia.length > 0 ? (
-                      journeyMedia.map((media, index) => (
+                    {staticJourneyMedia.length > 0 ? (
+                      staticJourneyMedia.map((media, index) => (
                         media.type === 'video' ? (
                           <video
                             key={media.id}
@@ -1113,6 +1147,35 @@ export default function Storefront() {
 
                     {/* Overlay gradient for depth */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent z-10 pointer-events-none" />
+
+                    {/* Pill-shaped Floating Progress Bar */}
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-none opacity-70">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-black/10 backdrop-blur-md rounded-full border border-white/10">
+                        {staticJourneyMedia.map((_, i) => {
+                          const isActive = i === currentJourneyIndex;
+                          return (
+                            <div 
+                              key={i} 
+                              className={`relative rounded-full transition-all duration-500 overflow-hidden ${
+                                isActive ? 'w-8 h-2 bg-white' : 'w-2 h-2 bg-white/50'
+                              }`}
+                            >
+                              {isActive && (
+                                <div 
+                                  key={`active-${Date.now()}`}
+                                  className="absolute inset-y-0 left-0 bg-rose-500 origin-left rounded-full"
+                                  style={{
+                                    width: '100%',
+                                    transform: 'scaleX(0)',
+                                    animation: 'progressX 5s linear forwards'
+                                  }}
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Gold "SINCE 1991" Badge Image */}
@@ -1135,13 +1198,13 @@ export default function Storefront() {
                   </div>
 
                   <h2 className="text-4xl sm:text-5xl md:text-6xl font-serif font-extrabold text-[var(--color-brown)] mb-8 leading-[1.15] tracking-tight relative">
-                    <span className="relative z-10">{journeySettings.header}</span>
+                    <span className="relative z-10">{staticJourneySettings.header}</span>
                     {/* Decorative text watermark behind */}
                     <span className="absolute -top-8 -left-8 text-7xl md:text-9xl font-serif font-black text-[var(--color-gold)]/5 select-none -z-10 whitespace-nowrap hidden sm:block pointer-events-none">1991</span>
                   </h2>
 
                   <div className="space-y-6 relative before:absolute before:inset-y-2 before:-left-6 before:w-1 before:bg-gradient-to-b before:from-[var(--color-gold)] before:to-transparent before:rounded-full ml-6">
-                    {journeySettings.description.split('\n').map((paragraph, idx) => paragraph.trim() ? (
+                    {staticJourneySettings.description.split('\n').map((paragraph, idx) => paragraph.trim() ? (
                       <p key={idx} className={`leading-relaxed ${idx === 0 ? 'text-[var(--color-brown)] font-medium text-xl md:text-2xl' : 'text-[#5A4A42]/90 text-lg'}`}>
                         {paragraph}
                       </p>
@@ -1156,9 +1219,9 @@ export default function Storefront() {
                     </div>
                     <div>
                       <p className="text-[var(--color-brown)] text-2xl sm:text-3xl font-serif font-bold italic tracking-wide">
-                        {journeySettings.signature}
+                        {staticJourneySettings.signature}
                       </p>
-                      <span className="text-[var(--color-gold)] font-bold text-xs tracking-[0.2em] uppercase mt-1 block">{journeySettings.subSignature}</span>
+                      <span className="text-[var(--color-gold)] font-bold text-xs tracking-[0.2em] uppercase mt-1 block">{staticJourneySettings.subSignature}</span>
                     </div>
                   </div>
                 </div>
@@ -1167,6 +1230,132 @@ export default function Storefront() {
           </section>
           <BanquetSection />
           <Testimonials />
+          {/* Enhanced SEO Context Block */}
+          <section className="relative bg-stone-50 py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+            {/* Background Decor */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[var(--color-gold)] to-transparent opacity-30"></div>
+            <div className="absolute -top-24 -right-24 w-64 h-64 bg-[var(--color-gold)] rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob"></div>
+            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-amber-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob animation-delay-2000"></div>
+
+            <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
+              {/* Text Content */}
+              <div className="order-2 lg:order-1">
+                <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white shadow-sm border border-[var(--color-gold)]/20 mb-6">
+                  <Star className="w-4 h-4 text-[var(--color-gold)]" fill="currentColor" />
+                  <span className="text-xs font-bold tracking-[0.2em] uppercase text-[var(--color-brown)]">Top Rated Destination</span>
+                </div>
+                
+                <h2 className="text-4xl md:text-5xl font-serif font-bold text-[var(--color-brown)] mb-6 leading-tight">
+                  The Best Family Dhaba in <br/>
+                  <span className="text-[var(--color-gold)] italic">Kharar, Mohali</span>
+                </h2>
+                
+                <div className="space-y-6 text-stone-600 text-lg font-light leading-relaxed mb-8">
+                  <p>
+                    Welcome to <strong className="font-semibold text-stone-800">Harjinder Tourist Dhaba</strong>, the most loved family destination on the bustling Kharar–Kurali Highway. We are proud to serve the most authentic, affordable <strong className="font-semibold text-stone-800">veg and non-veg food</strong> in the region. 
+                  </p>
+                  <p>
+                    We understand the importance of a clean, safe, and welcoming environment, making us the top choice for families traveling near <strong className="font-semibold text-stone-800">Mohali</strong> and Punjab.
+                  </p>
+                </div>
+
+                {/* SEO Feature List */}
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    "Authentic Punjabi Cuisine", 
+                    "Clean Family Environment", 
+                    "Open 24 Hours, 7 Days", 
+                    "Affordable Highway Dining"
+                  ].map((feature, idx) => (
+                    <li key={idx} className="flex items-center gap-3 text-stone-700 font-medium bg-white p-3 rounded-xl shadow-sm border border-stone-100">
+                      <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center shrink-0">
+                        <CheckCircle2 className="w-5 h-5 text-green-500" />
+                      </div>
+                      <span className="text-sm">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Image & Stats Content */}
+              <div className="order-1 lg:order-2 flex flex-col justify-center">
+                <div className="relative pl-4 pb-4 sm:pl-8 sm:pb-8 mt-8 lg:mt-0">
+                  <div className="relative rounded-3xl overflow-hidden shadow-2xl ring-1 ring-black/5 transform transition-transform duration-700 hover:-translate-y-2 hover:shadow-3xl">
+                    <img 
+                      src="/4.webp" 
+                      alt="Harjinder Tourist Dhaba - Best Family Dhaba for Veg and Non-Veg Food" 
+                      className="w-full h-full object-cover aspect-[4/3] scale-105 hover:scale-100 transition-transform duration-1000" 
+                      loading="lazy" 
+                    />
+                    {/* Overlay Gradient */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent mix-blend-multiply transition-opacity duration-500 hover:opacity-80"></div>
+                  </div>
+                  
+                  {/* Floating Glassmorphism Badge */}
+                  <div className="absolute -bottom-2 left-0 sm:bottom-2 sm:-left-4 bg-white/70 backdrop-blur-xl p-4 pr-8 rounded-2xl shadow-2xl border border-white/60 flex items-center gap-4 transition-transform duration-500 hover:-translate-y-1 group">
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[var(--color-gold)] to-amber-600 flex items-center justify-center shrink-0 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                      <Clock className="w-7 h-7 text-white" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-[var(--color-brown)] text-lg leading-none mb-1">Always Open</h4>
+                      <p className="text-sm text-stone-600 font-medium">Serving fresh food 24/7</p>
+                    </div>
+                  </div>
+                  
+                  {/* Decorative background shape */}
+                  <div className="absolute top-6 right-0 bottom-12 left-12 bg-gradient-to-br from-[var(--color-gold)]/30 to-amber-600/10 rounded-[2rem] -z-10 transform translate-x-4 -translate-y-4 blur-sm transition-transform duration-700 hover:translate-x-6 hover:-translate-y-6"></div>
+                </div>
+
+                {/* Floating Stat Cards to fill space */}
+                <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4 pl-0 sm:pl-8">
+                  {/* Card 1: Daily Serves */}
+                  <div className="bg-white p-4 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:-translate-y-1 group">
+                    <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center shrink-0 border border-green-100 group-hover:bg-green-500 transition-colors duration-300">
+                      <Utensils className="w-6 h-6 text-green-600 group-hover:text-white transition-colors duration-300" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-2xl font-serif text-[var(--color-brown)] leading-none mb-1">5,000+</h4>
+                      <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Serves Daily</p>
+                    </div>
+                  </div>
+
+                  {/* Card 2: Rating */}
+                  <div className="bg-white p-4 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:-translate-y-1 group">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center shrink-0 border border-amber-100 group-hover:bg-[var(--color-gold)] transition-colors duration-300">
+                      <Star className="w-6 h-6 text-[var(--color-gold)] group-hover:text-white transition-colors duration-300" fill="currentColor" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-2xl font-serif text-[var(--color-brown)] leading-none mb-1">4.1</h4>
+                      <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Across Internet</p>
+                    </div>
+                  </div>
+
+                  {/* Card 3: Legacy */}
+                  <div className="bg-white p-4 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:-translate-y-1 group">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center shrink-0 border border-rose-100 group-hover:bg-rose-500 transition-colors duration-300">
+                      <Flame className="w-6 h-6 text-rose-500 group-hover:text-white transition-colors duration-300" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-2xl font-serif text-[var(--color-brown)] leading-none mb-1">33+ Years</h4>
+                      <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Of Authentic Taste</p>
+                    </div>
+                  </div>
+
+                  {/* Card 4: Customers */}
+                  <div className="bg-white p-4 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:-translate-y-1 group">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-500 transition-colors duration-300">
+                      <Users className="w-6 h-6 text-blue-600 group-hover:text-white transition-colors duration-300" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-2xl font-serif text-[var(--color-brown)] leading-none mb-1">1M+</h4>
+                      <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Happy Customers</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           {/* Footer & Contact */}
           <footer id="contact" className="text-stone-700 pt-24 border-t border-[var(--color-gold)]/30 relative">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
@@ -1228,6 +1417,15 @@ export default function Storefront() {
                     <li><a href="#about" onClick={(e) => { e.preventDefault(); if (currentView !== 'home') { setCurrentView('home'); setTimeout(() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }), 100); } else { document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' }); } }} className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-block">About Us</a></li>
                     <li><button onClick={() => { setCurrentView('menu'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-block focus:outline-none">Food Menu</button></li>
                     <li><Link to="/privacy-policy" className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-block">Privacy Policy</Link></li>
+                    <li>
+                      <button 
+                        onClick={handleDownloadPdf} 
+                        disabled={isGeneratingPdf} 
+                        className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-flex items-center gap-2 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isGeneratingPdf ? 'Generating...' : 'Download Menu (PDF)'}
+                      </button>
+                    </li>
                   </ul>
                 </div>
 

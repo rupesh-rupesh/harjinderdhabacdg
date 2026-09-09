@@ -375,50 +375,47 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
   const activeOrders = serverOrders.filter((o: any) => o.status === 'pending' || o.status === 'processing');
 
 
-  const fetchData = async () => {
-    try {
-      const res = await fetch('/api/pos-data', { cache: 'no-store' });
+  const { data: posData, isLoading: posLoading, refetch: refetchPosData } = useQuery({
+    queryKey: ['pos_data'],
+    queryFn: async () => {
+      const res = await fetch('/api/pos-data');
       if (res.ok) {
         const ct = res.headers.get('content-type');
-        if (ct && ct.includes('application/json')) {
-          const data = await res.json();
-          let fetchedCategories = data.categories || [];
-
-          // Reorder categories: move Tandoori and Biryani/Rice after Thali
-          const thaliIdx = fetchedCategories.findIndex((c: any) => c.name.toLowerCase() === 'thali');
-          if (thaliIdx !== -1) {
-            const tandoori = fetchedCategories.find((c: any) => c.name.toLowerCase() === 'tandoori');
-            const biryani = fetchedCategories.find((c: any) => c.name.toLowerCase().includes('biryani'));
-            
-            fetchedCategories = fetchedCategories.filter((c: any) => 
-              c.name.toLowerCase() !== 'tandoori' && 
-              !c.name.toLowerCase().includes('biryani')
-            );
-            
-            const newThaliIdx = fetchedCategories.findIndex((c: any) => c.name.toLowerCase() === 'thali');
-            const toInsert = [tandoori, biryani].filter(Boolean);
-            fetchedCategories.splice(newThaliIdx + 1, 0, ...toInsert);
-          }
-
-          setCategories(fetchedCategories);
-          setMenuItems(data.menuItems || []);
-          if (fetchedCategories.length > 0 && !selectedCategory) {
-            setSelectedCategory(fetchedCategories[0].name);
-          }
-        }
+        if (ct && ct.includes('application/json')) return await res.json();
       }
-    } catch (e: any) {
-      if (e.message !== 'Failed to fetch') {
-        console.error("Failed to load POS data", e);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+      return { categories: [], menuItems: [] };
+    },
+    staleTime: 60000,
+  });
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (posData) {
+      let fetchedCategories = posData.categories ? [...posData.categories] : [];
+
+      // Reorder categories: move Tandoori and Biryani/Rice after Thali
+      const thaliIdx = fetchedCategories.findIndex((c: any) => c.name.toLowerCase() === 'thali');
+      if (thaliIdx !== -1) {
+        const tandoori = fetchedCategories.find((c: any) => c.name.toLowerCase() === 'tandoori');
+        const biryani = fetchedCategories.find((c: any) => c.name.toLowerCase().includes('biryani'));
+        
+        fetchedCategories = fetchedCategories.filter((c: any) => 
+          c.name.toLowerCase() !== 'tandoori' && 
+          !c.name.toLowerCase().includes('biryani')
+        );
+        
+        const newThaliIdx = fetchedCategories.findIndex((c: any) => c.name.toLowerCase() === 'thali');
+        const toInsert = [tandoori, biryani].filter(Boolean);
+        fetchedCategories.splice(newThaliIdx + 1, 0, ...toInsert);
+      }
+
+      setCategories(fetchedCategories);
+      setMenuItems(posData.menuItems || []);
+      if (fetchedCategories.length > 0 && !selectedCategory) {
+        setSelectedCategory(fetchedCategories[0].name);
+      }
+      setLoading(false);
+    }
+  }, [posData]);
 
   const addToCartWithOptions = (item: any, options: { isHalf?: boolean, isButter?: boolean, variantName?: string, price: number }) => {
     const cartItemId = `${item.id}-${options.isHalf ? 'half' : 'full'}-${options.isButter ? 'butter' : 'nobutter'}-${options.variantName || 'none'}`;
@@ -854,7 +851,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                 const loadingToast = toast.loading("Refreshing & Fetching data...");
                 Promise.all([
                   fetchOrders(),
-                  fetchData()
+                  refetchPosData()
                 ]).then(() => {
                   toast.dismiss(loadingToast);
                   toast.success("Page refreshed and data updated!");

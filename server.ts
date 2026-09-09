@@ -84,22 +84,7 @@ const features = pgTable('features', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
-const journeyMedia = pgTable('journey_media', {
-  id: serial('id').primaryKey(),
-  url: text('url').notNull(),
-  type: text('type').notNull(),
-  displayOrder: integer('display_order').notNull().default(0),
-  isActive: boolean('is_active').default(true),
-  createdAt: timestamp('created_at').defaultNow(),
-});
 
-const journeySettings = pgTable('journey_settings', {
-  id: serial('id').primaryKey(),
-  header: text('header').notNull().default('Our Journey'),
-  description: text('description').notNull().default(''),
-  signature: text('signature').notNull().default('Harjinder Tourist Dhaba'),
-  subSignature: text('sub_signature').notNull().default('Serving Memories Since 1991.'),
-});
 
 const analyticsSettings = pgTable('analytics_settings', {
   id: serial('id').primaryKey(),
@@ -186,7 +171,7 @@ const otpSessions = pgTable('otp_sessions', {
 });
 
 // ─── Database ───────────────────────────────────────────────────────────────
-const schema = { users, orders, categories, menuItems, features, journeyMedia, journeySettings, analyticsSettings, visitors, visits, reviews, demoNotices, staffAccounts, otpSessions };
+const schema = { users, orders, categories, menuItems, features, analyticsSettings, visitors, visits, reviews, demoNotices, staffAccounts, otpSessions };
 
 let dbUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL;
 
@@ -431,9 +416,10 @@ app.post('/api/staff/login', async (req, res) => {
 
     const code = await createOtp(staff.id);
     // Fire email asynchronously for zero-delay response
+    console.log(`[DEV] OTP for ${staff.email} is ${code}`);
     sendOtpEmail(staff.email, staff.name, code).catch(e => console.error('[sendOtpEmail]', e));
 
-    return res.json({ otpSent: true, staffId: staff.id });
+    return res.json({ otpSent: true, staffId: staff.id, devOtp: code });
   } catch (e: any) {
     console.error('[staff/login]', e);
     res.status(500).json({ error: e.message || 'Login failed.' });
@@ -626,14 +612,13 @@ app.get('/api/pos-data', async (req, res) => {
 app.get('/api/storefront-data', async (req, res) => {
   res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
   try {
-    const [menu, cats, feats, settings] = await Promise.all([
+    const [menu, cats, feats] = await Promise.all([
       db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
       db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id),
-      db.select().from(features).orderBy(features.displayOrder, features.id),
-      db.select().from(journeySettings).limit(1)
+      db.select().from(features).orderBy(features.displayOrder, features.id)
     ]);
     const visibleCats = cats.filter(c => !c.isHidden);
-    res.json({ menuItems: menu, categories: visibleCats, features: feats, journeySettings: settings[0] || { header: 'Our Journey', description: '' } });
+    res.json({ menuItems: menu, categories: visibleCats, features: feats });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -644,8 +629,7 @@ app.get('/api/admin-data', async (req, res) => {
     const feats = await db.select().from(features).orderBy(features.displayOrder, features.id);
     const deletedCats = await db.select().from(categories).where(eq(categories.isDeleted, true));
     const deletedItems = await db.select().from(menuItems).where(eq(menuItems.isDeleted, true));
-    const settings = await db.select().from(journeySettings).limit(1);
-    res.json({ menuItems: menu, categories: cats, features: feats, deletedData: { categories: deletedCats, menuItems: deletedItems }, journeySettings: settings[0] || { header: 'Our Journey', description: '' } });
+    res.json({ menuItems: menu, categories: cats, features: feats, deletedData: { categories: deletedCats, menuItems: deletedItems } });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -789,59 +773,6 @@ app.get('/api/deleted-items', async (req, res) => {
     const deletedMenuItems = await db.select().from(menuItems).where(eq(menuItems.isDeleted, true));
     res.json({ categories: deletedCats, menuItems: deletedMenuItems });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-// ─── Journey Settings ─────────────────────────────────────────────────────────
-app.get('/api/journey-settings', async (req, res) => {
-  try {
-    const items = await db.select().from(journeySettings);
-    res.json(items.length === 0 ? {
-      header: 'Our Journey',
-      description: 'Since 1991, Harjinder Tourist Dhaba has been serving authentic Punjabi hospitality on the Kharar–Kurali Highway.',
-      signature: 'Harjinder Tourist Dhaba', subSignature: 'Serving Memories Since 1991.'
-    } : items[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/journey-settings', async (req, res) => {
-  try {
-    const { header, description, signature, subSignature } = req.body;
-    const items = await db.select().from(journeySettings);
-    if (items.length === 0) {
-      const r = await db.insert(journeySettings).values({ header, description, signature, subSignature }).returning();
-      res.json(r[0]);
-    } else {
-      const r = await db.update(journeySettings).set({ header, description, signature, subSignature }).where(eq(journeySettings.id, items[0].id)).returning();
-      res.json(r[0]);
-    }
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-// ─── Journey Media ────────────────────────────────────────────────────────────
-app.get('/api/journey-media', async (req, res) => {
-  try { res.json(await db.select().from(journeyMedia).where(eq(journeyMedia.isActive, true)).orderBy(journeyMedia.displayOrder)); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/journey-media', async (req, res) => {
-  try {
-    const { url, type, displayOrder, isActive } = req.body;
-    const r = await db.insert(journeyMedia).values({ url, type, displayOrder, isActive }).returning();
-    res.json(r[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.put('/api/journey-media/:id', async (req, res) => {
-  try {
-    const { url, type, displayOrder, isActive } = req.body;
-    const r = await db.update(journeyMedia).set({ url, type, displayOrder, isActive }).where(eq(journeyMedia.id, Number(req.params.id))).returning();
-    res.json(r[0]);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
-});
-
-app.delete('/api/journey-media/:id', async (req, res) => {
-  try { await db.delete(journeyMedia).where(eq(journeyMedia.id, Number(req.params.id))); res.json({ success: true }); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 // ─── Features ─────────────────────────────────────────────────────────────────

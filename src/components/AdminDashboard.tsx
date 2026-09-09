@@ -2,6 +2,7 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Icons from 'lucide-react';
 import { Menu, Plus, Activity, Trash2, Edit, Save, X, Image as ImageIcon, Layers, Search, MoreVertical, ArrowLeft, ChevronRight, Video, LayoutDashboard, Star, ToggleLeft, ToggleRight, ArrowUp, ArrowDown, ShieldCheck, Zap, Wifi, Snowflake, MapPin, Coffee, Utensils, ChefHat, Fuel, TreePine, BatteryCharging, Clock, Car, Users, Leaf, Droplets, Package, ShoppingCart, Lock, KeyRound, Shield, MessageCircle, Upload, FileText, Printer, Eye, EyeOff } from 'lucide-react';
 
@@ -79,15 +80,30 @@ export default function AdminDashboard() {
     }
   });
   const authenticated = !!session;
-  const [items, setItems] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [activeModule, setActiveModule] = useState<'menu' | 'features' | 'journey' | 'recover' | 'analytics' | 'reviews' | 'managers' | 'stats' | 'orders' | 'billing' | 'printer'>('analytics');
+  const queryClient = useQueryClient();
+  const { data: adminData, isLoading: loading, refetch: refetchData } = useQuery({
+    queryKey: ['admin_data'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin-data');
+      if (!res.ok) throw new Error('Failed to fetch admin data');
+      const ct = res.headers.get('content-type');
+      if (ct && ct.includes('application/json')) return await res.json();
+      return {};
+    },
+    enabled: authenticated,
+    staleTime: 60000,
+  });
+
+  const items = adminData?.menuItems || [];
+  const categories = adminData?.categories || [];
+  const features = adminData?.features || [];
+  const deletedData = adminData?.deletedData || {categories: [], menuItems: []};
+
+  const fetchData = (a?: any, b?: any) => refetchData();
+
+  const [activeModule, setActiveModule] = useState<'menu' | 'features' | 'recover' | 'analytics' | 'reviews' | 'managers' | 'stats' | 'orders' | 'billing' | 'printer'>('analytics');
   const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
 
-  const [features, setFeatures] = useState<any[]>([]);
-  const [journeyMedia, setJourneyMedia] = useState<any[]>([]);
-  const [journeySettings, setJourneySettings] = useState({ header: '', description: '', signature: '', subSignature: '' });
-  const [deletedData, setDeletedData] = useState<{categories: any[], menuItems: any[]}>({categories: [], menuItems: []});
   const [isFeatureFormOpen, setIsFeatureFormOpen] = useState(false);
   const [featureForm, setFeatureForm] = useState({ id: null as number|null, title: '', description: '', videoUrl: '', iconName: 'Sparkles', isActive: true });
 
@@ -100,7 +116,6 @@ export default function AdminDashboard() {
   const [itemToDelete, setItemToDelete] = useState<number | null>(null);
   
   const [categoryForm, setCategoryForm] = useState({ name: '', image: '', startTime: '', endTime: '' });
-  const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     const saved = localStorage.getItem('admin_sidebar_open');
     if (saved !== null) return saved === 'true';
@@ -121,7 +136,6 @@ export default function AdminDashboard() {
   const [formData, setFormData] = useState({
     name: '', description: '', price: '', fullPortionPieces: '', hasHalfPortion: false, halfPrice: '', halfPortionPieces: '', hasButterOption: false, butterPrice: '', image: '', category: '', dietaryPreference: 'veg', spiceLevel: 'None', isPopular: false, isBestSeller: false, isDhabaSpecial: false, outOfStock: false, hasTiming: false, startTime: '', endTime: '', variants: [] as {name: string, price: string, outOfStock?: boolean}[]
   });
-  const [journeyForm, setJourneyForm] = useState({ url: '', type: 'image', displayOrder: 0, isActive: true });
 
   const handleLock = () => {
     localStorage.removeItem('staff_session');
@@ -173,54 +187,6 @@ export default function AdminDashboard() {
       />
     );
   }
-
-  const safeJson = async (res: Response) => {
-    const ct = res.headers.get('content-type');
-    if (ct && ct.includes('application/json')) return res.json();
-    return {};
-  };
-
-  const fetchData = async (retryCount = 0, showLoading = true) => {
-    if (showLoading) setLoading(true);
-    try {
-      const [res, journeyRes] = await Promise.all([
-        fetch('/api/admin-data'),
-        fetch('/api/journey-media')
-      ]);
-
-      if (res.ok) {
-        const data = await safeJson(res);
-        if (data.menuItems) setItems(data.menuItems);
-        if (data.categories) {
-          setCategories(data.categories);
-          if (data.categories.length > 0 && !formData.category) {
-            setFormData(prev => ({ ...prev, category: data.categories[0].name }));
-          }
-        }
-        if (data.features) setFeatures(data.features);
-        if (data.deletedData) setDeletedData(data.deletedData);
-        if (data.journeySettings) setJourneySettings(data.journeySettings);
-      } else if (retryCount < 3) {
-        // Retry on server error (e.g. Vite not ready yet)
-        setTimeout(() => fetchData(retryCount + 1), 600);
-        return;
-      }
-      
-      if (journeyRes.ok) {
-        const journeyData = await safeJson(journeyRes);
-        if (Array.isArray(journeyData)) setJourneyMedia(journeyData);
-      }
-    } catch (err: any) {
-      if (retryCount < 3) {
-        // Retry on network error (server still starting up)
-        setTimeout(() => fetchData(retryCount + 1), 600);
-        return;
-      }
-      console.error("Failed to fetch data after retries:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -352,7 +318,13 @@ export default function AdminDashboard() {
 
   const handleToggleCategoryVisibility = async (cat: any) => {
     // Optimistically update the UI so it doesn't flicker
-    setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, isHidden: !c.isHidden } : c));
+    queryClient.setQueryData(['admin_data'], (old: any) => {
+      if (!old) return old;
+      return {
+        ...old,
+        categories: (old.categories || []).map((c: any) => c.id === cat.id ? { ...c, isHidden: !c.isHidden } : c)
+      };
+    });
     try {
       const res = await fetch(`/api/categories/${cat.id}/toggle-visibility`, {
         method: 'POST',
@@ -361,16 +333,22 @@ export default function AdminDashboard() {
       });
       if (res.ok) {
         toast.success(`Category ${!cat.isHidden ? 'hidden' : 'visible'}`);
-        // Fetch data quietly in background without showing the loading spinner
-        fetchData(0, false);
+        // Fetch data quietly in background
+        fetchData();
       } else {
         // Revert on error
-        setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, isHidden: cat.isHidden } : c));
+        queryClient.setQueryData(['admin_data'], (old: any) => {
+          if (!old) return old;
+          return { ...old, categories: (old.categories || []).map((c: any) => c.id === cat.id ? { ...c, isHidden: cat.isHidden } : c) };
+        });
         toast.error(`Server error: Please restart your terminal/dev server.`);
       }
     } catch (e) {
       // Revert on error
-      setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, isHidden: cat.isHidden } : c));
+      queryClient.setQueryData(['admin_data'], (old: any) => {
+        if (!old) return old;
+        return { ...old, categories: (old.categories || []).map((c: any) => c.id === cat.id ? { ...c, isHidden: cat.isHidden } : c) };
+      });
       toast.error('Failed to toggle visibility');
     }
   };
@@ -808,7 +786,10 @@ export default function AdminDashboard() {
     newFeatures[index] = newFeatures[targetIndex];
     newFeatures[targetIndex] = temp;
     
-    setFeatures(newFeatures);
+    queryClient.setQueryData(['admin_data'], (old: any) => {
+      if (!old) return old;
+      return { ...old, features: newFeatures };
+    });
     
     // Save to backend
     try {
@@ -1125,162 +1106,8 @@ export default function AdminDashboard() {
     </div>
   );
 
-  const handleAddJourneyMedia = async () => {
-    try {
-      await fetch('/api/journey-media', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(journeyForm)
-      });
-      setJourneyForm({ url: '', type: 'image', displayOrder: 0, isActive: true });
-      fetchData();
-    } catch (e) {}
-  };
-
-  const handleDeleteJourneyMedia = async (id: number) => {
-    try {
-      await fetch(`/api/journey-media/${id}`, { method: 'DELETE' });
-      fetchData();
-    } catch (e) {}
-  };
-
-  const renderJourneyModule = () => (
-    <div className="bg-white rounded-[2rem] shadow-sm border border-stone-100 p-6 sm:p-8 space-y-8">
-      <div className="flex items-center gap-3">
-        <div className="p-3 bg-blue-50 text-blue-500 rounded-2xl">
-          <ImageIcon className="w-6 h-6" />
-        </div>
-        <h2 className="text-2xl font-serif font-bold text-stone-800">Our Journey</h2>
-      </div>
-      
-      {/* Settings Form */}
-      <div className="bg-white p-6 rounded-3xl border border-stone-100 shadow-sm shadow-stone-200/50">
-        <h3 className="text-lg font-bold text-stone-800 mb-6 flex items-center gap-2">
-          <FileText className="w-5 h-5 text-dhaba-orange" /> Text Content
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-5">
-            <div>
-              <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Header Title</label>
-              <input type="text" value={journeySettings.header} onChange={e => setJourneySettings({...journeySettings, header: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl focus:border-dhaba-orange focus:ring-1 focus:ring-dhaba-orange outline-none transition-all font-medium text-stone-800" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Signature Text</label>
-                <input type="text" value={journeySettings.signature} onChange={e => setJourneySettings({...journeySettings, signature: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl focus:border-dhaba-orange focus:ring-1 focus:ring-dhaba-orange outline-none transition-all font-medium text-stone-800" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Sub Signature</label>
-                <input type="text" value={journeySettings.subSignature} onChange={e => setJourneySettings({...journeySettings, subSignature: e.target.value})} className="w-full p-3 bg-stone-50 border border-stone-200 rounded-xl focus:border-dhaba-orange focus:ring-1 focus:ring-dhaba-orange outline-none transition-all font-medium text-stone-800" />
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-col h-full">
-            <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Description</label>
-            <textarea value={journeySettings.description} onChange={e => setJourneySettings({...journeySettings, description: e.target.value})} className="w-full p-4 bg-stone-50 border border-stone-200 rounded-xl focus:border-dhaba-orange focus:ring-1 focus:ring-dhaba-orange outline-none transition-all flex-1 min-h-[120px] font-medium text-stone-800 resize-none leading-relaxed" />
-          </div>
-        </div>
-        <div className="mt-6 flex justify-end pt-6 border-t border-stone-100">
-          <button 
-            onClick={async () => {
-              try {
-                await fetch('/api/journey-settings', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(journeySettings)
-                });
-                fetchData();
-                toast.success('Settings saved!');
-              } catch (e) {}
-            }} 
-            className="bg-dhaba-dark hover:bg-stone-800 text-white px-8 py-3 rounded-xl font-bold transition-colors flex items-center gap-2 shadow-sm"
-          >
-            <Save className="w-4 h-4" /> Save Content
-          </button>
-        </div>
-      </div>
-
-      {/* Add Media Form */}
-      <div className="bg-stone-50 p-6 rounded-3xl border border-stone-100">
-        <h3 className="text-lg font-bold text-stone-800 mb-6 flex items-center gap-2">
-          <ImageIcon className="w-5 h-5 text-dhaba-orange" /> Add Media
-        </h3>
-        <div className="flex flex-col lg:flex-row gap-4 items-end">
-          <div className="flex-1 w-full">
-            <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Media Source</label>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <input type="text" value={journeyForm.url} onChange={e => setJourneyForm({...journeyForm, url: e.target.value})} className="flex-1 p-3 bg-white border border-stone-200 rounded-xl focus:border-dhaba-orange focus:ring-1 focus:ring-dhaba-orange outline-none transition-all text-sm font-medium" placeholder="Paste URL here..." />
-              <div className="flex items-center gap-3 shrink-0">
-                <span className="text-xs font-bold text-stone-400">OR</span>
-                <label className="cursor-pointer bg-white border border-stone-200 text-stone-600 px-4 py-3 rounded-xl hover:bg-stone-100 transition-colors text-sm font-bold flex items-center gap-2">
-                  <Upload className="w-4 h-4" /> Upload File
-                  <input type="file" accept="image/*,video/*" className="hidden" onChange={e => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        setJourneyForm(prev => ({
-                          ...prev, 
-                          url: reader.result as string, 
-                          type: file.type.startsWith('video') ? 'video' : 'image'
-                        }));
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }} />
-                </label>
-              </div>
-            </div>
-          </div>
-          <div className="w-full lg:w-48">
-            <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Type</label>
-            <select value={journeyForm.type} onChange={e => setJourneyForm({...journeyForm, type: e.target.value})} className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:border-dhaba-orange outline-none text-sm font-bold text-stone-700">
-              <option value="image">Image</option>
-              <option value="video">Video</option>
-            </select>
-          </div>
-          <div className="w-full lg:w-32">
-            <label className="block text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">Order</label>
-            <input type="number" value={journeyForm.displayOrder} onChange={e => setJourneyForm({...journeyForm, displayOrder: parseInt(e.target.value) || 0})} className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:border-dhaba-orange outline-none text-sm font-bold text-stone-700 text-center" />
-          </div>
-          <button onClick={handleAddJourneyMedia} className="bg-dhaba-orange hover:bg-orange-600 text-white px-8 py-3 rounded-xl font-bold transition-all hover:-translate-y-0.5 shadow-sm w-full lg:w-auto">
-            Add
-          </button>
-        </div>
-      </div>
-
-      {/* Media Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {journeyMedia.map(media => (
-          <div key={media.id} className="relative rounded-3xl overflow-hidden border border-stone-100 shadow-sm group bg-stone-100 aspect-[4/3]">
-            {media.type === 'video' ? (
-              <video src={media.url || undefined} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" controls />
-            ) : (
-              <img src={media.url || undefined} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-              <span className="text-white text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                {media.type === 'video' ? <Video className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />} {media.type}
-              </span>
-            </div>
-            <button onClick={() => handleDeleteJourneyMedia(media.id)} className="absolute top-4 right-4 bg-white/90 backdrop-blur-md text-red-500 p-2.5 rounded-xl shadow-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:-translate-y-1 transition-all duration-300">
-              <Trash2 className="w-5 h-5" />
-            </button>
-          </div>
-        ))}
-        {journeyMedia.length === 0 && (
-          <div className="col-span-full py-16 text-center text-stone-500 bg-stone-50 rounded-3xl border border-stone-100">
-            <ImageIcon className="w-12 h-12 mx-auto mb-3 text-stone-300" />
-            <p className="font-medium">No media items added yet.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-
   const MODULE_LABELS: Record<string, string> = {
-    menu: 'Menu Content', features: 'Why Stop Here?', journey: 'Our Journey',
+    menu: 'Menu Content', features: 'Why Stop Here?',
     analytics: 'Analytics', reviews: 'Reviews', passwords: 'Password Security', printer: 'Printer Settings',
     managers: 'Managers', stats: 'Revenue Stats', orders: 'Orders Control',
     billing: 'Make Bills', recover: 'Recycle Bin',
@@ -1329,7 +1156,6 @@ export default function AdminDashboard() {
           {([
             { key: 'menu',      label: 'Menu Content',      icon: <LayoutDashboard className="w-5 h-5" /> },
             { key: 'features',  label: 'Why Stop Here?',    icon: <Star className="w-5 h-5" /> },
-            { key: 'journey',   label: 'Our Journey',       icon: <ImageIcon className="w-5 h-5" /> },
             { key: 'analytics', label: 'Analytics',         icon: <Activity className="w-5 h-5" /> },
             { key: 'reviews',   label: 'Reviews',           icon: <Star className="w-5 h-5" /> },
             { key: 'printer', label: 'Printer Settings', icon: <Printer className="w-5 h-5" /> },
@@ -1942,8 +1768,6 @@ export default function AdminDashboard() {
           renderFeaturesModule()
         ) : activeModule === 'recover' ? (
           renderRecoverModule()
-        ) : activeModule === 'journey' ? (
-          renderJourneyModule()
         ) : null}
         </Suspense>
         </div>

@@ -102,25 +102,7 @@ export const features = pgTable('features', {
   index('features_display_order_idx').on(table.displayOrder)
 ]);
 
-export const journeyMedia = pgTable('journey_media', {
-  id: serial('id').primaryKey(),
-  url: text('url').notNull(),
-  type: text('type').notNull(), // 'image' or 'video'
-  displayOrder: integer('display_order').notNull().default(0),
-  isActive: boolean('is_active').default(true),
-  createdAt: timestamp('created_at').defaultNow(),
-}, (table) => [
-  index('journey_media_is_active_idx').on(table.isActive),
-  index('journey_media_display_order_idx').on(table.displayOrder)
-]);
 
-export const journeySettings = pgTable('journey_settings', {
-  id: serial('id').primaryKey(),
-  header: text('header').notNull().default('Our Journey'),
-  description: text('description').notNull().default(''),
-  signature: text('signature').notNull().default('Harjinder Tourist Dhaba'),
-  subSignature: text('sub_signature').notNull().default('Serving Memories Since 1991.'),
-});
 
 
 // Analytics Tables

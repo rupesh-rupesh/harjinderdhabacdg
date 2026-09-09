@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import PanLoader from './PanLoader';
 import { DevEmptyStateText } from './DevEmptyStateText';
 import { Package, Clock, CheckCircle2, XCircle, Search, Trash2, Edit, FileText, X, Plus, Minus, Printer, Bell, ClipboardCheck, Filter, ChevronDown, ShoppingBag, Eye, Grid, Cloud, CloudOff, RefreshCw } from 'lucide-react';
@@ -150,30 +150,37 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
     });
   }, []);
 
+  const queryClient = useQueryClient();
   const handleUpdateStatus = async (id: number | string, status: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     try {
       const order = orders.find(o => o.id === id);
       if (!order) return;
 
-      // Optimistically update UI
+      // Optimistically update selected order UI
       if (selectedOrder && selectedOrder.id === id) {
         setSelectedOrder({ ...selectedOrder, status });
       }
+
+      // Optimistically update the orders list in cache
+      queryClient.setQueryData(['admin_orders'], (oldOrders: any[]) => {
+        if (!oldOrders) return oldOrders;
+        return oldOrders.map(o => o.id === id ? { ...o, status } : o);
+      });
 
       const res = await fetch(`/api/admin/orders/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
       });
-      if (res.ok) {
-        fetchOrders();
-      } else {
+      if (!res.ok) {
         toast.error("Failed to update status");
+        fetchOrders(); // Revert on failure
       }
     } catch (e) {
       console.error(e);
       toast.error("An error occurred");
+      fetchOrders(); // Revert on failure
     }
   };
 
@@ -253,20 +260,28 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
       const order = orders.find(o => o.id === deleteConfirm || o.localBillId === deleteConfirm);
       if (!order) return;
 
+      // Optimistically remove the order from the list in cache
+      queryClient.setQueryData(['admin_orders'], (oldOrders: any[]) => {
+        if (!oldOrders) return oldOrders;
+        return oldOrders.filter(o => o.id !== deleteConfirm && o.localBillId !== deleteConfirm);
+      });
+
+      if (selectedOrder && (selectedOrder.id === deleteConfirm || selectedOrder.localBillId === deleteConfirm)) {
+        setSelectedOrder(null);
+      }
+
       const res = await fetch(`/api/admin/orders/${deleteConfirm}`, {
         method: 'DELETE'
       });
       if (res.ok) {
-        fetchOrders();
-        if (selectedOrder && selectedOrder.id === deleteConfirm) {
-          setSelectedOrder(null);
-        }
         toast.success("Order deleted");
       } else {
         toast.error("Failed to delete order");
+        fetchOrders(); // Revert on failure
       }
     } catch(e) {
       console.error(e);
+      fetchOrders(); // Revert on failure
     } finally {
       setDeleteConfirm(null);
     }

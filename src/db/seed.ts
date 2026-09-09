@@ -1,5 +1,5 @@
 import { db } from './index.ts';
-import { categories, menuItems, features, journeySettings } from './schema.ts';
+import { categories, menuItems, features } from './schema.ts';
 import { sql } from 'drizzle-orm';
 
 async function seed() {
@@ -33,10 +33,7 @@ async function seed() {
       { title: 'Free Parking', description: 'Ample space for your vehicles.', iconName: 'Car' }
     ]);
 
-    // Insert journey settings
-    await db.insert(journeySettings).values([
-      { header: 'Our Story', description: 'Serving delicious food since 1990.' }
-    ]);
+
 
     console.log('Database seeded successfully!');
     process.exit(0);

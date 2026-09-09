@@ -22,7 +22,16 @@ export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' |
       setConfig(migrated);
       printerService.saveConfig(migrated);
     }
+    
+    // Initial check
     checkStatus();
+
+    // Live polling for hardware connection status
+    const interval = setInterval(() => {
+      checkStatus();
+    }, 2000);
+
+    return () => clearInterval(interval);
   }, [config.type]);
 
   const checkStatus = async () => {
@@ -37,8 +46,6 @@ export default function PrinterSettings({ role = 'manager' }: { role?: 'admin' |
       }
     }
   };
-
-
 
   const handleSave = (newConfig: Partial<PrinterConfig>) => {
     const updated = { ...config, ...newConfig };

@@ -198,6 +198,24 @@ class PrinterService {
         console.warn("Auto connect BT failed", e);
       }
     }
+    if (this.config.type === 'qz-tray') {
+      try {
+        if (!qz.websocket.isActive()) {
+           await qz.websocket.connect({ retries: 2, delay: 1 });
+        }
+        qz.websocket.setClosedCallbacks(() => {
+          console.warn("QZ Tray Disconnected! Attempting auto-reconnect...");
+          setTimeout(() => this.autoConnect(), 5000);
+        });
+        qz.websocket.setErrorCallbacks((err: any) => {
+          console.error("QZ Tray Error:", err);
+        });
+        return true;
+      } catch (e) {
+        console.warn("Auto connect QZ Tray failed", e);
+      }
+    }
+    
     return false;
   }
 
@@ -254,7 +272,10 @@ class PrinterService {
     if (this.config.type === 'webbluetooth') {
        return this.btDevice && this.btDevice.gatt && this.btDevice.gatt.connected;
     }
-    return true; // browser / network / windows-print / qz-tray are always "connected"
+    if (this.config.type === 'qz-tray') {
+       return qz.websocket.isActive();
+    }
+    return true; // browser / network / windows-print are always "connected"
   }
 
   async connectWebUSB() {
