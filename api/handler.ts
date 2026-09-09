@@ -419,8 +419,8 @@ async function sendOtpEmail(toEmail: string, name: string, code: string): Promis
 
 async function sendManagerWelcomeEmail(toEmail: string, name: string, password: string, role: string): Promise<void> {
   const loginUrl = process.env.VERCEL_URL
-    ? `https://www.harjindertouristdhaba.com/htd-ctrl-9x7k2m/${role}`
-    : `http://localhost:3000/htd-ctrl-9x7k2m/${role}`;
+    ? `https://${role}.harjindertouristdhaba.com/`
+    : `http://${role}.localhost:3000/`;
   try {
     await resendClient.emails.send({
       from: EMAIL_FROM,
