@@ -551,7 +551,7 @@ export default function Storefront() {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto py-8 px-4 flex flex-col gap-2 relative">
+              <div className="flex-1 overflow-y-auto py-8 px-4 flex flex-col gap-2 relative" data-lenis-prevent="true">
                 {/* Background Pattern */}
                 <div className="absolute inset-0 opacity-5 bg-[url('/pattern.png')] bg-repeat pointer-events-none"></div>
 
@@ -1547,7 +1547,7 @@ export default function Storefront() {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+          <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6" data-lenis-prevent="true">
             {cartItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-stone-400 space-y-4">
                 <ShoppingBag className="h-16 w-16 text-stone-300" />

@@ -399,7 +399,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
                 <span className="font-bold">&times;</span>
               </button>
             </div>
-            <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
+            <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200" data-lenis-prevent="true">
                <div className="shadow-2xl">
                  <ThermalReceipt order={selectedOrder} includeGst={generateGst} managerName={managerName} />
                </div>
@@ -688,7 +688,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 bg-[#f8f9fa] relative">
+            <div className="flex-1 overflow-y-auto p-6 bg-[#f8f9fa] relative" data-lenis-prevent="true">
               {/* Zigzag top for receipt look */}
               <div className="absolute top-0 left-4 right-4 h-2 bg-repeat-x opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #000 2px, transparent 3px)', backgroundSize: '12px 12px' }}></div>
               

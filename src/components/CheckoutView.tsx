@@ -146,7 +146,7 @@ export default function CheckoutView({
       </nav>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10" data-lenis-prevent="true">
         <div className="max-w-4xl mx-auto flex flex-col lg:flex-row gap-6 sm:gap-8">
           
           {/* Left Column: Forms & Options */}
@@ -274,7 +274,7 @@ export default function CheckoutView({
                 </div>
               </div>
               
-              <div className="max-h-[30vh] overflow-y-auto pr-2 mb-4 space-y-4">
+              <div className="max-h-[30vh] overflow-y-auto pr-2 mb-4 space-y-4" data-lenis-prevent="true">
                 {cartItems.map((item, index) => (
                   <div key={index} className="flex gap-3 items-start">
                     <div className="w-16 h-16 rounded-lg bg-stone-100 overflow-hidden flex-shrink-0">

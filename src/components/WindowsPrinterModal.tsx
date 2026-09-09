@@ -70,7 +70,7 @@ export default function WindowsPrinterModal({ isOpen, onClose, role = 'manager',
           </button>
         </div>
 
-        <div className="p-6 max-h-[60vh] overflow-y-auto bg-white">
+        <div className="p-6 max-h-[60vh] overflow-y-auto bg-white" data-lenis-prevent="true">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 text-stone-500 space-y-4">
               <Loader2 className="w-8 h-8 animate-spin text-dhaba-orange" />

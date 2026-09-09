@@ -178,7 +178,7 @@ export default function ManagerDailyRevenue() {
               </h3>
             </div>
             
-            <div className="overflow-y-auto p-6 space-y-6 bg-stone-50">
+            <div className="overflow-y-auto p-6 space-y-6 bg-stone-50" data-lenis-prevent="true">
               {selectedStats.orderCount > 0 ? (
                 <>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

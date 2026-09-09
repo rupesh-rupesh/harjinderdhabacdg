@@ -1152,7 +1152,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Nav Items */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5" data-lenis-prevent="true">
           {([
             { key: 'menu',      label: 'Menu Content',      icon: <LayoutDashboard className="w-5 h-5" /> },
             { key: 'features',  label: 'Why Stop Here?',    icon: <Star className="w-5 h-5" /> },
@@ -1216,7 +1216,10 @@ export default function AdminDashboard() {
           </button>
         )}
         {/* Scrollable Content */}
-        <div className={`flex-1 ${activeModule === 'billing' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-8 pb-8'}`}>
+        <div 
+          data-lenis-prevent="true"
+          className={`flex-1 ${activeModule === 'billing' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-8 pb-8'}`}
+        >
         <div className={`${activeModule === 'billing' ? 'h-full' : 'max-w-6xl mx-auto w-full'}`}>
 
         

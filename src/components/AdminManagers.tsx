@@ -318,7 +318,7 @@ export default function AdminManagers() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto" data-lenis-prevent="true">
 
               {/* Name */}
               <div className="space-y-1.5">

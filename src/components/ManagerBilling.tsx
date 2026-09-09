@@ -587,7 +587,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
 
   if (tableSelection === null) {
     return (
-      <div className="h-full overflow-y-auto p-4 sm:p-6 lg:p-8 pb-12">
+      <div className="h-full overflow-y-auto p-4 sm:p-6 lg:p-8 pb-12" data-lenis-prevent="true">
         <div className="hidden print:block">
           <ThermalReceipt order={checkoutTable?.order} includeGst={generateGst} managerName={managerName} forwardedRef={receiptRef} />
           <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName={managerName} forwardedRef={cartReceiptRef} />
@@ -617,7 +617,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                   <span className="font-bold">&times;</span>
                 </button>
               </div>
-              <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
+              <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200" data-lenis-prevent="true">
                 <div className="shadow-2xl">
                   <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName={managerName} />
                 </div>
@@ -645,7 +645,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                   <span className="font-bold">&times;</span>
                 </button>
               </div>
-              <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
+              <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200" data-lenis-prevent="true">
                 <div className="shadow-2xl">
                   <ThermalReceipt order={checkoutTable.order} includeGst={generateGst} managerName={managerName} />
                 </div>
@@ -1020,7 +1020,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                   <span className="font-bold">&times;</span>
                 </button>
               </div>
-              <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
+              <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200" data-lenis-prevent="true">
                 <div className="shadow-2xl">
                   <ThermalReceipt order={draftOrder} includeGst={generateGst} managerName={managerName} />
                 </div>
@@ -1043,7 +1043,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                   <span className="font-bold">&times;</span>
                 </button>
               </div>
-              <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200">
+              <div className="p-6 overflow-y-auto flex-1 flex justify-center bg-stone-200" data-lenis-prevent="true">
                 <div className="shadow-2xl">
                   <ThermalReceipt order={checkoutTable.order} includeGst={generateGst} managerName={managerName} />
                 </div>
@@ -1311,7 +1311,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
         <div className="flex-1 flex overflow-hidden">
 
           {/* Left Column: Categories — floating pills look */}
-          <div className="w-24 sm:w-48 bg-stone-50 border-r border-stone-200 overflow-y-auto shrink-0 flex flex-col p-2 sm:p-4 gap-2">
+          <div className="w-24 sm:w-48 bg-stone-50 border-r border-stone-200 overflow-y-auto shrink-0 flex flex-col p-2 sm:p-4 gap-2" data-lenis-prevent="true">
             {categories.map(cat => (
               <button type="button"
                 key={cat.id}
@@ -1343,7 +1343,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
           </div>
 
           {/* Middle Column: Items — no separate mobile search since search is in header */}
-          <div className="flex-1 bg-[#f8f9fa] overflow-y-auto p-4 sm:p-6">
+          <div className="flex-1 bg-[#f8f9fa] overflow-y-auto p-4 sm:p-6" data-lenis-prevent="true">
             <div
               className="grid gap-4 sm:gap-6"
               style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(max(140px, calc((100% - 48px) / 3)), 1fr))' }}
@@ -1454,7 +1454,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f8f9fa] relative z-10">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f8f9fa] relative z-10" data-lenis-prevent="true">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-stone-400 space-y-4">
               <div className="w-20 h-20 rounded-full bg-white shadow-sm flex items-center justify-center mb-2">

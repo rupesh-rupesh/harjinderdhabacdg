@@ -59,10 +59,12 @@ function NotFoundPage() {
   );
 }
 
-export default function App() {
+/** Manages Lenis smooth scroll based on route */
+function LenisScroller() {
+  const location = useLocation();
 
   useEffect(() => {
-    if (window.location.pathname.includes('/admin') || window.location.pathname.includes('/manager')) {
+    if (location.pathname.includes('/admin') || location.pathname.includes('/manager')) {
       return;
     }
 
@@ -76,24 +78,33 @@ export default function App() {
       touchMultiplier: 2,
     });
 
+    let rafId: number;
+
     lenis.on('scroll', ScrollTrigger.update);
 
-    gsap.ticker.add((time) => {
-      lenis.raf(time * 1000);
-    });
+    function raf(time: number) {
+      lenis.raf(time);
+      rafId = requestAnimationFrame(raf);
+    }
 
-    gsap.ticker.lagSmoothing(0);
+    rafId = requestAnimationFrame(raf);
 
     return () => {
       lenis.destroy();
+      cancelAnimationFrame(rafId);
     };
-  }, []);
+  }, [location.pathname]);
 
+  return null;
+}
+
+export default function App() {
   return (
     <>
       <Toaster position="top-center" />
       <BrowserRouter>
         <RobotsManager />
+        <LenisScroller />
         <AnalyticsTracker />
         <Suspense fallback={<Loader />}>
           <Routes>

@@ -153,7 +153,7 @@ export default function ManagerDashboard() {
         </div>
 
         {/* Nav Items */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1" data-lenis-prevent="true">
           {NAV_ITEMS.map(({ key, label, icon }) => (
             <button
               key={key}
@@ -200,7 +200,10 @@ export default function ManagerDashboard() {
         )}
 
         {/* Scrollable Content */}
-        <div className={`flex-1 ${activeModule === 'billing' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-8 pb-8'}`}>
+        <div 
+          data-lenis-prevent="true"
+          className={`flex-1 ${activeModule === 'billing' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-8 pb-8'}`}
+        >
           <div className={`${activeModule === 'billing' ? 'h-full' : 'max-w-6xl mx-auto w-full'}`}>
             <Suspense fallback={<PanLoader text="Loading module..." />}>
             {activeModule === 'billing' ? (

@@ -91,7 +91,7 @@ export const TimePicker: React.FC<TimePickerProps> = ({ value, onChange, require
         <div className="absolute z-50 bottom-full mb-2 w-48 bg-white border border-stone-100 rounded-3xl shadow-xl overflow-hidden left-0 py-4 transform origin-bottom animate-in fade-in zoom-in-95 duration-200">
           <div 
             ref={scrollRef}
-            className="max-h-[240px] overflow-y-auto hide-scrollbar snap-y snap-mandatory relative px-2"
+            className="max-h-[240px] overflow-y-auto hide-scrollbar snap-y snap-mandatory relative px-2" data-lenis-prevent="true"
           >
             {/* Top padding to allow first item to be centered */}
             <div className="h-[96px] shrink-0" />

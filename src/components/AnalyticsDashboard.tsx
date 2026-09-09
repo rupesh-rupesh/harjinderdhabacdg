@@ -87,7 +87,7 @@ export default function AnalyticsDashboard() {
     const nextD = new Date(d);
     nextD.setDate(nextD.getDate() + 1);
     
-    const count = serverData.visits.filter((v: any) => {
+    const count = (serverData.visits || []).filter((v: any) => {
       const vTime = new Date(v.visitTime);
       return vTime >= d && vTime < nextD;
     }).length;
@@ -151,7 +151,7 @@ export default function AnalyticsDashboard() {
     return `${m}m ${s}s`;
   };
 
-  const filteredVisitors = serverData.visitors.filter((v: any) => 
+  const filteredVisitors = (serverData.visitors || []).filter((v: any) => 
     (v.deviceType || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (v.os || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (v.browser || '').toLowerCase().includes(searchTerm.toLowerCase())

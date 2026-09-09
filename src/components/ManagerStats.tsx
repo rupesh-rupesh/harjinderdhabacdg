@@ -375,7 +375,7 @@ export default function ManagerStats({ role = 'manager' }: { role?: 'admin' | 'm
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto p-6 bg-stone-50/50">
+            <div className="flex-1 overflow-y-auto p-6 bg-stone-50/50" data-lenis-prevent="true">
               {isFetchingOrders ? (
                 <div className="flex justify-center items-center h-32">
                   <div className="animate-spin rounded-full h-8 w-8 border-2 border-dhaba-orange border-t-transparent"></div>
@@ -457,7 +457,7 @@ export default function ManagerStats({ role = 'manager' }: { role?: 'admin' | 'm
               </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-6 bg-[#f8f9fa] relative">
+            <div className="flex-1 overflow-y-auto p-6 bg-[#f8f9fa] relative" data-lenis-prevent="true">
               {/* Zigzag top for receipt look */}
               <div className="absolute top-0 left-4 right-4 h-2 bg-repeat-x opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #000 2px, transparent 3px)', backgroundSize: '12px 12px' }}></div>
               

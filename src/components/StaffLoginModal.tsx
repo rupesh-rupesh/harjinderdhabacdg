@@ -171,7 +171,7 @@ export default function StaffLoginModal({ role, onSuccess }: StaffLoginModalProp
       <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-[#C89B3C]/30 blur-[120px] animate-pulse mix-blend-screen pointer-events-none" style={{ animationDuration: '8s' }}></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] rounded-full bg-[#ff7300]/20 blur-[120px] animate-pulse mix-blend-screen pointer-events-none" style={{ animationDuration: '12s', animationDelay: '2s' }}></div>
 
-      <div className="relative z-10 w-full max-w-6xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-16 px-4 h-full py-12 overflow-y-auto">
+      <div className="relative z-10 w-full max-w-6xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-16 px-4 h-full py-12 overflow-y-auto" data-lenis-prevent="true">
         
         {/* Branding Section (Hidden on small mobile) */}
         <div className="flex-1 text-center lg:text-left hidden md:flex flex-col justify-center max-w-xl">
