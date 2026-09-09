@@ -21,27 +21,6 @@ const Loader = () => (
   </div>
 );
 
-/** Injects or removes a <meta name="robots" content="noindex"> for admin routes */
-function RobotsManager() {
-  const location = useLocation();
-  useEffect(() => {
-    const isPrivate = location.pathname.startsWith('/htd-ctrl-9x7k2m');
-    let metaRobots = document.querySelector<HTMLMetaElement>('meta[name="robots"][data-dynamic]');
-    if (isPrivate) {
-      if (!metaRobots) {
-        metaRobots = document.createElement('meta');
-        metaRobots.name = 'robots';
-        metaRobots.setAttribute('data-dynamic', 'true');
-        document.head.appendChild(metaRobots);
-      }
-      metaRobots.content = 'noindex, nofollow';
-    } else {
-      metaRobots?.remove();
-    }
-  }, [location.pathname]);
-  return null;
-}
-
 /** Proper 404 page */
 function NotFoundPage() {
   return (
@@ -59,15 +38,9 @@ function NotFoundPage() {
   );
 }
 
-/** Manages Lenis smooth scroll based on route */
+/** Manages Lenis smooth scroll */
 function LenisScroller() {
-  const location = useLocation();
-
   useEffect(() => {
-    if (location.pathname.includes('/admin') || location.pathname.includes('/manager')) {
-      return;
-    }
-
     const lenis = new Lenis({
       duration: 1.2,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
@@ -93,24 +66,56 @@ function LenisScroller() {
       lenis.destroy();
       cancelAnimationFrame(rafId);
     };
-  }, [location.pathname]);
+  }, []);
 
   return null;
 }
 
 export default function App() {
+  const hostname = window.location.hostname;
+  const isAdmin = hostname.startsWith('admin.');
+  const isManager = hostname.startsWith('manager.');
+
+  if (isAdmin) {
+    return (
+      <>
+        <Toaster position="top-center" />
+        <BrowserRouter>
+          <Suspense fallback={<Loader />}>
+            <Routes>
+              <Route path="/*" element={<AdminDashboard />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </>
+    );
+  }
+
+  if (isManager) {
+    return (
+      <>
+        <Toaster position="top-center" />
+        <BrowserRouter>
+          <Suspense fallback={<Loader />}>
+            <Routes>
+              <Route path="/*" element={<ManagerDashboard />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </>
+    );
+  }
+
+  // Main Storefront
   return (
     <>
       <Toaster position="top-center" />
       <BrowserRouter>
-        <RobotsManager />
         <LenisScroller />
         <AnalyticsTracker />
         <Suspense fallback={<Loader />}>
           <Routes>
             <Route path="/" element={<Storefront />} />
-            <Route path="/htd-ctrl-9x7k2m/admin" element={<AdminDashboard />} />
-            <Route path="/htd-ctrl-9x7k2m/manager" element={<ManagerDashboard />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
