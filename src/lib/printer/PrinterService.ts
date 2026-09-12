@@ -1,5 +1,37 @@
 import { ESCPosGenerator } from './ESCPosGenerator';
 import qz from 'qz-tray';
+import toast from 'react-hot-toast';
+
+/**
+ * Configure QZ Tray security ONCE at module load time.
+ * Using the null/unsigned certificate approach for local/LAN deployments.
+ * This MUST be called before any qz.websocket.connect() call, otherwise
+ * QZ Tray shows a browser-blocking permission prompt that causes "blocked by client" errors.
+ */
+let qzSecurityConfigured = false;
+function ensureQZSecurityConfigured() {
+  if (qzSecurityConfigured) return;
+  qzSecurityConfigured = true;
+
+  // Certificate promise — returning null tells QZ Tray to use unsigned mode.
+  // This eliminates the popup/block entirely for trusted local connections.
+  qz.security.setCertificatePromise((_resolve: (cert: string | null) => void, reject: (err: any) => void) => {
+    try {
+      _resolve(null); // null = unsigned / local-trust mode
+    } catch (e) {
+      reject(e);
+    }
+  });
+
+  // Signature promise — no signing needed when certificate is null.
+  qz.security.setSignatureAlgorithm('SHA512');
+  qz.security.setSignaturePromise((_toSign: string) => {
+    return (_resolve: (sig: string | null) => void, _reject: (err: any) => void) => {
+      _resolve(null); // null = no signature for local-trust mode
+    };
+  });
+}
+
 const numberToWords = (num: number) => {
   const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
   const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
@@ -112,14 +144,33 @@ class PrinterService {
    */
   async getQZPrinters(): Promise<string[]> {
     try {
+      ensureQZSecurityConfigured();
       if (!qz.websocket.isActive()) {
-        await qz.websocket.connect({ retries: 2, delay: 1 });
+        await qz.websocket.connect({
+          retries: 5,
+          delay: 1,
+          host: ['localhost', '127.0.0.1'],
+          usingSecure: window.location.protocol === 'https:',
+        });
       }
       const list = await qz.printers.find();
       return Array.isArray(list) ? list : typeof list === 'string' ? [list] : [];
     } catch (e: any) {
       console.warn('[PrinterService] getQZPrinters failed:', e.message);
-      throw new Error(e.message || 'Failed to connect to QZ Tray');
+      let errorMsg = e.message || 'Failed to connect to QZ Tray';
+      if (
+        errorMsg.toLowerCase().includes('blocked by client') ||
+        errorMsg.toLowerCase().includes('unable to connect') ||
+        errorMsg.toLowerCase().includes('websocket')
+      ) {
+        errorMsg =
+          'Could not connect to QZ Tray. Please ensure:\n' +
+          '1. QZ Tray is installed and running (check your system taskbar).\n' +
+          '2. When QZ Tray shows a permission prompt, click "Allow".\n' +
+          '3. Disable any Adblockers or browser shields for this site.\n' +
+          '4. If still failing: right-click QZ Tray in taskbar → Advanced → Site Manager → remove this site entry, then retry.';
+      }
+      throw new Error(errorMsg);
     }
   }
 
@@ -200,8 +251,14 @@ class PrinterService {
     }
     if (this.config.type === 'qz-tray') {
       try {
+        ensureQZSecurityConfigured();
         if (!qz.websocket.isActive()) {
-           await qz.websocket.connect({ retries: 2, delay: 1 });
+          await qz.websocket.connect({
+            retries: 5,
+            delay: 1,
+            host: ['localhost', '127.0.0.1'],
+            usingSecure: window.location.protocol === 'https:',
+          });
         }
         qz.websocket.setClosedCallbacks(() => {
           console.warn("QZ Tray Disconnected! Attempting auto-reconnect...");
@@ -212,7 +269,7 @@ class PrinterService {
         });
         return true;
       } catch (e) {
-        console.warn("Auto connect QZ Tray failed", e);
+        console.warn("Auto connect QZ Tray failed (QZ Tray may not be running)", e);
       }
     }
     
@@ -554,25 +611,49 @@ class PrinterService {
          }
       } else if (this.config.type === 'webbluetooth') {
          if (!this.btDevice || !this.btDevice.gatt || !this.btDevice.gatt.connected || !this.btCharacteristic) {
-            await this.connectWebBluetooth();
+            let reconnected = false;
+            if (this.btDevice && this.btDevice.gatt) {
+               try {
+                  console.log("Attempting silent Bluetooth reconnect...");
+                  const server = await this.btDevice.gatt.connect();
+                  const services = await server.getPrimaryServices();
+                  for (const service of services) {
+                     const characteristics = await service.getCharacteristics();
+                     for (const characteristic of characteristics) {
+                        if (characteristic.properties.write || characteristic.properties.writeWithoutResponse) {
+                           this.btCharacteristic = characteristic;
+                           this.setupBluetoothListeners();
+                           reconnected = true;
+                           console.log("Silent reconnect successful!");
+                           break;
+                        }
+                     }
+                     if (reconnected) break;
+                  }
+               } catch (e) {
+                  console.warn("Silent reconnect failed, will prompt user...", e);
+               }
+            }
+            if (!reconnected) {
+               await this.connectWebBluetooth();
+            }
          }
          try {
-            const CHUNK_SIZE = 64;
+            // Very important for cheap POS58 thermal printers: 
+            // They have tiny buffers and will silently drop packets if sent too fast/too large.
+            const CHUNK_SIZE = 64; 
             for (let i = 0; i < data.byteLength; i += CHUNK_SIZE) {
                const chunk = data.slice(i, i + CHUNK_SIZE);
-               await this.btCharacteristic!.writeValue(chunk);
-               await new Promise(r => setTimeout(r, 20)); // Small delay for BLE printer buffer
+               if (this.btCharacteristic!.properties.writeWithoutResponse && typeof (this.btCharacteristic as any).writeValueWithoutResponse === 'function') {
+                  await (this.btCharacteristic as any).writeValueWithoutResponse(chunk);
+               } else {
+                  await this.btCharacteristic!.writeValue(chunk);
+               }
+               await new Promise(r => setTimeout(r, 50)); 
             }
          } catch (transferErr: any) {
-            console.warn("Transfer failed, attempting to reconnect...", transferErr);
-            this.btDevice = null;
-            await this.connectWebBluetooth();
-            const CHUNK_SIZE = 64;
-            for (let i = 0; i < data.byteLength; i += CHUNK_SIZE) {
-               const chunk = data.slice(i, i + CHUNK_SIZE);
-               await this.btCharacteristic!.writeValue(chunk);
-               await new Promise(r => setTimeout(r, 20));
-            }
+            console.error("Bluetooth transfer failed:", transferErr);
+            throw new Error('Bluetooth print failed. Please ensure the printer is turned on and in range.');
          }
       } else if (this.config.type === 'network') {
          if (!this.config.ipAddress) {
@@ -587,7 +668,10 @@ class PrinterService {
            });
            if (!response.ok) throw new Error(`Network printer responded with status ${response.status}`);
          } catch (netErr: any) {
-           console.warn('Direct RAW socket send failed, falling back to System Print dialog...', netErr);
+           console.warn('Direct RAW socket send failed (often blocked on HTTPS due to Mixed Content):', netErr);
+           if (window.location.protocol === 'https:') {
+             toast.error("Network Print is blocked on secure sites (HTTPS). Falling back to System Print...");
+           }
            window.print();
          }
       } else if (this.config.type === 'windows-print') {
@@ -620,9 +704,15 @@ class PrinterService {
          if (!this.config.qzPrinterName) {
            throw new Error('No QZ Tray printer selected. Please choose a printer in Printer Settings.');
          }
-         
+
+         ensureQZSecurityConfigured();
          if (!qz.websocket.isActive()) {
-           await qz.websocket.connect({ retries: 2, delay: 1 });
+           await qz.websocket.connect({
+             retries: 5,
+             delay: 1,
+             host: ['localhost', '127.0.0.1'],
+             usingSecure: window.location.protocol === 'https:',
+           });
          }
          
          const qzConfig = qz.configs.create(this.config.qzPrinterName);
@@ -636,8 +726,18 @@ class PrinterService {
          window.print();
       }
     } catch (e: any) {
-      console.warn('Direct thermal print failed, attempting System Print fallback:', e?.message || e);
-      window.print();
+      console.warn('Thermal print failed:', e?.message || e);
+      let errorMsg = e?.message || 'Unknown error';
+      if (
+        errorMsg.toLowerCase().includes('blocked by client') ||
+        (errorMsg.toLowerCase().includes('unable to connect') && this.config.type === 'qz-tray')
+      ) {
+        throw new Error(
+          'QZ Tray connection failed. Make sure QZ Tray is running, then click "Allow" when prompted. ' +
+          'If the problem persists, right-click QZ Tray in taskbar → Advanced → Site Manager → remove this site, then retry.'
+        );
+      }
+      throw new Error(errorMsg);
     }
   }
 

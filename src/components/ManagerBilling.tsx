@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import PanLoader from './PanLoader';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { LayoutGrid, Package, Utensils, Grid, Search, Plus, Minus, Trash2, CheckCircle2, AlertCircle, ShoppingBag, ArrowLeft, ArrowRight, Table, X, CreditCard, Printer, FileText, Eye, UserCircle, Lock, Unlock, Save, ChevronDown, Edit2, Wifi, WifiOff } from 'lucide-react';
 import { ThermalReceipt } from './ThermalReceipt';
 import { managerPrinterService as printerService } from '../lib/printer/PrinterService';
@@ -334,7 +334,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
             toast.error((t) => (
               <div className="flex flex-col gap-2">
                 <span>Hardware access is blocked in this preview window.</span>
-                <a href="http://localhost:3000" target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 bg-black text-white text-xs text-center rounded hover:bg-gray-800" onClick={() => toast.dismiss(t.id)}>Open in New Tab</a>
+                <a href={window.location.href} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 bg-black text-white text-xs text-center rounded hover:bg-gray-800" onClick={() => toast.dismiss(t.id)}>Open in New Tab</a>
               </div>
             ), { duration: 10000 });
           } else if (e.message && !e.message.toLowerCase().includes('cancel')) {
@@ -369,7 +369,8 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
       return [];
     },
     refetchInterval: 10000,
-    staleTime: 10000
+    staleTime: 10000,
+    placeholderData: keepPreviousData
   });
 
   const activeOrders = serverOrders.filter((o: any) => o.status === 'pending' || o.status === 'processing');
@@ -386,6 +387,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
       return { categories: [], menuItems: [] };
     },
     staleTime: 60000,
+    placeholderData: keepPreviousData
   });
 
   useEffect(() => {
@@ -548,6 +550,10 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
               : { id: orderId, items: JSON.stringify(posItems), tableNumber: tableSelection, createdAt: new Date().toISOString() };
 
             if (printerService.getConfig().type !== 'browser') {
+              if (!printerService.isConnected()) {
+                if (printerService.getConfig().type === 'webusb') await printerService.connectWebUSB();
+                else if (printerService.getConfig().type === 'webbluetooth') await printerService.connectWebBluetooth();
+              }
               await printerService.printReceipt(printOrder, false, true, generateGst);
             } else {
               draftOrder.id = String(printOrder.id);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import PanLoader from './PanLoader';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { 
   Users, Eye, Clock, Activity, Calendar, Monitor, Globe, Search, Filter, Settings, Trash2, Download, RefreshCw 
 } from 'lucide-react';
@@ -36,7 +36,8 @@ export default function AnalyticsDashboard() {
       return { data: dataJson, settings: settingsJson };
     },
     refetchInterval: 300000, // 5 minutes
-    staleTime: 300000
+    staleTime: 300000,
+    placeholderData: keepPreviousData
   });
 
   useEffect(() => {

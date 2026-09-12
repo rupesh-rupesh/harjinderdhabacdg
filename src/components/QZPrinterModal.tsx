@@ -50,6 +50,51 @@ export default function QZPrinterModal({ isOpen, onClose, role = 'manager', onCo
 
   if (!isOpen) return null;
 
+  // Parse numbered steps from error message (lines starting with digits like "1. ...")
+  const renderError = (msg: string) => {
+    const lines = msg.split('\n').filter(Boolean);
+    const intro = lines[0];
+    const steps = lines.slice(1).filter(l => /^\d+\./.test(l));
+    const hasSteps = steps.length > 0;
+    return (
+      <div className="text-center py-6 px-4">
+        <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-3">
+          <X className="w-6 h-6" />
+        </div>
+        <p className="text-red-600 font-semibold text-sm mb-3">{intro}</p>
+        {hasSteps && (
+          <ol className="text-left text-sm text-stone-700 space-y-2 bg-stone-50 rounded-xl p-4 mb-4">
+            {steps.map((step, i) => (
+              <li key={i} className="flex gap-2">
+                <span className="flex-shrink-0 w-5 h-5 bg-[#E85D04] text-white rounded-full text-xs flex items-center justify-center font-bold mt-0.5">
+                  {i + 1}
+                </span>
+                <span>{step.replace(/^\d+\.\s*/, '')}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+        {!hasSteps && (
+          <p className="text-stone-500 text-xs mb-4">{msg}</p>
+        )}
+        <a
+          href="https://qz.io/download"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-xs text-[#E85D04] hover:underline mb-3"
+        >
+          Don't have QZ Tray? Download it here →
+        </a>
+        <button
+          onClick={fetchPrinters}
+          className="px-5 py-2 bg-[#E85D04] text-white rounded-xl text-sm font-semibold hover:bg-[#c94e03] transition-colors shadow-sm"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={onClose} />
@@ -74,18 +119,13 @@ export default function QZPrinterModal({ isOpen, onClose, role = 'manager', onCo
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 text-stone-500 space-y-4">
               <Loader2 className="w-8 h-8 animate-spin text-[#E85D04]" />
-              <p className="text-sm font-medium">Scanning for printers...</p>
+              <p className="text-sm font-medium">Connecting to QZ Tray...</p>
+              <p className="text-xs text-stone-400 text-center max-w-[220px]">
+                If a QZ Tray permission prompt appears, click <strong>"Allow"</strong>.
+              </p>
             </div>
           ) : error ? (
-            <div className="text-center py-8 px-4">
-              <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                <X className="w-6 h-6" />
-              </div>
-              <p className="text-red-600 font-medium">{error}</p>
-              <button onClick={fetchPrinters} className="mt-4 text-sm text-stone-600 hover:text-stone-900 underline">
-                Try again
-              </button>
-            </div>
+            renderError(error)
           ) : printers.length === 0 ? (
             <div className="text-center py-12">
               <Printer className="w-12 h-12 text-stone-300 mx-auto mb-3" />

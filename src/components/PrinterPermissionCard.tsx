@@ -59,7 +59,7 @@ export function PrinterPermissionCard({ role = 'manager', onConnect }: { role?: 
           <div className="flex flex-col gap-2">
             <span>Hardware access is blocked in this preview window.</span>
             <a 
-              href="http://localhost:3000" 
+              href={window.location.href} 
               target="_blank" 
               rel="noopener noreferrer"
               className="px-3 py-1.5 bg-black text-white text-xs text-center rounded hover:bg-gray-800 font-medium"

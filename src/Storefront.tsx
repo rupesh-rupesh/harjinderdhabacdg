@@ -231,10 +231,10 @@ export default function Storefront() {
       toast.error('Menu data is not loaded yet. Please try again.');
       return;
     }
-    
+
     setIsGeneratingPdf(true);
     const loadingToast = toast.loading('Generating PDF Menu... Please wait.');
-    
+
     try {
       await generatePdfMenu(menuItems);
       toast.success('Menu PDF downloaded successfully!', { id: loadingToast });
@@ -653,10 +653,10 @@ export default function Storefront() {
                   className={`absolute inset-0 w-full h-full object-cover transition-transform duration-[20s] ease-linear ${index === currentHeroIndex ? 'opacity-100 z-10 scale-110' : 'opacity-0 z-0 pointer-events-none scale-100'}`}
                 />
               ))}
-              
+
               {/* Overlay gradient for text readability */}
               <div className="absolute inset-0 z-10 pointer-events-none" style={{ background: 'linear-gradient(180deg, rgba(36,23,18,0.92) 0%, rgba(36,23,18,0.55) 45%, rgba(36,23,18,0.96) 100%)' }} />
-              
+
               {/* Decorative grain */}
               <div className="absolute inset-0 z-10 opacity-20 pointer-events-none" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\' opacity=\'0.4\'/%3E%3C/svg%3E")', backgroundSize: '180px 180px' }} />
 
@@ -666,14 +666,13 @@ export default function Storefront() {
                   {staticHeroMedia.map((_, i) => {
                     const isActive = i === currentHeroIndex;
                     return (
-                      <div 
-                        key={i} 
-                        className={`relative rounded-full transition-all duration-500 overflow-hidden ${
-                          isActive ? 'w-8 h-2 bg-white' : 'w-2 h-2 bg-white/50'
-                        }`}
+                      <div
+                        key={i}
+                        className={`relative rounded-full transition-all duration-500 overflow-hidden ${isActive ? 'w-8 h-2 bg-white' : 'w-2 h-2 bg-white/50'
+                          }`}
                       >
                         {isActive && (
-                          <div 
+                          <div
                             key={`active-hero-${Date.now()}`}
                             className="absolute inset-y-0 left-0 bg-[var(--color-gold)] origin-left rounded-full"
                             style={{
@@ -698,7 +697,7 @@ export default function Storefront() {
                 <div className="h-px w-8 sm:w-12" style={{ background: 'linear-gradient(90deg, #C89B3C, transparent)' }} />
               </div>
               <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-serif font-bold text-white mb-6 leading-[1.1] drop-shadow-xl">
-                <span className="sr-only">Harjinder Tourist Dhaba - The Best Family Dhaba for Veg & Non-Veg Food in Kharar, Mohali</span>
+                <span className="sr-only">Harjinder Tourist Dhaba - The Best Family Dhaba for Pure Veg Food in Kharar, Mohali</span>
                 The True Taste of{' '}<br className="hidden sm:block" />
                 <span style={{ background: 'linear-gradient(135deg, #C89B3C, #e8bb5c, #C89B3C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Punjab</span>
               </h1>
@@ -1203,14 +1202,13 @@ export default function Storefront() {
                         {staticJourneyMedia.map((_, i) => {
                           const isActive = i === currentJourneyIndex;
                           return (
-                            <div 
-                              key={i} 
-                              className={`relative rounded-full transition-all duration-500 overflow-hidden ${
-                                isActive ? 'w-8 h-2 bg-white' : 'w-2 h-2 bg-white/50'
-                              }`}
+                            <div
+                              key={i}
+                              className={`relative rounded-full transition-all duration-500 overflow-hidden ${isActive ? 'w-8 h-2 bg-white' : 'w-2 h-2 bg-white/50'
+                                }`}
                             >
                               {isActive && (
-                                <div 
+                                <div
                                   key={`active-${Date.now()}`}
                                   className="absolute inset-y-0 left-0 bg-rose-500 origin-left rounded-full"
                                   style={{
@@ -1293,15 +1291,15 @@ export default function Storefront() {
                   <Star className="w-4 h-4 text-[var(--color-gold)]" fill="currentColor" />
                   <span className="text-xs font-bold tracking-[0.2em] uppercase text-[var(--color-brown)]">Top Rated Destination</span>
                 </div>
-                
+
                 <h2 className="text-4xl md:text-5xl font-serif font-bold text-[var(--color-brown)] mb-6 leading-tight">
-                  The Best Family Dhaba in <br/>
+                  The Best Family Dhaba in <br />
                   <span className="text-[var(--color-gold)] italic">Kharar, Mohali</span>
                 </h2>
-                
+
                 <div className="space-y-6 text-stone-600 text-lg font-light leading-relaxed mb-8">
                   <p>
-                    Welcome to <strong className="font-semibold text-stone-800">Harjinder Tourist Dhaba</strong>, the most loved family destination on the bustling Kharar–Kurali Highway. We are proud to serve the most authentic, affordable <strong className="font-semibold text-stone-800">veg and non-veg food</strong> in the region. 
+                    Welcome to <strong className="font-semibold text-stone-800">Harjinder Tourist Dhaba</strong>, the most loved family destination on the bustling Kharar–Kurali Highway. We are proud to serve the most authentic, affordable <strong className="font-semibold text-stone-800">pure veg food</strong> in the region.
                   </p>
                   <p>
                     We understand the importance of a clean, safe, and welcoming environment, making us the top choice for families traveling near <strong className="font-semibold text-stone-800">Mohali</strong> and Punjab.
@@ -1311,9 +1309,9 @@ export default function Storefront() {
                 {/* SEO Feature List */}
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[
-                    "Authentic Punjabi Cuisine", 
-                    "Clean Family Environment", 
-                    "Open 24 Hours, 7 Days", 
+                    "Authentic Punjabi Cuisine",
+                    "Clean Family Environment",
+                    "Open 24 Hours, 7 Days",
                     "Affordable Highway Dining"
                   ].map((feature, idx) => (
                     <li key={idx} className="flex items-center gap-3 text-stone-700 font-medium bg-white p-3 rounded-xl shadow-sm border border-stone-100">
@@ -1330,16 +1328,16 @@ export default function Storefront() {
               <div className="order-1 lg:order-2 flex flex-col justify-center">
                 <div className="relative pl-4 pb-4 sm:pl-8 sm:pb-8 mt-8 lg:mt-0">
                   <div className="relative rounded-3xl overflow-hidden shadow-2xl ring-1 ring-black/5 transform transition-transform duration-700 hover:-translate-y-2 hover:shadow-3xl">
-                    <img 
-                      src="/4.webp" 
-                      alt="Harjinder Tourist Dhaba - Best Family Dhaba for Veg and Non-Veg Food" 
-                      className="w-full h-full object-cover aspect-[4/3] scale-105 hover:scale-100 transition-transform duration-1000" 
-                      loading="lazy" 
+                    <img
+                      src="/4.webp"
+                      alt="Harjinder Tourist Dhaba - Best Family Dhaba for Pure Veg Food"
+                      className="w-full h-full object-cover aspect-[4/3] scale-105 hover:scale-100 transition-transform duration-1000"
+                      loading="lazy"
                     />
                     {/* Overlay Gradient */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent mix-blend-multiply transition-opacity duration-500 hover:opacity-80"></div>
                   </div>
-                  
+
                   {/* Floating Glassmorphism Badge */}
                   <div className="absolute -bottom-2 left-0 sm:bottom-2 sm:-left-4 bg-white/70 backdrop-blur-xl p-4 pr-8 rounded-2xl shadow-2xl border border-white/60 flex items-center gap-4 transition-transform duration-500 hover:-translate-y-1 group">
                     <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[var(--color-gold)] to-amber-600 flex items-center justify-center shrink-0 shadow-lg group-hover:scale-110 transition-transform duration-300">
@@ -1350,7 +1348,7 @@ export default function Storefront() {
                       <p className="text-sm text-stone-600 font-medium">Serving fresh food 24/7</p>
                     </div>
                   </div>
-                  
+
                   {/* Decorative background shape */}
                   <div className="absolute top-6 right-0 bottom-12 left-12 bg-gradient-to-br from-[var(--color-gold)]/30 to-amber-600/10 rounded-[2rem] -z-10 transform translate-x-4 -translate-y-4 blur-sm transition-transform duration-700 hover:translate-x-6 hover:-translate-y-6"></div>
                 </div>
@@ -1374,7 +1372,7 @@ export default function Storefront() {
                       <Star className="w-6 h-6 text-[var(--color-gold)] group-hover:text-white transition-colors duration-300" fill="currentColor" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-2xl font-serif text-[var(--color-brown)] leading-none mb-1">4.1</h4>
+                      <h4 className="font-bold text-2xl font-serif text-[var(--color-brown)] leading-none mb-1">4.7</h4>
                       <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Across Internet</p>
                     </div>
                   </div>
@@ -1467,13 +1465,13 @@ export default function Storefront() {
                     <li><button onClick={() => { setCurrentView('menu'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-block focus:outline-none">Food Menu</button></li>
                     <li><Link to="/privacy-policy" className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-block">Privacy Policy</Link></li>
                     <li>
-                      <button 
-                        onClick={handleDownloadPdf} 
-                        disabled={isGeneratingPdf} 
-                        className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-flex items-center gap-2 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      <a
+                        href="/Harjinder_Tourist_Dhaba_Menu.pdf"
+                        download="Harjinder_Tourist_Dhaba_Menu.pdf"
+                        className="hover:text-[var(--color-gold)] transition-colors hover:pl-2 duration-300 inline-flex items-center gap-2 focus:outline-none"
                       >
-                        {isGeneratingPdf ? 'Generating...' : 'Download Menu (PDF)'}
-                      </button>
+                        Download Menu (PDF)
+                      </a>
                     </li>
                   </ul>
                 </div>
@@ -1740,8 +1738,8 @@ export default function Storefront() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10"></div>
 
               <div className="absolute top-4 left-4 z-10 flex gap-2">
-                <div className="bg-white/90 backdrop-blur-sm p-1.5 rounded-md shadow-sm flex items-center justify-center cursor-help" title={selectedItemDetail.dietaryPreference === 'veg' ? 'Vegetarian' : 'Non-Vegetarian'}>
-                  <DietaryBadge type={selectedItemDetail.dietaryPreference} />
+                <div className="bg-white/90 backdrop-blur-sm p-1.5 rounded-md shadow-sm flex items-center justify-center cursor-help" title="Vegetarian">
+                  <DietaryBadge type="veg" />
                 </div>
               </div>
 

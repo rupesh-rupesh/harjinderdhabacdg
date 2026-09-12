@@ -509,7 +509,7 @@ app.post('/api/staff/login', async (req, res) => {
     console.log(`[DEV] OTP for ${staff.email} is ${code}`);
     sendOtpEmail(staff.email, staff.name, code).catch(e => console.error('[sendOtpEmail]', e));
 
-    return res.json({ otpSent: true, staffId: staff.id, devOtp: code });
+    return res.json({ otpSent: true, staffId: staff.id });
   } catch (e: any) {
     console.error('[staff/login]', e);
     res.status(500).json({ error: e.message || 'Login failed.' });

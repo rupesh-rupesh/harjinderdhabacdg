@@ -12,6 +12,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import bcrypt from 'bcryptjs';
 import { Resend } from 'resend';
 import crypto from 'crypto';
+import { exec } from 'child_process';
 
 console.log('RELOADING BACKEND...');
 
@@ -186,9 +187,9 @@ if (!dbUrl) {
 
 // Serverless best practice: max 1 connection per cold start, but locally we need a pool
 const isVercel = process.env.VERCEL === '1';
-const queryClient = postgres(dbUrl || '', { 
-  max: isVercel ? 1 : 10, 
-  idle_timeout: isVercel ? 1 : 30, 
+const queryClient = postgres(dbUrl || '', {
+  max: isVercel ? 1 : 10,
+  idle_timeout: isVercel ? 1 : 30,
   connect_timeout: 10,
   prepare: false // CRITICAL: Prevents prepared statement hangs with Supabase pooler
 });
@@ -250,7 +251,7 @@ async function ensureStaffTables() {
 
     // Ensure superadmin exists based on .env ADMIN_PASSWORD_HASH
     const adminEmail = (process.env.ADMIN_EMAIL || 'harjinderdhaba1991@gmail.com').toLowerCase();
-    const adminHash  = process.env.ADMIN_PASSWORD_HASH;
+    const adminHash = process.env.ADMIN_PASSWORD_HASH;
 
     if (adminHash) {
       const exists = await db.select().from(staffAccounts).where(eq(staffAccounts.email, adminEmail)).limit(1);
@@ -285,7 +286,7 @@ async function ensureStaffTables() {
 
 async function ensureAdminAccount() {
   const adminEmail = process.env.ADMIN_EMAIL;
-  const adminHash  = process.env.ADMIN_PASSWORD_HASH;
+  const adminHash = process.env.ADMIN_PASSWORD_HASH;
   if (!adminEmail || !adminHash) return;
   try {
     const existing = await db.select().from(staffAccounts).where(eq(staffAccounts.email, adminEmail)).limit(1);
@@ -299,7 +300,7 @@ async function ensureAdminAccount() {
       });
       console.log('[StaffAuth] Admin account seeded from env vars.');
     }
-  } catch (_) {}
+  } catch (_) { }
 }
 
 let staffTablesReady = false;
@@ -419,7 +420,7 @@ app.post('/api/staff/login', async (req, res) => {
     console.log(`[DEV] OTP for ${staff.email} is ${code}`);
     sendOtpEmail(staff.email, staff.name, code).catch(e => console.error('[sendOtpEmail]', e));
 
-    return res.json({ otpSent: true, staffId: staff.id, devOtp: code });
+    return res.json({ otpSent: true, staffId: staff.id });
   } catch (e: any) {
     console.error('[staff/login]', e);
     res.status(500).json({ error: e.message || 'Login failed.' });
@@ -594,7 +595,7 @@ app.get('/api/db-test', async (req, res) => {
   }
 });
 
-  
+
 
 // ─── POS / Storefront / Admin Data ──────────────────────────────────────────
 app.get('/api/pos-data', async (req, res) => {
@@ -662,15 +663,15 @@ app.post('/api/categories', async (req, res) => {
 app.put('/api/categories/:id', async (req, res) => {
   try {
     const { name, image, startTime, endTime } = req.body;
-    
+
     // Get the old category name first
     const oldCat = await db.select().from(categories).where(eq(categories.id, Number(req.params.id))).limit(1);
-    
+
     // If name changed, update all menu items in this category
     if (oldCat.length > 0 && oldCat[0].name !== name) {
       await db.update(menuItems).set({ category: name }).where(eq(menuItems.category, oldCat[0].name));
     }
-    
+
     const r = await db.update(categories).set({ name, image, startTime: startTime || null, endTime: endTime || null }).where(eq(categories.id, Number(req.params.id))).returning();
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -944,11 +945,11 @@ app.get('/api/analytics/dashboard', async (req, res) => {
     const activeThreshold = new Date(Date.now() - 5 * 60000);
     await db.update(visits).set({ isActive: false }).where(lt(visits.lastPingAt, activeThreshold));
     const activeVisits = await db.select().from(visits).where(eq(visits.isActive, true));
-    
-    res.json({ 
-      visits: allVisits, 
-      visitors: allVisitors, 
-      demoNotices: allDemoNotices, 
+
+    res.json({
+      visits: allVisits,
+      visitors: allVisitors,
+      demoNotices: allDemoNotices,
       activeVisitors: activeVisits.length,
       aggregates: {
         totalVisits: Number(totalVisitsCount[0]?.count || 0),
@@ -1000,8 +1001,8 @@ app.post('/api/analytics/visitors/bulk-delete', async (req, res) => {
 
 // ─── Managers / Staff ─────────────────────────────────────────────────────────
 app.get('/api/admin/staff', async (req, res) => {
-  try { 
-    res.json(await db.select().from(staffAccounts).where(inArray(staffAccounts.role, ['manager', 'admin']))); 
+  try {
+    res.json(await db.select().from(staffAccounts).where(inArray(staffAccounts.role, ['manager', 'admin'])));
   }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -1013,7 +1014,7 @@ app.post('/api/admin/staff', async (req, res) => {
     if (!email || !password || !name || !role) {
       return res.status(400).json({ error: 'email, password, name, and role are required.' });
     }
-    
+
     // Ensure uppercase name
     const upperName = name.toUpperCase();
 
@@ -1027,10 +1028,10 @@ app.post('/api/admin/staff', async (req, res) => {
 
     // Also create Firebase user for legacy Firebase auth (if adminAuth is active)
     let fbUid = `staff_${Date.now()}`;
-    try { const fu = await adminAuth.createUser({ email, password, displayName: upperName }); fbUid = fu.uid; } catch (_) {}
+    try { const fu = await adminAuth.createUser({ email, password, displayName: upperName }); fbUid = fu.uid; } catch (_) { }
 
     // Insert into legacy users table
-    await db.insert(users).values({ uid: fbUid, email: email.toLowerCase(), name: upperName, role: role, permissions: permissions || {} }).catch(() => {});
+    await db.insert(users).values({ uid: fbUid, email: email.toLowerCase(), name: upperName, role: role, permissions: permissions || {} }).catch(() => { });
 
     // Insert into new staff_accounts table
     const newStaff = await db.insert(staffAccounts).values({
@@ -1054,21 +1055,21 @@ app.put('/api/admin/staff/:id', async (req, res) => {
     const { permissions, password, name, email } = req.body;
     const staffId = Number(req.params.id);
     const staff = await db.select().from(staffAccounts).where(eq(staffAccounts.id, staffId)).limit(1);
-    
+
     if (staff.length) {
       const staffUpdate: any = { permissions };
       if (name) staffUpdate.name = name;
       if (email) staffUpdate.email = email.toLowerCase();
       if (password) staffUpdate.passwordHash = await bcrypt.hash(password, 12);
       await db.update(staffAccounts).set(staffUpdate).where(eq(staffAccounts.id, staffId));
-      
+
       // Also update legacy users table if it exists
       const user = await db.select().from(users).where(eq(users.email, staff[0].email)).limit(1);
       if (user.length) {
-        if (password) { try { await adminAuth.updateUser(user[0].uid, { password }); } catch (_) {} }
-        if (name) { try { await adminAuth.updateUser(user[0].uid, { displayName: name }); } catch (_) {} }
-        if (email) { try { await adminAuth.updateUser(user[0].uid, { email: email.toLowerCase() }); } catch (_) {} }
-        
+        if (password) { try { await adminAuth.updateUser(user[0].uid, { password }); } catch (_) { } }
+        if (name) { try { await adminAuth.updateUser(user[0].uid, { displayName: name }); } catch (_) { } }
+        if (email) { try { await adminAuth.updateUser(user[0].uid, { email: email.toLowerCase() }); } catch (_) { } }
+
         const updateData: any = { permissions };
         if (name) updateData.name = name;
         if (email) updateData.email = email.toLowerCase();
@@ -1083,11 +1084,11 @@ app.delete('/api/admin/staff/:id', async (req, res) => {
   try {
     const staffId = Number(req.params.id);
     const staff = await db.select().from(staffAccounts).where(eq(staffAccounts.id, staffId)).limit(1);
-    
+
     if (staff.length) {
       const user = await db.select().from(users).where(eq(users.email, staff[0].email)).limit(1);
       if (user.length) {
-        try { await adminAuth.deleteUser(user[0].uid); } catch (_) {}
+        try { await adminAuth.deleteUser(user[0].uid); } catch (_) { }
         await db.delete(users).where(eq(users.id, user[0].id));
       }
       await db.delete(staffAccounts).where(eq(staffAccounts.id, staffId));
@@ -1119,7 +1120,7 @@ app.get('/api/admin/daily-revenue', async (req, res) => {
 });
 
 app.get('/api/admin/orders', async (req, res) => {
-  try { 
+  try {
     const limitNum = Math.min(parseInt(req.query.limit as string) || 50, 500);
     const offsetNum = parseInt(req.query.offset as string) || 0;
     const lite = req.query.lite === 'true';
@@ -1152,7 +1153,7 @@ app.get('/api/admin/orders', async (req, res) => {
     }
 
     query = query.orderBy(desc(orders.createdAt)).limit(limitNum).offset(offsetNum);
-    
+
     res.json(await query);
   }
   catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -1199,6 +1200,47 @@ app.post('/api/orders', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Printing (Windows Native) ────────────────────────────────────────────────
+app.get('/api/print/windows-printers', (req, res) => {
+  if (process.platform !== 'win32') {
+    return res.json({ printers: [] });
+  }
+  exec('powershell "Get-Printer | Select-Object -ExpandProperty Name"', (error, stdout) => {
+    if (error) {
+      console.error("Failed to get windows printers:", error);
+      return res.status(500).json({ error: 'Failed to list printers' });
+    }
+    const printers = stdout.split('\\n').map(p => p.trim()).filter(p => p.length > 0);
+    res.json({ printers });
+  });
+});
+
+app.post('/api/print/raw', express.json({ limit: '10mb' }), (req, res) => {
+  const { printerName, data } = req.body;
+  if (!printerName || !data) return res.status(400).json({ error: 'Missing printerName or data' });
+
+  if (process.platform !== 'win32') {
+    return res.status(500).json({ error: 'Windows native printing is only supported on Windows.' });
+  }
+
+  const base64Data = data;
+  // Use RawPrint equivalent in powershell using generic /Raw print approach or a simpler approach:
+  // Write the base64 raw bytes to a file, then copy it to the printer share or use Out-Printer (Out-Printer requires text). 
+  // Since thermal printers take raw ESC/POS binary, sending it via generic text printer driver works if we write to LPT/COM or shared name.
+  // Actually, standard Windows spooler raw printing is hard from pure JS/PowerShell without C#. 
+  // But there's a workaround: Write file, then use "print /d:\\\\%COMPUTERNAME%\\PrinterName temp.bin"
+  // Let's use PowerShell to write the raw bytes to a temp file, then copy to the printer using CMD print.
+  const command = `powershell "$bytes = [Convert]::FromBase64String('${base64Data}'); $path = [System.IO.Path]::GetTempFileName(); [System.IO.File]::WriteAllBytes($path, $bytes); cmd /c print /D:\\"\\\\$env:COMPUTERNAME\\${printerName}\\" $path; Remove-Item $path"`;
+
+  exec(command, (error) => {
+    if (error) {
+      console.error("Print failed:", error);
+      // fallback if not shared: sometimes RawPrint requires the printer to be shared.
+    }
+    res.json({ success: true });
+  });
+});
+
 
 // Vite middleware for development
 (async () => {
@@ -1210,7 +1252,7 @@ app.post('/api/orders', async (req, res) => {
       appType: "spa",
     });
     // Wait for Vite to be fully ready before adding middleware
-    await vite.waitForRequestsIdle?.().catch(() => {});
+    await vite.waitForRequestsIdle?.().catch(() => { });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');

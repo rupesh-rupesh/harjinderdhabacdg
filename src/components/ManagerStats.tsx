@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import PanLoader from './PanLoader';
 import { Activity, TrendingUp, TrendingDown, Users, Package, ShoppingBag, Banknote, Calendar, BarChart3, Clock, ArrowRight, X, ChevronRight, CheckCircle2 } from 'lucide-react';
 
@@ -52,7 +52,8 @@ export default function ManagerStats({ role = 'manager' }: { role?: 'admin' | 'm
       return stats;
     },
     refetchInterval: 60000,
-    staleTime: 60000
+    staleTime: 60000,
+    placeholderData: keepPreviousData
   });
 
   const { data: revenueData } = useQuery({
@@ -63,7 +64,8 @@ export default function ManagerStats({ role = 'manager' }: { role?: 'admin' | 'm
       return [];
     },
     refetchInterval: 60000,
-    staleTime: 60000
+    staleTime: 60000,
+    placeholderData: keepPreviousData
   });
 
   useEffect(() => {

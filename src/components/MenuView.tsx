@@ -136,13 +136,16 @@ export default function MenuView({
   const cartTotal = cartItems.reduce((acc, item) => acc + (item.numericPrice * item.quantity), 0);
   const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
-  const filters = ['All', 'Veg', 'Non-Veg', 'Popular', 'Best Seller', 'Specials'];
+  const filters = ['All', 'Popular', 'Best Seller', 'Specials'];
 
   const visibleCategories = dbCategories
     .filter(cat => !cat.isHidden)
     .map(cat => (cat.name || '').trim().toLowerCase());
 
   const filteredItems = menuItems.filter(item => {
+    // Filter out non-veg items completely from the public menu
+    if (item.dietaryPreference === 'non-veg') return false;
+
     const itemCat = (item.category || '').trim().toLowerCase();
     if (!visibleCategories.includes(itemCat)) return false;
 
@@ -151,8 +154,6 @@ export default function MenuView({
     if (!matchesSearch) return false;
 
     if (filterType !== 'All') {
-      if (filterType === 'Veg' && item.dietaryPreference !== 'veg') return false;
-      if (filterType === 'Non-Veg' && item.dietaryPreference !== 'non-veg') return false;
       if (filterType === 'Popular' && !item.isPopular) return false;
       if (filterType === 'Best Seller' && !item.isBestSeller) return false;
       if (filterType === 'Specials' && !item.isDhabaSpecial) return false;
@@ -339,13 +340,11 @@ export default function MenuView({
                     </div>
                   )}
                   <div className="absolute top-3 right-3 flex flex-col gap-2 z-30">
-                    {item.dietaryPreference && (
-                      <div className="bg-white/95 backdrop-blur-md px-1.5 py-1.5 rounded-lg shadow-md flex items-center justify-center border border-stone-200/50">
-                        <div className={`w-3.5 h-3.5 border ${item.dietaryPreference === 'veg' ? 'border-green-600' : 'border-red-600'} flex items-center justify-center rounded-sm bg-white`}>
-                          <div className={`w-2 h-2 rounded-full ${item.dietaryPreference === 'veg' ? 'bg-green-600' : 'bg-red-600'}`}></div>
-                        </div>
+                    <div className="bg-white/95 backdrop-blur-md px-1.5 py-1.5 rounded-lg shadow-md flex items-center justify-center border border-stone-200/50" title="Vegetarian">
+                      <div className="w-3.5 h-3.5 border border-green-600 flex items-center justify-center rounded-sm bg-white">
+                        <div className="w-2 h-2 rounded-full bg-green-600"></div>
                       </div>
-                    )}
+                    </div>
                   </div>
                   {item.isBestSeller && (
                      <div className="absolute top-3 left-3 bg-gradient-to-r from-dhaba-orange to-[#e67500] text-white text-[10px] font-black tracking-widest px-2.5 py-1.5 rounded-lg shadow-lg shadow-orange-500/30 z-30 flex items-center gap-1 border border-white/20">

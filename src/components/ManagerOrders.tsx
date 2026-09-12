@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useReactToPrint } from 'react-to-print';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import PanLoader from './PanLoader';
 import { DevEmptyStateText } from './DevEmptyStateText';
 import { Package, Clock, CheckCircle2, XCircle, Search, Trash2, Edit, FileText, X, Plus, Minus, Printer, Bell, ClipboardCheck, Filter, ChevronDown, ShoppingBag, Eye, Grid, Cloud, CloudOff, RefreshCw } from 'lucide-react';
@@ -82,6 +82,22 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
       }
     } else {
       if (selectedOrder) {
+        if (!printerService.isConnected()) {
+           try {
+             if (printerService.getConfig().type === 'webusb') {
+                await printerService.connectWebUSB();
+             } else if (printerService.getConfig().type === 'webbluetooth') {
+                await printerService.connectWebBluetooth();
+             }
+           } catch (err: any) {
+               if (err.message && !err.message.toLowerCase().includes('cancel') && !err.message.includes('permissions policy')) {
+                 toast.error("Please connect printer first: " + err.message);
+               } else if (err.message && err.message.includes('permissions policy')) {
+                 toast.error('Bluetooth blocked by browser. Open in a new tab.');
+               }
+               return;
+             }
+        }
         try {
           await printerService.printReceipt(selectedOrder, false, true, generateGst);
           toast.success("Receipt sent to printer");
@@ -136,7 +152,8 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager" }: 
       return [];
     },
     refetchInterval: 10000,
-    staleTime: 10000
+    staleTime: 10000,
+    placeholderData: keepPreviousData
   });
 
   // Use the fetched orders directly

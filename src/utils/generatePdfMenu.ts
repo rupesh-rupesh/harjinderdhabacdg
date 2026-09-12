@@ -68,9 +68,8 @@ export const generatePdfMenu = async (menuItems: any[]) => {
 
   // --- MENU PAGES ---
   
-  // Separate items into Veg and Non-Veg
-  const vegItems = menuItems.filter(item => item.dietaryPreference?.toLowerCase() === 'veg' || !item.dietaryPreference);
-  const nonVegItems = menuItems.filter(item => item.dietaryPreference?.toLowerCase() === 'non-veg');
+  // Filter out any non-veg items since the public menu is purely veg
+  const vegItems = menuItems.filter(item => item.dietaryPreference?.toLowerCase() !== 'non-veg');
   
   const groupByCategory = (items: any[]) => {
     return items.reduce((acc: any, item: any) => {
@@ -82,7 +81,6 @@ export const generatePdfMenu = async (menuItems: any[]) => {
   };
 
   const vegGroups = groupByCategory(vegItems);
-  const nonVegGroups = groupByCategory(nonVegItems);
 
   let lastTableY = 10;
 
@@ -95,7 +93,7 @@ export const generatePdfMenu = async (menuItems: any[]) => {
     doc.rect(10, 10, pageWidth - 20, pageHeight - 20, 'D');
   };
 
-  const printCategory = (title: string, group: any[], isNonVeg: boolean) => {
+  const printCategory = (title: string, group: any[]) => {
     if (group.length === 0) return;
     
     const titleColor = [184, 140, 81]; // Muted Gold
@@ -116,7 +114,7 @@ export const generatePdfMenu = async (menuItems: any[]) => {
     doc.setFont('helvetica', 'bold');
     
     // Convert title to uppercase for elegant look
-    const displayTitle = `${title.toUpperCase()} ${isNonVeg ? '(NON-VEG)' : ''}`.trim();
+    const displayTitle = title.toUpperCase();
     doc.text(displayTitle, pageWidth / 2, lastTableY, { align: 'center' });
     
     // Draw a small decorative dot under the title
@@ -223,16 +221,7 @@ export const generatePdfMenu = async (menuItems: any[]) => {
   lastTableY = 20;
 
   Object.keys(vegGroups).sort().forEach(cat => {
-    printCategory(cat, vegGroups[cat], false);
-  });
-
-  Object.keys(nonVegGroups).sort().forEach(cat => {
-    if (lastTableY > pageHeight - 60) {
-      doc.addPage();
-      drawPageBackground();
-      lastTableY = 20;
-    }
-    printCategory(cat, nonVegGroups[cat], true);
+    printCategory(cat, vegGroups[cat]);
   });
 
   // --- LAST PAGE: CLOSING ---

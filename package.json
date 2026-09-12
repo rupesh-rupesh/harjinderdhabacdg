@@ -24,6 +24,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "bcryptjs": "^3.0.3",
     "compression": "^1.8.1",
+    "cors": "^2.8.6",
     "dom-to-image": "^2.6.0",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.2",
@@ -52,11 +53,13 @@
     "react-to-print": "^3.3.0",
     "recharts": "^3.9.2",
     "resend": "^6.25.0",
+    "selfsigned": "^5.5.0",
     "uuid": "^14.0.2",
     "vite": "^6.2.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.2.0",
     "@types/node": "^22.14.0",

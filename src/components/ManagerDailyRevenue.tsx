@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, TrendingUp, Package, Receipt, Clock, Info } from 'lucide-react';
 
 export default function ManagerDailyRevenue() {
@@ -14,7 +14,8 @@ export default function ManagerDailyRevenue() {
       return [];
     },
     refetchInterval: 60000,
-    staleTime: 60000
+    staleTime: 60000,
+    placeholderData: keepPreviousData
   });
 
   const { data: selectedDayOrders = [], isFetching: isLoadingDayOrders } = useQuery({
@@ -27,7 +28,8 @@ export default function ManagerDailyRevenue() {
       return [];
     },
     enabled: !!selectedDate,
-    staleTime: 60000
+    staleTime: 60000,
+    placeholderData: keepPreviousData
   });
 
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
