@@ -416,9 +416,9 @@ app.post('/api/staff/login', async (req, res) => {
     if (!valid) return res.status(401).json({ error: 'Invalid email or password.' });
 
     const code = await createOtp(staff.id);
-    // Fire email asynchronously for zero-delay response
+    // Await email sending because Vercel suspends the execution context after response
     console.log(`[DEV] OTP for ${staff.email} is ${code}`);
-    sendOtpEmail(staff.email, staff.name, code).catch(e => console.error('[sendOtpEmail]', e));
+    await sendOtpEmail(staff.email, staff.name, code).catch(e => console.error('[sendOtpEmail]', e));
 
     return res.json({ otpSent: true, staffId: staff.id });
   } catch (e: any) {
@@ -490,7 +490,7 @@ app.post('/api/staff/resend-otp', async (req, res) => {
     const staff = staffList[0];
 
     const code = await createOtp(staff.id);
-    sendOtpEmail(staff.email, staff.name, code).catch(e => console.error('[sendOtpEmail]', e));
+    await sendOtpEmail(staff.email, staff.name, code).catch(e => console.error('[sendOtpEmail]', e));
     return res.json({ sent: true });
   } catch (e: any) {
     console.error('[staff/resend-otp]', e);
