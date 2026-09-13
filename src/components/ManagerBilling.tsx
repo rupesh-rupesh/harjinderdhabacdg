@@ -4,7 +4,7 @@ import PanLoader from './PanLoader';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { LayoutGrid, Package, Utensils, Grid, Search, Plus, Minus, Trash2, CheckCircle2, AlertCircle, ShoppingBag, ArrowLeft, ArrowRight, Table, X, CreditCard, Printer, FileText, Eye, UserCircle, Lock, Unlock, Save, ChevronDown, Edit2, Wifi, WifiOff } from 'lucide-react';
 import { ThermalReceipt } from './ThermalReceipt';
-import { managerPrinterService as printerService } from '../lib/printer/PrinterService';
+import { adminPrinterService, managerPrinterService } from '../lib/printer/PrinterService';
 import * as Icons from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PrinterPermissionCard } from './PrinterPermissionCard';
@@ -58,7 +58,8 @@ const TablePeopleIcon = ({ className }: { className?: string }) => (
   </svg>
 )
 
-export default function ManagerBilling({ editingOrder, clearEditingOrder, managerName = "Manager" }: { editingOrder?: any, clearEditingOrder?: () => void, managerName?: string }) {
+export default function ManagerBilling({ editingOrder, clearEditingOrder, managerName = "Manager", role = 'manager' }: { editingOrder?: any, clearEditingOrder?: () => void, managerName?: string, role?: 'admin' | 'manager' }) {
+  const printerService = role === 'admin' ? adminPrinterService : managerPrinterService;
   const [isLocked, setIsLocked] = useState(false);
 
   const toggleLock = () => {
@@ -235,75 +236,65 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
   }, [cart, tableSelection, isSubmitting]);
 
   const handlePrintCart = async () => {
-    if (printerService.getConfig().type === 'browser') {
-      if (cartReceiptRef.current) {
-        printCartAction();
-      }
-    } else {
-      if (cart.length > 0) {
-        const draftOrder = {
-          id: editingOrderId || 'DRAFT',
-          tableNumber: tableSelection,
-          items: JSON.stringify(cart),
-          createdAt: new Date().toISOString()
-        };
-        if (!printerService.isConnected()) {
-          try {
-            if (printerService.getConfig().type === 'webusb') {
-              await printerService.connectWebUSB();
-            } else if (printerService.getConfig().type === 'webbluetooth') {
-              await printerService.connectWebBluetooth();
-            }
-          } catch (e: any) {
-            if (e.message && !e.message.toLowerCase().includes('cancel') && !e.message.includes('permissions policy')) {
-              toast.error(e.message);
-            } else if (e.message.includes('permissions policy')) {
-              toast.error('Bluetooth blocked by browser. Open in a new tab.');
-            }
-            return;
-          }
+    if (cart.length === 0) { toast.error("Cart is empty!"); return; }
+    const draftOrder = {
+      id: editingOrderId || 'DRAFT',
+      tableNumber: tableSelection,
+      items: JSON.stringify(cart),
+      createdAt: new Date().toISOString()
+    };
+    if (printerService.isBrowserPrint()) {
+      // Pure browser path — no thermal printer configured at all
+      if (cartReceiptRef.current) printCartAction();
+      return;
+    }
+    if (!printerService.isConnected()) {
+      try {
+        if (printerService.getConfig().type === 'webusb') {
+          await printerService.connectWebUSB();
+        } else if (printerService.getConfig().type === 'webbluetooth') {
+          await printerService.connectWebBluetooth();
         }
-        try {
-          await printerService.printReceipt(draftOrder, false, true, generateGst);
-          toast.success("Receipt sent to printer");
-        } catch (e: any) {
-          if (e.message && !e.message.toLowerCase().includes('cancel') && e.message !== 'Failed to fetch') { toast.error(e.message); }
+      } catch (e: any) {
+        if (e.message && !e.message.toLowerCase().includes('cancel') && !e.message.includes('permissions policy')) {
+          toast.error(e.message);
+        } else if (e.message && e.message.includes('permissions policy')) {
+          toast.error('Bluetooth blocked by browser. Open in a new tab.');
         }
-      } else {
-        toast.error("Cart is empty!");
+        return;
       }
+    }
+    try {
+      await printerService.printReceipt(draftOrder, false, true, generateGst);
+      toast.success("Receipt sent to printer");
+    } catch (e: any) {
+      if (e.message && !e.message.toLowerCase().includes('cancel') && e.message !== 'Failed to fetch') { toast.error(e.message); }
     }
   };
 
   const handlePrint = async () => {
-    if (printerService.getConfig().type === 'browser') {
-      if (receiptRef.current) {
-        printReceiptAction();
-      }
-    } else {
-      if (checkoutTable?.order) {
-        if (!printerService.isConnected()) {
-          try {
-            if (printerService.getConfig().type === 'webusb') {
-              await printerService.connectWebUSB();
-            } else if (printerService.getConfig().type === 'webbluetooth') {
-              await printerService.connectWebBluetooth();
-            }
-          } catch (e: any) {
-            if (e.message && !e.message.toLowerCase().includes('cancel') && !e.message.includes('permissions policy')) {
-              toast.error(e.message);
-            } else if (e.message.includes('permissions policy')) {
-              toast.error('Bluetooth blocked by browser. Open in a new tab.');
-            }
-            return;
-          }
-        }
+    if (checkoutTable?.order) {
+      if (!printerService.isConnected()) {
         try {
-          await printerService.printReceipt(checkoutTable.order, false, true, generateGst);
-          toast.success("Receipt sent to printer");
+          if (printerService.getConfig().type === 'webusb') {
+            await printerService.connectWebUSB();
+          } else if (printerService.getConfig().type === 'webbluetooth') {
+            await printerService.connectWebBluetooth();
+          }
         } catch (e: any) {
-          if (e.message && !e.message.toLowerCase().includes('cancel') && e.message !== 'Failed to fetch') { toast.error(e.message); }
+          if (e.message && !e.message.toLowerCase().includes('cancel') && !e.message.includes('permissions policy')) {
+            toast.error(e.message);
+          } else if (e.message.includes('permissions policy')) {
+            toast.error('Bluetooth blocked by browser. Open in a new tab.');
+          }
+          return;
         }
+      }
+      try {
+        await printerService.printReceipt(checkoutTable.order, false, true, generateGst);
+        toast.success("Receipt sent to printer");
+      } catch (e: any) {
+        if (e.message && !e.message.toLowerCase().includes('cancel') && e.message !== 'Failed to fetch') { toast.error(e.message); }
       }
     }
   };
@@ -549,16 +540,17 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
               ? { ...newOrderObj, tableNumber: tableSelection, items: JSON.stringify(posItems) }
               : { id: orderId, items: JSON.stringify(posItems), tableNumber: tableSelection, createdAt: new Date().toISOString() };
 
-            if (printerService.getConfig().type !== 'browser') {
-              if (!printerService.isConnected()) {
-                if (printerService.getConfig().type === 'webusb') await printerService.connectWebUSB();
-                else if (printerService.getConfig().type === 'webbluetooth') await printerService.connectWebBluetooth();
-              }
-              await printerService.printReceipt(printOrder, false, true, generateGst);
-            } else {
-              draftOrder.id = String(printOrder.id);
-              if (cartReceiptRef.current) printCartAction();
+          if (printerService.isBrowserPrint()) {
+            // Pure browser path — no thermal printer configured
+            draftOrder.id = String(printOrder.id);
+            if (cartReceiptRef.current) printCartAction();
+          } else {
+            if (!printerService.isConnected()) {
+              if (printerService.getConfig().type === 'webusb') await printerService.connectWebUSB();
+              else if (printerService.getConfig().type === 'webbluetooth') await printerService.connectWebBluetooth();
             }
+            await printerService.printReceipt(printOrder, false, true, generateGst);
+          }
           } catch (printErr: any) {
             toast.error(printErr.message || "Failed to print bill");
           }

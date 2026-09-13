@@ -1232,9 +1232,9 @@ export default function AdminDashboard() {
         ) : activeModule === 'stats' ? (
           <ManagerStats role="admin" />
         ) : activeModule === 'orders' ? (
-          <ManagerOrders managerName="Admin" />
+          <ManagerOrders managerName="Admin" role="admin" />
         ) : activeModule === 'billing' ? (
-          <ManagerBilling managerName="Admin" />
+          <ManagerBilling managerName="Admin" role="admin" />
         ) : activeModule === 'reviews' ? (
           <AdminReviews />
         ) : activeModule === 'analytics' ? (

@@ -67,6 +67,13 @@ const numberToWords = (num: number) => {
 
 export type PrinterType = 'webusb' | 'webbluetooth' | 'browser' | 'qz-tray' | 'network' | 'windows-print';
 
+/**
+ * Returns true when the effective print path is the browser's built-in
+ * print dialog (window.print / react-to-print).
+ * Returns false when a real thermal printer (QZ Tray, BT, USB, Network,
+ * Windows-Print) is configured and ready to receive raw ESC/POS data.
+ */
+
 export interface PrinterConfig {
   type: PrinterType;
   paperSize: 58 | 80 | 'a4';
@@ -322,6 +329,19 @@ class PrinterService {
     }
   }
 
+  /**
+   * Returns true only when the effective output is the browser's built-in
+   * print dialog. Components use this to decide between react-to-print and
+   * the thermal ESC/POS path.
+   */
+  isBrowserPrint(): boolean {
+    // printReceipt() now handles ALL cases including auto-detection.
+    // Components should always call printReceipt() — never printReceiptAction() directly.
+    // Only return true for A4 paper where browser dialog is intentional.
+    if (this.config.paperSize === 'a4') return true;
+    return false;
+  }
+
   isConnected() {
     if (this.config.type === 'webusb') {
        return this.usbDevice && this.usbDevice.opened;
@@ -434,8 +454,71 @@ class PrinterService {
     return 'Status ready';
   }
 
+  /**
+   * Auto-detects an available printer via the local Windows print bridge.
+   * QZ Tray is intentionally excluded — it requires explicit user setup.
+   */
+  private async autoDetectPrinter(): Promise<{ type: 'windows-print'; name: string } | null> {
+    // ⚠️  QZ Tray is intentionally NOT auto-detected here.
+    //     Connecting to QZ Tray triggers a browser-blocking "Allow" permission dialog,
+    //     which is intrusive and unexpected when the user hasn't configured QZ Tray.
+    //     QZ Tray must always be explicitly selected in Printer Settings.
+    //
+    //     Only the Windows Print Bridge is auto-detected because it is completely
+    //     silent (no popup, no permission prompt).
+
+    try {
+      const baseUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? '' : 'http://localhost:3000';
+      const res = await fetch(`${baseUrl}/api/print/windows-printers`, { signal: AbortSignal.timeout(2000) });
+      if (res.ok) {
+        const json = await res.json();
+        const list: string[] = json.printers || [];
+        // Prefer well-known thermal printer names
+        const thermal = list.find(n => /pos|thermal|receipt|star|epson|bixolon|citizen|xprinter/i.test(n));
+        const name = thermal || list[0];
+        if (name) return { type: 'windows-print', name };
+      }
+    } catch { /* Bridge not reachable */ }
+
+    return null;
+  }
+
   async printReceipt(order: any, isTest: boolean = false, isCustomerCopy: boolean = true, includeGst: boolean = true) {
-    if (this.config.type === 'browser' || this.config.paperSize === 'a4') {
+    // ── Step 1: Determine effective printer type ─────────────────────────────
+    // Priority:  explicit hardware type (BT/USB) > saved printer name > auto-detect > error
+    // IMPORTANT: webbluetooth and webusb are NEVER auto-detected or overridden here —
+    //            they have their own reconnect logic later in the BT/USB branch.
+    let effectiveType = this.config.type;
+    let effectiveWindowsPrinterName = this.config.windowsPrinterName;
+    let effectiveQzPrinterName      = this.config.qzPrinterName;
+
+    if (effectiveType === 'browser') {
+      if (this.config.qzPrinterName) {
+        // User explicitly saved a QZ printer — use it (no auto-detect needed)
+        effectiveType = 'qz-tray';
+      } else if (this.config.windowsPrinterName) {
+        // User explicitly saved a Windows printer — use it
+        effectiveType = 'windows-print';
+      } else if (this.config.paperSize !== 'a4') {
+        // No printer saved at all → try Windows bridge silently (never QZ Tray)
+        const detected = await this.autoDetectPrinter();
+        if (detected) {
+          effectiveType = 'windows-print';
+          effectiveWindowsPrinterName = detected.name;
+        } else {
+          // Nothing found — show a helpful error instead of opening browser dialog
+          throw new Error(
+            'No printer found. Please go to Printer Settings and select your printer (QZ Tray App or Wired USB).'
+          );
+        }
+      }
+    }
+    // Note: 'webbluetooth' and 'webusb' fall straight through — they are handled below.
+
+    // ── Step 2: A4 / pure browser path ──────────────────────────────────────
+    if (effectiveType === 'browser') {
+      // Only reached when paperSize === 'a4' (user chose A4 browser printing)
       if (isTest) {
         this.printBrowserTest();
       } else if (!isCustomerCopy) {
@@ -445,6 +528,7 @@ class PrinterService {
       }
       return;
     }
+
 
     const size = typeof this.config.paperSize === 'number' ? this.config.paperSize : 80;
     const generator = new ESCPosGenerator(size);
@@ -587,7 +671,7 @@ class PrinterService {
     const data = generator.generate();
 
     try {
-      if (this.config.type === 'webusb') {
+      if (effectiveType === 'webusb') {
          if (!this.usbDevice || !this.usbDevice.opened) {
             await this.connectWebUSB();
          }
@@ -609,7 +693,7 @@ class PrinterService {
                await new Promise(r => setTimeout(r, 20));
             }
          }
-      } else if (this.config.type === 'webbluetooth') {
+      } else if (effectiveType === 'webbluetooth') {
          if (!this.btDevice || !this.btDevice.gatt || !this.btDevice.gatt.connected || !this.btCharacteristic) {
             let reconnected = false;
             if (this.btDevice && this.btDevice.gatt) {
@@ -655,7 +739,7 @@ class PrinterService {
             console.error("Bluetooth transfer failed:", transferErr);
             throw new Error('Bluetooth print failed. Please ensure the printer is turned on and in range.');
          }
-      } else if (this.config.type === 'network') {
+      } else if (effectiveType === 'network') {
          if (!this.config.ipAddress) {
            throw new Error('Network printer IP address is not configured. Please set the IP address in Printer Settings.');
          }
@@ -674,8 +758,8 @@ class PrinterService {
            }
            window.print();
          }
-      } else if (this.config.type === 'windows-print') {
-         if (!this.config.windowsPrinterName) {
+      } else if (effectiveType === 'windows-print') {
+         if (!effectiveWindowsPrinterName) {
            throw new Error('No Windows printer selected. Please choose a printer in Printer Settings.');
          }
          
@@ -692,7 +776,7 @@ class PrinterService {
            method: 'POST',
            headers: { 'Content-Type': 'application/json' },
            body: JSON.stringify({
-             printerName: this.config.windowsPrinterName,
+             printerName: effectiveWindowsPrinterName,
              data: base64,
            }),
          });
@@ -700,8 +784,8 @@ class PrinterService {
            const body = await response.json().catch(() => ({}));
            throw new Error(body.error || `Windows print bridge responded with status ${response.status}`);
          }
-      } else if (this.config.type === 'qz-tray') {
-         if (!this.config.qzPrinterName) {
+      } else if (effectiveType === 'qz-tray') {
+         if (!effectiveQzPrinterName) {
            throw new Error('No QZ Tray printer selected. Please choose a printer in Printer Settings.');
          }
 
@@ -715,7 +799,7 @@ class PrinterService {
            });
          }
          
-         const qzConfig = qz.configs.create(this.config.qzPrinterName);
+         const qzConfig = qz.configs.create(effectiveQzPrinterName);
          
          let binary = '';
          for (let i = 0; i < data.byteLength; i++) binary += String.fromCharCode(data[i]);
@@ -723,7 +807,8 @@ class PrinterService {
          
          await qz.print(qzConfig, [{ type: 'raw', format: 'command', flavor: 'base64', data: base64 }]);
       } else {
-         window.print();
+         // Should never reach here — all paths are handled above.
+         throw new Error('Printer not configured. Please go to Printer Settings and select your printer.');
       }
     } catch (e: any) {
       console.warn('Thermal print failed:', e?.message || e);
