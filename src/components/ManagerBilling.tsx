@@ -1231,6 +1231,17 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
           {/* Right: Actions */}
           <div className="flex items-center justify-end gap-1 sm:gap-2 shrink-0">
 
+            <button type="button"
+              onClick={() => {
+                refetchPosData();
+                fetchOrders();
+                toast.success("Menu & Orders Refreshed");
+              }}
+              title="Refresh Data"
+              className={`p-1.5 sm:p-2 text-stone-400 hover:text-dhaba-orange hover:bg-orange-50 rounded-xl transition-colors ${posLoading ? 'animate-spin text-dhaba-orange' : ''}`}
+            >
+              <Icons.RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
 
             <button type="button"
               onClick={() => {

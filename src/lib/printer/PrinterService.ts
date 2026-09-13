@@ -88,7 +88,7 @@ export interface PrinterConfig {
 class PrinterService {
   private config: PrinterConfig;
   private role: 'admin' | 'manager';
-  
+
   private usbDevice: USBDevice | null = null;
   private endpointOut: number = -1;
   private btDevice: BluetoothDevice | null = null;
@@ -118,7 +118,7 @@ class PrinterService {
       if (stored) {
         return { ...defaultCfg, ...JSON.parse(stored) };
       }
-    } catch(e) {}
+    } catch (e) { }
     return defaultCfg;
   }
 
@@ -187,10 +187,10 @@ class PrinterService {
    */
   async getWindowsPrinters(): Promise<string[]> {
     try {
-      const baseUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
-         ? '' 
-         : 'http://localhost:3000';
-         
+      const baseUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? ''
+        : 'http://localhost:3000';
+
       const res = await fetch(`${baseUrl}/api/print/windows-printers`);
       if (!res.ok) throw new Error(`Server responded ${res.status}`);
       const json = await res.json();
@@ -205,7 +205,7 @@ class PrinterService {
     if (this.config.type === 'browser') return true;
     // Windows-print uses the server bridge — no client-side hardware handshake needed
     if (this.config.type === 'windows-print') return true;
-    
+
     if (this.config.type === 'webusb') {
       try {
         const devices = await this.getGrantedUSBDevices();
@@ -217,19 +217,19 @@ class PrinterService {
           }
           const interfaceNumber = this.usbDevice.configuration.interfaces[0].interfaceNumber;
           await this.usbDevice.claimInterface(interfaceNumber);
-          
+
           const endpoints = this.usbDevice.configuration.interfaces[0].alternate.endpoints;
           const outEndpoint = endpoints.find((e: any) => e.direction === 'out');
           if (outEndpoint) {
-             this.endpointOut = outEndpoint.endpointNumber;
-             return true;
+            this.endpointOut = outEndpoint.endpointNumber;
+            return true;
           }
         }
       } catch (e) {
         console.warn("Auto connect USB failed", e);
       }
     }
-    
+
     if (this.config.type === 'webbluetooth') {
       try {
         if (navigator.bluetooth && (navigator.bluetooth as any).getDevices) {
@@ -279,7 +279,7 @@ class PrinterService {
         console.warn("Auto connect QZ Tray failed (QZ Tray may not be running)", e);
       }
     }
-    
+
     return false;
   }
 
@@ -303,7 +303,7 @@ class PrinterService {
               }
             }
           }
-        } catch(e) {
+        } catch (e) {
           console.error("Auto-reconnect failed. User will need to manually connect.", e);
           this.btCharacteristic = null;
         }
@@ -322,8 +322,8 @@ class PrinterService {
       });
       navigator.usb.addEventListener('connect', async (event) => {
         if (!this.usbDevice && this.config.type === 'webusb') {
-           console.log("USB Device Plugged In! Attempting auto-connect...");
-           this.autoConnect();
+          console.log("USB Device Plugged In! Attempting auto-connect...");
+          this.autoConnect();
         }
       });
     }
@@ -344,13 +344,13 @@ class PrinterService {
 
   isConnected() {
     if (this.config.type === 'webusb') {
-       return this.usbDevice && this.usbDevice.opened;
+      return this.usbDevice && this.usbDevice.opened;
     }
     if (this.config.type === 'webbluetooth') {
-       return this.btDevice && this.btDevice.gatt && this.btDevice.gatt.connected;
+      return this.btDevice && this.btDevice.gatt && this.btDevice.gatt.connected;
     }
     if (this.config.type === 'qz-tray') {
-       return qz.websocket.isActive();
+      return qz.websocket.isActive();
     }
     return true; // browser / network / windows-print are always "connected"
   }
@@ -366,18 +366,18 @@ class PrinterService {
       if (this.usbDevice.configuration === null) {
         await this.usbDevice.selectConfiguration(1);
       }
-      
+
       const interfaceNumber = this.usbDevice.configuration.interfaces[0].interfaceNumber;
       await this.usbDevice.claimInterface(interfaceNumber);
-      
+
       this.setupUSBListeners();
-      
+
       const endpoints = this.usbDevice.configuration.interfaces[0].alternate.endpoints;
       const outEndpoint = endpoints.find((e: any) => e.direction === 'out');
       if (outEndpoint) {
-         this.endpointOut = outEndpoint.endpointNumber;
+        this.endpointOut = outEndpoint.endpointNumber;
       } else {
-         throw new Error('No OUT endpoint found on USB device.');
+        throw new Error('No OUT endpoint found on USB device.');
       }
       return true;
     } catch (e: any) {
@@ -388,7 +388,7 @@ class PrinterService {
       throw new Error(e.message || 'Failed to connect USB printer');
     }
   }
-  
+
   async connectWebBluetooth() {
     try {
       if (!navigator.bluetooth) {
@@ -422,35 +422,35 @@ class PrinterService {
 
   async checkStatus() {
     if (this.config.type === 'browser') return 'Connected (System / Browser Default)';
-    
+
     if (this.config.type === 'webusb') {
-       if (this.usbDevice && this.usbDevice.opened) return 'Connected (USB)';
-       return 'Offline (Click to connect USB)';
+      if (this.usbDevice && this.usbDevice.opened) return 'Connected (USB)';
+      return 'Offline (Click to connect USB)';
     }
-    
+
     if (this.config.type === 'webbluetooth') {
-       if (this.btDevice && this.btDevice.gatt && this.btDevice.gatt.connected) return 'Connected (Bluetooth)';
-       return 'Offline (Click to connect Bluetooth)';
+      if (this.btDevice && this.btDevice.gatt && this.btDevice.gatt.connected) return 'Connected (Bluetooth)';
+      return 'Offline (Click to connect Bluetooth)';
     }
 
     if (this.config.type === 'network') {
-       return this.config.ipAddress 
-         ? `Configured (${this.config.ipAddress}:${this.config.port || 9100})` 
-         : 'IP Address Not Configured';
+      return this.config.ipAddress
+        ? `Configured (${this.config.ipAddress}:${this.config.port || 9100})`
+        : 'IP Address Not Configured';
     }
 
     if (this.config.type === 'qz-tray') {
-       return this.config.qzPrinterName 
-         ? `Connected (QZ: ${this.config.qzPrinterName})` 
-         : 'No QZ Printer Selected';
+      return this.config.qzPrinterName
+        ? `Connected (QZ: ${this.config.qzPrinterName})`
+        : 'No QZ Printer Selected';
     }
 
     if (this.config.type === 'windows-print') {
-       return this.config.windowsPrinterName
-         ? `Connected (${this.config.windowsPrinterName})`
-         : 'No Printer Selected';
+      return this.config.windowsPrinterName
+        ? `Connected (${this.config.windowsPrinterName})`
+        : 'No Printer Selected';
     }
-    
+
     return 'Status ready';
   }
 
@@ -491,7 +491,7 @@ class PrinterService {
     //            they have their own reconnect logic later in the BT/USB branch.
     let effectiveType = this.config.type;
     let effectiveWindowsPrinterName = this.config.windowsPrinterName;
-    let effectiveQzPrinterName      = this.config.qzPrinterName;
+    let effectiveQzPrinterName = this.config.qzPrinterName;
 
     if (effectiveType === 'browser') {
       if (this.config.qzPrinterName) {
@@ -533,9 +533,9 @@ class PrinterService {
     const size = typeof this.config.paperSize === 'number' ? this.config.paperSize : 80;
     const generator = new ESCPosGenerator(size);
     generator.init();
-    
+
     if (this.config.cashDrawer) {
-       generator.openDrawer();
+      generator.openDrawer();
     }
 
     if (!isTest) {
@@ -548,28 +548,33 @@ class PrinterService {
 
     generator.alignCenter();
     generator.newline(1);
-    generator.bold(true).textLine("HARJINDER TOURIST DHABA").bold(false);
+
+    // Professional Text Logo matching the requested style
+    generator.size(3, 3).bold(true).textLine("HARJINDER").size(1, 1);
+    generator.bold(true).textLine("T O U R I S T   D H A B A").bold(false);
+
+    generator.newline(1);
     generator.textLine("VPO-Sahauran, Teh-Kharar,");
     generator.textLine("Distt. Mohali (Punjab) - 140103");
     generator.textLine("Phone: 90566-55093");
     generator.textLine("FSSAI: 22120036000138");
-    
+
     let subTotal = 0;
     let cgst = 0;
     let sgst = 0;
     let grandTotal = 0;
     let items: any[] = [];
     try {
-        if (order && order.items) {
-          let parsed = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
-          if (typeof parsed === 'string') {
-              parsed = JSON.parse(parsed);
-          }
-          if (Array.isArray(parsed)) {
-              items = parsed;
-          }
+      if (order && order.items) {
+        let parsed = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
+        if (typeof parsed === 'string') {
+          parsed = JSON.parse(parsed);
         }
-    } catch(e) {}
+        if (Array.isArray(parsed)) {
+          items = parsed;
+        }
+      }
+    } catch (e) { }
 
     const realItems = items.filter((i: any) => !i.isTableMarker);
     subTotal = realItems.reduce((acc: number, item: any) => acc + (Number(item.price) || 0) * (item.quantity || 1), 0);
@@ -578,11 +583,11 @@ class PrinterService {
     grandTotal = subTotal + cgst + sgst;
 
     if (includeGst) {
-        generator.textLine("GSTIN: 03AAKFH5744C1Z0");
+      generator.textLine("GSTIN: 03AAKFH5744C1Z0");
     }
-    
+
     generator.printDivider();
-    
+
     if (isTest) {
       generator.newline(1).bold(true).textLine("TEST PRINT SUCCESSFUL").bold(false).newline(1);
       generator.textLine(`Paper Size: ${this.config.paperSize}mm`);
@@ -595,60 +600,64 @@ class PrinterService {
         generator.alignCenter().bold(true).textLine("*** KITCHEN COPY ***").bold(false).alignLeft();
         generator.printBoldDivider();
       }
-      
+
       if (order && order.id && order.id !== 'DRAFT') {
-        generator.textLine(`Bill No.: #HTD-${order.id}`);
+        generator.textLine(`Order No.: #HTD-${order.id}`);
       }
-      if (order && order.tableNumber) {
-        const tNum = order.tableNumber.toString().padStart(3, '0');
-        generator.textLine(`Dine In: Table No. (T${tNum})`);
+      let tNumStr = "000";
+      const tableMarker = items.find((i: any) => i.isTableMarker);
+      if (order?.tableNumber) {
+        tNumStr = order.tableNumber.toString().padStart(3, '0');
+      } else if (tableMarker) {
+        tNumStr = tableMarker.name.replace('Table ', '').padStart(3, '0');
       }
+      generator.textLine(`Dine In: Table No. (T${tNumStr})`);
       const d = (order && order.createdAt) ? new Date(order.createdAt) : new Date();
       generator.textLine(`Date: ${d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}`);
       generator.textLine(`Time: ${d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`);
       generator.printBoldDivider();
-      
-      if (isCustomerCopy) {
-         generator.print4Columns("Item Name", "Qty", "Rate", "Amount");
-         generator.printBoldDivider();
-      }
-      
-      realItems.forEach((item: any, index: number) => {
-         let itemName = item.name || 'Unknown';
-         if (item.isHalf) itemName += ' (Half)';
-         if (item.isButter) itemName += ' (Butter)';
-         if (item.variantName) itemName += ` (${item.variantName})`;
 
-         if (isCustomerCopy) {
-            const itemPrice = (Number(item.price) || 0);
-            const itemAmount = itemPrice * (item.quantity || 1);
-            generator.print4Columns(itemName, (item.quantity || 1).toString(), itemPrice.toFixed(2), itemAmount.toFixed(2));
-         } else {
-            generator.textLine(`${item.quantity || 1}x ${itemName}`);
-         }
-         // Add 1 line space after every item except the last one
-         if (index < realItems.length - 1) {
-             generator.newline(1);
-         }
+      if (isCustomerCopy) {
+        generator.print4Columns("Item Name", "Qty", "Rate", "Amount");
+        generator.printBoldDivider();
+      }
+
+      realItems.forEach((item: any, index: number) => {
+        let itemName = item.name || 'Unknown';
+        if (item.isHalf) itemName += ' (Half)';
+        if (item.isButter) itemName += ' (Butter)';
+        if (item.variantName) itemName += ` (${item.variantName})`;
+
+        if (isCustomerCopy) {
+          const itemPrice = (Number(item.price) || 0);
+          const itemAmount = itemPrice * (item.quantity || 1);
+          generator.print4Columns(itemName, (item.quantity || 1).toString(), itemPrice.toFixed(2), itemAmount.toFixed(2));
+        } else {
+          generator.textLine(`${item.quantity || 1}x ${itemName}`);
+        }
+        // Add 1 line space after every item except the last one
+        if (index < realItems.length - 1) {
+          generator.newline(1);
+        }
       });
-      
+
       generator.printBoldDivider();
-      
+
       if (isCustomerCopy) {
         const totalQty = realItems.reduce((acc: number, item: any) => acc + (item.quantity || 1), 0);
-        
+
         generator.printLine("Total Qty :", totalQty.toString());
         generator.printLine("Sub Total:", `Rs. ${subTotal.toFixed(2)}`);
-        
+
         if (includeGst) {
-            generator.printLine("CGST @2.5%:", `Rs. ${cgst.toFixed(2)}`);
-            generator.printLine("SGST @2.5%:", `Rs. ${sgst.toFixed(2)}`);
+          generator.printLine("CGST @2.5%:", `Rs. ${cgst.toFixed(2)}`);
+          generator.printLine("SGST @2.5%:", `Rs. ${sgst.toFixed(2)}`);
         }
-        
+
         generator.printBoldDivider();
         generator.size(1, 2).bold(true).printLine("GRAND TOTAL:", `Rs. ${grandTotal.toFixed(2)}`).size(1, 1).bold(false);
         generator.printBoldDivider();
-        
+
         // Extra line removed here as requested
         if (this.role !== 'admin') {
           generator.alignCenter().textLine("Remark:");
@@ -656,7 +665,8 @@ class PrinterService {
           generator.textLine("Manager.");
           generator.printBoldDivider();
         }
-        
+
+        generator.alignCenter();
         generator.textLine("Thank You!");
         generator.textLine("Visit Again");
         generator.textLine("We appreciate your visit.");
@@ -672,143 +682,143 @@ class PrinterService {
 
     try {
       if (effectiveType === 'webusb') {
-         if (!this.usbDevice || !this.usbDevice.opened) {
-            await this.connectWebUSB();
-         }
-         try {
-            const CHUNK_SIZE = 256;
-            for (let i = 0; i < data.byteLength; i += CHUNK_SIZE) {
-               const chunk = data.slice(i, i + CHUNK_SIZE);
-               await this.usbDevice!.transferOut(this.endpointOut, chunk);
-               await new Promise(r => setTimeout(r, 20)); // Prevent buffer overflow
-            }
-         } catch (transferErr: any) {
-            console.warn("Transfer failed, attempting to reconnect...", transferErr);
-            this.usbDevice = null;
-            await this.connectWebUSB();
-            const CHUNK_SIZE = 256;
-            for (let i = 0; i < data.byteLength; i += CHUNK_SIZE) {
-               const chunk = data.slice(i, i + CHUNK_SIZE);
-               await this.usbDevice!.transferOut(this.endpointOut, chunk);
-               await new Promise(r => setTimeout(r, 20));
-            }
-         }
+        if (!this.usbDevice || !this.usbDevice.opened) {
+          await this.connectWebUSB();
+        }
+        try {
+          const CHUNK_SIZE = 256;
+          for (let i = 0; i < data.byteLength; i += CHUNK_SIZE) {
+            const chunk = data.slice(i, i + CHUNK_SIZE);
+            await this.usbDevice!.transferOut(this.endpointOut, chunk);
+            await new Promise(r => setTimeout(r, 20)); // Prevent buffer overflow
+          }
+        } catch (transferErr: any) {
+          console.warn("Transfer failed, attempting to reconnect...", transferErr);
+          this.usbDevice = null;
+          await this.connectWebUSB();
+          const CHUNK_SIZE = 256;
+          for (let i = 0; i < data.byteLength; i += CHUNK_SIZE) {
+            const chunk = data.slice(i, i + CHUNK_SIZE);
+            await this.usbDevice!.transferOut(this.endpointOut, chunk);
+            await new Promise(r => setTimeout(r, 20));
+          }
+        }
       } else if (effectiveType === 'webbluetooth') {
-         if (!this.btDevice || !this.btDevice.gatt || !this.btDevice.gatt.connected || !this.btCharacteristic) {
-            let reconnected = false;
-            if (this.btDevice && this.btDevice.gatt) {
-               try {
-                  console.log("Attempting silent Bluetooth reconnect...");
-                  const server = await this.btDevice.gatt.connect();
-                  const services = await server.getPrimaryServices();
-                  for (const service of services) {
-                     const characteristics = await service.getCharacteristics();
-                     for (const characteristic of characteristics) {
-                        if (characteristic.properties.write || characteristic.properties.writeWithoutResponse) {
-                           this.btCharacteristic = characteristic;
-                           this.setupBluetoothListeners();
-                           reconnected = true;
-                           console.log("Silent reconnect successful!");
-                           break;
-                        }
-                     }
-                     if (reconnected) break;
+        if (!this.btDevice || !this.btDevice.gatt || !this.btDevice.gatt.connected || !this.btCharacteristic) {
+          let reconnected = false;
+          if (this.btDevice && this.btDevice.gatt) {
+            try {
+              console.log("Attempting silent Bluetooth reconnect...");
+              const server = await this.btDevice.gatt.connect();
+              const services = await server.getPrimaryServices();
+              for (const service of services) {
+                const characteristics = await service.getCharacteristics();
+                for (const characteristic of characteristics) {
+                  if (characteristic.properties.write || characteristic.properties.writeWithoutResponse) {
+                    this.btCharacteristic = characteristic;
+                    this.setupBluetoothListeners();
+                    reconnected = true;
+                    console.log("Silent reconnect successful!");
+                    break;
                   }
-               } catch (e) {
-                  console.warn("Silent reconnect failed, will prompt user...", e);
-               }
+                }
+                if (reconnected) break;
+              }
+            } catch (e) {
+              console.warn("Silent reconnect failed, will prompt user...", e);
             }
-            if (!reconnected) {
-               await this.connectWebBluetooth();
+          }
+          if (!reconnected) {
+            await this.connectWebBluetooth();
+          }
+        }
+        try {
+          // Very important for cheap POS58 thermal printers: 
+          // They have tiny buffers and will silently drop packets if sent too fast/too large.
+          const CHUNK_SIZE = 64;
+          for (let i = 0; i < data.byteLength; i += CHUNK_SIZE) {
+            const chunk = data.slice(i, i + CHUNK_SIZE);
+            if (this.btCharacteristic!.properties.writeWithoutResponse && typeof (this.btCharacteristic as any).writeValueWithoutResponse === 'function') {
+              await (this.btCharacteristic as any).writeValueWithoutResponse(chunk);
+            } else {
+              await this.btCharacteristic!.writeValue(chunk);
             }
-         }
-         try {
-            // Very important for cheap POS58 thermal printers: 
-            // They have tiny buffers and will silently drop packets if sent too fast/too large.
-            const CHUNK_SIZE = 64; 
-            for (let i = 0; i < data.byteLength; i += CHUNK_SIZE) {
-               const chunk = data.slice(i, i + CHUNK_SIZE);
-               if (this.btCharacteristic!.properties.writeWithoutResponse && typeof (this.btCharacteristic as any).writeValueWithoutResponse === 'function') {
-                  await (this.btCharacteristic as any).writeValueWithoutResponse(chunk);
-               } else {
-                  await this.btCharacteristic!.writeValue(chunk);
-               }
-               await new Promise(r => setTimeout(r, 50)); 
-            }
-         } catch (transferErr: any) {
-            console.error("Bluetooth transfer failed:", transferErr);
-            throw new Error('Bluetooth print failed. Please ensure the printer is turned on and in range.');
-         }
+            await new Promise(r => setTimeout(r, 50));
+          }
+        } catch (transferErr: any) {
+          console.error("Bluetooth transfer failed:", transferErr);
+          throw new Error('Bluetooth print failed. Please ensure the printer is turned on and in range.');
+        }
       } else if (effectiveType === 'network') {
-         if (!this.config.ipAddress) {
-           throw new Error('Network printer IP address is not configured. Please set the IP address in Printer Settings.');
-         }
-         // Send via raw fetch bridge or socket bridge
-         try {
-           const response = await fetch(`http://${this.config.ipAddress}:${this.config.port || 9100}/print`, {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/octet-stream' },
-             body: new Blob([data as any]),
-           });
-           if (!response.ok) throw new Error(`Network printer responded with status ${response.status}`);
-         } catch (netErr: any) {
-           console.warn('Direct RAW socket send failed (often blocked on HTTPS due to Mixed Content):', netErr);
-           if (window.location.protocol === 'https:') {
-             toast.error("Network Print is blocked on secure sites (HTTPS). Falling back to System Print...");
-           }
-           window.print();
-         }
+        if (!this.config.ipAddress) {
+          throw new Error('Network printer IP address is not configured. Please set the IP address in Printer Settings.');
+        }
+        // Send via raw fetch bridge or socket bridge
+        try {
+          const response = await fetch(`http://${this.config.ipAddress}:${this.config.port || 9100}/print`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/octet-stream' },
+            body: new Blob([data as any]),
+          });
+          if (!response.ok) throw new Error(`Network printer responded with status ${response.status}`);
+        } catch (netErr: any) {
+          console.warn('Direct RAW socket send failed (often blocked on HTTPS due to Mixed Content):', netErr);
+          if (window.location.protocol === 'https:') {
+            toast.error("Network Print is blocked on secure sites (HTTPS). Falling back to System Print...");
+          }
+          window.print();
+        }
       } else if (effectiveType === 'windows-print') {
-         if (!effectiveWindowsPrinterName) {
-           throw new Error('No Windows printer selected. Please choose a printer in Printer Settings.');
-         }
-         
-         // If we are on the deployed website, route to the local daemon at localhost:3000
-         const baseUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
-            ? '' 
-            : 'http://localhost:3000';
-            
-         // Convert Uint8Array → base64 safely (loop avoids call-stack overflow on large payloads)
-         let binary = '';
-         for (let i = 0; i < data.byteLength; i++) binary += String.fromCharCode(data[i]);
-         const base64 = btoa(binary);
-         const response = await fetch(`${baseUrl}/api/print/raw`, {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({
-             printerName: effectiveWindowsPrinterName,
-             data: base64,
-           }),
-         });
-         if (!response.ok) {
-           const body = await response.json().catch(() => ({}));
-           throw new Error(body.error || `Windows print bridge responded with status ${response.status}`);
-         }
-      } else if (effectiveType === 'qz-tray') {
-         if (!effectiveQzPrinterName) {
-           throw new Error('No QZ Tray printer selected. Please choose a printer in Printer Settings.');
-         }
+        if (!effectiveWindowsPrinterName) {
+          throw new Error('No Windows printer selected. Please choose a printer in Printer Settings.');
+        }
 
-         ensureQZSecurityConfigured();
-         if (!qz.websocket.isActive()) {
-           await qz.websocket.connect({
-             retries: 5,
-             delay: 1,
-             host: ['localhost', '127.0.0.1'],
-             usingSecure: window.location.protocol === 'https:',
-           });
-         }
-         
-         const qzConfig = qz.configs.create(effectiveQzPrinterName);
-         
-         let binary = '';
-         for (let i = 0; i < data.byteLength; i++) binary += String.fromCharCode(data[i]);
-         const base64 = btoa(binary);
-         
-         await qz.print(qzConfig, [{ type: 'raw', format: 'command', flavor: 'base64', data: base64 }]);
+        // If we are on the deployed website, route to the local daemon at localhost:3000
+        const baseUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+          ? ''
+          : 'http://localhost:3000';
+
+        // Convert Uint8Array → base64 safely (loop avoids call-stack overflow on large payloads)
+        let binary = '';
+        for (let i = 0; i < data.byteLength; i++) binary += String.fromCharCode(data[i]);
+        const base64 = btoa(binary);
+        const response = await fetch(`${baseUrl}/api/print/raw`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            printerName: effectiveWindowsPrinterName,
+            data: base64,
+          }),
+        });
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.error || `Windows print bridge responded with status ${response.status}`);
+        }
+      } else if (effectiveType === 'qz-tray') {
+        if (!effectiveQzPrinterName) {
+          throw new Error('No QZ Tray printer selected. Please choose a printer in Printer Settings.');
+        }
+
+        ensureQZSecurityConfigured();
+        if (!qz.websocket.isActive()) {
+          await qz.websocket.connect({
+            retries: 5,
+            delay: 1,
+            host: ['localhost', '127.0.0.1'],
+            usingSecure: window.location.protocol === 'https:',
+          });
+        }
+
+        const qzConfig = qz.configs.create(effectiveQzPrinterName);
+
+        let binary = '';
+        for (let i = 0; i < data.byteLength; i++) binary += String.fromCharCode(data[i]);
+        const base64 = btoa(binary);
+
+        await qz.print(qzConfig, [{ type: 'raw', format: 'command', flavor: 'base64', data: base64 }]);
       } else {
-         // Should never reach here — all paths are handled above.
-         throw new Error('Printer not configured. Please go to Printer Settings and select your printer.');
+        // Should never reach here — all paths are handled above.
+        throw new Error('Printer not configured. Please go to Printer Settings and select your printer.');
       }
     } catch (e: any) {
       console.warn('Thermal print failed:', e?.message || e);
@@ -840,12 +850,12 @@ class PrinterService {
     try {
       items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items;
       if (typeof items === 'string') items = JSON.parse(items);
-    } catch(e) {}
-    
+    } catch (e) { }
+
     const realItems = items.filter((i: any) => !i.isTableMarker);
     const orderDate = new Date(order.createdAt || Date.now());
     const timeStr = orderDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-    
+
     let html = `
       <html>
       <head>
@@ -872,15 +882,15 @@ class PrinterService {
     `;
 
     realItems.forEach((item: any) => {
-       html += `
+      html += `
          <div style="display: flex; margin-bottom: 5px;">
            <span style="display:inline-block; width: 30px; font-weight: bold;">${item.quantity}</span>
            <span>${item.name.substring(0, 27)}</span>
          </div>
        `;
-       if (item.isButter) {
-           html += `<div style="margin-left: 30px; font-style: italic;">+ Extra Butter</div>`;
-       }
+      if (item.isButter) {
+        html += `<div style="margin-left: 30px; font-style: italic;">+ Extra Butter</div>`;
+      }
     });
 
     html += `
@@ -894,7 +904,7 @@ class PrinterService {
       doc.write(html);
       doc.close();
     }
-    
+
     setTimeout(() => {
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
@@ -913,7 +923,7 @@ class PrinterService {
     iframe.style.height = '0';
     iframe.style.border = 'none';
     document.body.appendChild(iframe);
-    
+
     let html = `
       <html>
       <head>
@@ -940,7 +950,7 @@ class PrinterService {
       doc.write(html);
       doc.close();
     }
-    
+
     setTimeout(() => {
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
