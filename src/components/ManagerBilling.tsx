@@ -346,7 +346,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
   };
 
 
-  const { data: serverOrders = [], refetch: fetchOrders } = useQuery({
+  const { data: serverOrders = [], isFetching: ordersFetching, refetch: fetchOrders } = useQuery({
     queryKey: ['admin_orders'],
     queryFn: async () => {
       const res = await fetch('/api/admin/orders');
@@ -367,7 +367,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
   const activeOrders = serverOrders.filter((o: any) => o.status === 'pending' || o.status === 'processing');
 
 
-  const { data: posData, isLoading: posLoading, refetch: refetchPosData } = useQuery({
+  const { data: posData, isLoading: posLoading, isFetching: posFetching, refetch: refetchPosData } = useQuery({
     queryKey: ['pos_data'],
     queryFn: async () => {
       const res = await fetch('/api/pos-data');
@@ -1232,13 +1232,12 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
           <div className="flex items-center justify-end gap-1 sm:gap-2 shrink-0">
 
             <button type="button"
-              onClick={() => {
-                refetchPosData();
-                fetchOrders();
-                toast.success("Menu & Orders Refreshed");
+              onClick={async () => {
+                toast.success("Refreshing Menu & Orders...");
+                await Promise.all([refetchPosData(), fetchOrders()]);
               }}
               title="Refresh Data"
-              className={`p-1.5 sm:p-2 text-stone-400 hover:text-dhaba-orange hover:bg-orange-50 rounded-xl transition-colors ${posLoading ? 'animate-spin text-dhaba-orange' : ''}`}
+              className={`p-1.5 sm:p-2 text-stone-400 hover:text-dhaba-orange hover:bg-orange-50 rounded-xl transition-colors ${(posFetching || ordersFetching) ? 'animate-spin text-dhaba-orange' : ''}`}
             >
               <Icons.RefreshCw className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
