@@ -1,6 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import PanLoader from './PanLoader';
-import { ErrorBoundary } from './ErrorBoundary';
 import { ShoppingCart, Package, Activity, Calendar, Printer, ArrowLeft, Lock, UserCircle, X, LayoutDashboard, ChevronLeft, Menu } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -208,9 +207,7 @@ export default function ManagerDashboard() {
           <div className={`${activeModule === 'billing' ? 'h-full' : 'max-w-6xl mx-auto w-full'}`}>
             <Suspense fallback={<PanLoader text="Loading module..." />}>
             {activeModule === 'billing' ? (
-              <ErrorBoundary>
-                <ManagerBilling editingOrder={editingOrder} clearEditingOrder={() => setEditingOrder(null)} />
-              </ErrorBoundary>
+              <ManagerBilling editingOrder={editingOrder} clearEditingOrder={() => setEditingOrder(null)} />
             ) : activeModule === 'orders' ? (
               <ManagerOrders onEditOrder={(order) => { setEditingOrder(order); setActiveModule('billing'); }} />
             ) : activeModule === 'stats' ? (

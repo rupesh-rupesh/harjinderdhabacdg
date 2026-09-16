@@ -113,24 +113,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
 
   const [showMobileCart, setShowMobileCart] = useState(false);
   const [tableSelection, setTableSelection] = useState<number | null>(null);
-  const [draftTables, setDraftTables] = useState<number[]>([]);
-
-  useEffect(() => {
-    if (tableSelection === null) {
-      const drafts: number[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('dhaba_draft_cart_')) {
-          const num = parseInt(key.replace('dhaba_draft_cart_', ''));
-          if (!isNaN(num)) drafts.push(num);
-        }
-      }
-      setDraftTables(drafts);
-    }
-  }, [tableSelection]);
   const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
-  // Stores the original items of the order being edited, so we can detect real changes
-  const originalOrderItemsRef = useRef<string>('');
   const [checkoutTable, setCheckoutTable] = useState<{ num: number, order: any } | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void; } | null>(null);
 
@@ -181,7 +164,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
   useEffect(() => {
     if (editingOrder) {
       let tableNum = null;
-      let originalCart: any[] = [];
+      let newCart: any[] = [];
       try {
         const items = typeof editingOrder.items === 'string' ? JSON.parse(editingOrder.items) : editingOrder.items;
         const marker = items.find((i: any) => i.isTableMarker);
@@ -189,23 +172,19 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
           const numMatch = marker.name.match(/\d+/);
           if (numMatch) tableNum = parseInt(numMatch[0]);
         }
-        originalCart = items.filter((i: any) => !i.isTableMarker);
+
+        newCart = items.filter((i: any) => !i.isTableMarker);
       } catch (e) { }
 
       if (tableNum) {
-        // Store the original saved items for change detection
-        originalOrderItemsRef.current = JSON.stringify(originalCart);
-
-        // Only use an existing draft if one exists (user had unsaved changes before)
-        let cartToLoad = originalCart;
-        const savedDraft = localStorage.getItem(`dhaba_draft_cart_${tableNum}`);
-        if (savedDraft) {
+        const saved = localStorage.getItem(`dhaba_draft_cart_${tableNum}`);
+        if (saved) {
           try {
-            const parsed = JSON.parse(savedDraft);
-            if (parsed && parsed.length > 0) cartToLoad = parsed;
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.length > 0) newCart = parsed;
           } catch (e) { }
         }
-        setCart(cartToLoad);
+        setCart(newCart);
         setTableSelection(tableNum);
         setEditingOrderId(editingOrder.id);
       }
@@ -249,15 +228,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
   useEffect(() => {
     if (tableSelection !== null && !isSubmitting) {
       if (cart.length > 0) {
-        // If editing a saved order, only save as draft if cart actually changed
-        const cartJson = JSON.stringify(cart);
-        const isUnchanged = originalOrderItemsRef.current && cartJson === originalOrderItemsRef.current;
-        if (isUnchanged) {
-          // Cart matches the saved order — clear any stale draft
-          localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
-        } else {
-          localStorage.setItem(`dhaba_draft_cart_${tableSelection}`, cartJson);
-        }
+        localStorage.setItem(`dhaba_draft_cart_${tableSelection}`, JSON.stringify(cart));
       } else {
         localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
       }
@@ -394,27 +365,6 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
   });
 
   const activeOrders = serverOrders.filter((o: any) => o.status === 'pending' || o.status === 'processing');
-
-  // Smart draft detection: removes draft marker if cart matches saved order exactly
-  useEffect(() => {
-    if (tableSelection !== null && cart.length > 0) {
-      const activeOrder = activeOrders.find((o: any) => {
-        try {
-          const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
-          return items.some((item: any) => item.isTableMarker && item.name === `Table ${tableSelection}`);
-        } catch (e) { return false; }
-      });
-      if (activeOrder) {
-        try {
-          const items = typeof activeOrder.items === 'string' ? JSON.parse(activeOrder.items) : (activeOrder.items || []);
-          const orderCart = items.filter((i: any) => !i.isTableMarker);
-          if (orderCart.length === cart.length && JSON.stringify(cart) === JSON.stringify(orderCart)) {
-            localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
-          }
-        } catch (e) { }
-      }
-    }
-  }, [cart, tableSelection, activeOrders]);
 
 
   const { data: posData, isLoading: posLoading, isFetching: posFetching, refetch: refetchPosData } = useQuery({
@@ -817,7 +767,6 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                               });
                               if (!res.ok) throw new Error("Failed to cancel order");
 
-                              localStorage.removeItem(`dhaba_draft_cart_${checkoutTable.num}`);
                               fetchOrders();
                               setTableSelection(checkoutTable.num);
                               setCheckoutTable(null);
@@ -834,24 +783,30 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                       <X className="w-5 h-5" /> Cancel Order
                     </button>
                     <button type="button"
-                      onClick={async () => {
-                        try {
-                          const res = await fetch(`/api/admin/orders/${checkoutTable.order.id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ status: 'completed' })
-                          });
-                          if (!res.ok) throw new Error("Failed to mark as paid");
+                      onClick={() => {
+                        setConfirmDialog({
+                          isOpen: true,
+                          title: 'Mark as Paid',
+                          message: 'Are you sure you want to mark this bill as paid?',
+                          onConfirm: async () => {
+                            try {
+                              const res = await fetch(`/api/admin/orders/${checkoutTable.order.id}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: 'completed' })
+                              });
+                              if (!res.ok) throw new Error("Failed to mark as paid");
 
-                          localStorage.removeItem(`dhaba_draft_cart_${checkoutTable.num}`);
-                          fetchOrders();
-                          setTableSelection(checkoutTable.num);
-                          setCheckoutTable(null);
-                          setGenerateGst(true);
-                          toast.success(`Bill for Table ${checkoutTable.num} marked as paid.`);
-                        } catch (e: any) {
-                          toast.error(e.message || "Failed to mark order as paid");
-                        }
+                              fetchOrders();
+                              setTableSelection(checkoutTable.num);
+                              setCheckoutTable(null);
+                              setGenerateGst(true);
+                              toast.success(`Bill for Table ${checkoutTable.num} marked as paid.`);
+                            } catch (e: any) {
+                              toast.error(e.message || "Failed to mark order as paid");
+                            }
+                          }
+                        });
                       }}
                       className="flex-1 py-3 px-4 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2"
                     >
@@ -943,16 +898,13 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                 return items.some((item: any) => item.isTableMarker && item.name === `Table ${num}`);
               } catch (e) { return false; }
             });
-            const isDraft = draftTables.includes(num);
-            const hasDraft = isDraft;
-            const isActive = !!tableOrder && !hasDraft;
-            const isTrulyActive = !!tableOrder;
+            const isActive = !!tableOrder;
 
             return (
               <button type="button"
                 key={num}
                 onClick={() => {
-                  if (isTrulyActive) {
+                  if (isActive) {
                     setCheckoutTable({ num, order: tableOrder });
                   } else {
                     const saved = localStorage.getItem(`dhaba_draft_cart_${num}`);
@@ -973,31 +925,22 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                 }}
                 className={`aspect-[4/3] rounded-3xl flex flex-col items-center justify-center gap-3 transition-all duration-300 group relative border overflow-hidden ${isActive
                   ? 'bg-green-100 shadow-md hover:shadow-lg hover:-translate-y-1 animate-rgb-glow'
-                  : hasDraft
-                  ? 'bg-orange-50 border-orange-300 shadow-sm hover:shadow-md hover:-translate-y-1'
                   : 'bg-white/80 backdrop-blur-md border-stone-200 shadow-sm hover:shadow-xl hover:border-dhaba-orange/50 hover:bg-white hover:-translate-y-1'
                   }`}
               >
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${isActive
                   ? 'bg-green-200 shadow-inner'
-                  : hasDraft
-                  ? 'bg-white shadow-sm group-hover:scale-110'
                   : 'bg-stone-50 group-hover:bg-dhaba-orange/10 group-hover:scale-110'
                   }`}>
-                  <TablePeopleIcon className={`w-8 h-8 ${isActive ? 'text-green-700' : hasDraft ? 'text-dhaba-orange' : 'text-stone-400 group-hover:text-dhaba-orange'
+                  <TablePeopleIcon className={`w-8 h-8 ${isActive ? 'text-green-700' : 'text-stone-400 group-hover:text-dhaba-orange'
                     }`} />
                 </div>
                 <div className="flex flex-col items-center gap-0.5 relative z-10">
-                  <span className={`text-lg font-black tracking-tight ${isActive ? 'text-green-950' : hasDraft ? 'text-dhaba-orange' : 'text-stone-700'
+                  <span className={`text-lg font-black tracking-tight ${isActive ? 'text-green-950' : 'text-stone-700'
                     }`}>Table {num}</span>
                   {isActive && (
                     <span className="text-sm sm:text-base font-black text-white bg-green-500 px-3 py-0.5 rounded-full shadow-md mt-1 border border-green-400">
                       ₹{tableOrder.total}
-                    </span>
-                  )}
-                  {hasDraft && (
-                    <span className="text-[10px] sm:text-xs font-bold text-dhaba-orange bg-white px-2 py-0.5 rounded-full shadow-sm mt-1 border border-dhaba-orange/30 flex items-center gap-1">
-                      <Edit2 className="w-3 h-3" /> Draft
                     </span>
                   )}
                 </div>
@@ -1234,7 +1177,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
           {/* Left: back + table name */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <button type="button"
-              onClick={() => { originalOrderItemsRef.current = ''; setTableSelection(null); }}
+              onClick={() => setTableSelection(null)}
               className="p-1.5 sm:p-2 hover:bg-stone-100 rounded-lg transition-colors text-stone-500"
             >
               <ArrowLeft className="w-5 h-5" />

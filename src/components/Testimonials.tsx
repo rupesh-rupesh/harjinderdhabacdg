@@ -140,7 +140,7 @@ export default function Testimonials() {
                   className="w-full px-3 py-2 border border-stone-300 rounded-md focus:outline-none focus:ring-amber-500 focus:border-amber-500"
                   value={newReview.name}
                   onChange={e => setNewReview({ ...newReview, name: e.target.value })}
-                  placeholder="John Doe"
+                  placeholder="Enter Name Here......."
                 />
               </div>
               <div className="mb-4">

@@ -102,7 +102,7 @@ export default function AdminDashboard() {
 
   const fetchData = (a?: any, b?: any) => refetchData();
 
-  const [activeModule, setActiveModule] = useState<'menu' | 'features' | 'recover' | 'analytics' | 'reviews' | 'managers' | 'stats' | 'orders' | 'billing' | 'printer'>('analytics');
+  const [activeModule, setActiveModule] = useState<'menu' | 'features' | 'recover' | 'analytics' | 'reviews' | 'managers' | 'stats' | 'orders' | 'billing' | 'printer'>('billing');
   const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
 
   const [isFeatureFormOpen, setIsFeatureFormOpen] = useState(false);
@@ -1157,7 +1157,7 @@ export default function AdminDashboard() {
           {([
             { key: 'menu',      label: 'Menu Content',      icon: <LayoutDashboard className="w-5 h-5" /> },
             { key: 'features',  label: 'Why Stop Here?',    icon: <Star className="w-5 h-5" /> },
-            { key: 'analytics', label: 'Analytics',         icon: <Activity className="w-5 h-5" /> },
+            // { key: 'analytics', label: 'Analytics',         icon: <Activity className="w-5 h-5" /> },
             { key: 'reviews',   label: 'Reviews',           icon: <Star className="w-5 h-5" /> },
             { key: 'printer', label: 'Printer Settings', icon: <Printer className="w-5 h-5" /> },
             { key: 'managers',  label: 'Manage Staff',      icon: <Users className="w-5 h-5" /> },
