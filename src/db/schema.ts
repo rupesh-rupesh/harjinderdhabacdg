@@ -117,6 +117,8 @@ export const analyticsSettings = pgTable('analytics_settings', {
   sessionTimeoutMinutes: integer('session_timeout_minutes').default(30),
   dataRetentionDays: integer('data_retention_days').default(90),
   demoNoticeEnabled: boolean('demo_notice_enabled').default(true),
+  dashboardCache: jsonb('dashboard_cache'),
+  cacheUpdatedAt: timestamp('cache_updated_at'),
 });
 
 export const visitors = pgTable('visitors', {

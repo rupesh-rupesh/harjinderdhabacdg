@@ -92,6 +92,8 @@ const analyticsSettings = pgTable('analytics_settings', {
   sessionTimeoutMinutes: integer('session_timeout_minutes').default(30),
   dataRetentionDays: integer('data_retention_days').default(90),
   demoNoticeEnabled: boolean('demo_notice_enabled').default(true),
+  dashboardCache: jsonb('dashboard_cache'),
+  cacheUpdatedAt: timestamp('cache_updated_at'),
 });
 
 const visitors = pgTable('visitors', {
@@ -191,9 +193,35 @@ const db = drizzle(queryClient, { schema });
 // ─── In-Memory Cache ────────────────────────────────────────────────────────
 // Caches storefront data indefinitely. It is invalidated manually on admin updates.
 let storefrontCache: { data: any; ts: number } | null = null;
+let posCache: { data: any; ts: number } | null = null;
 const STOREFRONT_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 365 * 100; // 100 years
 
 function updateCachePiecemeal(type: 'category' | 'menu' | 'feature', action: 'add' | 'update' | 'delete', data: any, oldName?: string) {
+  if (posCache) {
+    if (type === 'menu') {
+      if (action === 'delete') {
+        posCache.data.menuItems = posCache.data.menuItems.filter((m: any) => m.id !== data.id);
+      } else {
+        const idx = posCache.data.menuItems.findIndex((m: any) => m.id === data.id);
+        if (idx !== -1) posCache.data.menuItems[idx] = { ...posCache.data.menuItems[idx], ...data };
+        else posCache.data.menuItems.push(data);
+      }
+    } else if (type === 'category') {
+      if (action === 'delete') {
+        posCache.data.categories = posCache.data.categories.filter((c: any) => c.id !== data.id);
+        const catName = oldName || data.name;
+        if (catName) posCache.data.menuItems = posCache.data.menuItems.filter((m: any) => m.category !== catName);
+      } else {
+        const idx = posCache.data.categories.findIndex((c: any) => c.id === data.id);
+        if (idx !== -1 && oldName && oldName !== data.name) {
+          posCache.data.menuItems = posCache.data.menuItems.map((m: any) => m.category === oldName ? { ...m, category: data.name } : m);
+        }
+        if (idx !== -1) posCache.data.categories[idx] = { ...posCache.data.categories[idx], ...data };
+        else posCache.data.categories.push(data);
+      }
+    }
+  }
+
   if (!storefrontCache) return;
 
   if (type === 'menu') {
@@ -692,11 +720,17 @@ app.get('/api/pos-data', async (req, res) => {
   // Edge/Browser caching (60s fresh, 300s stale)
   res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
   try {
+    const now = Date.now();
+    if (posCache && (now - posCache.ts) < STOREFRONT_CACHE_TTL_MS) {
+      return res.json(posCache.data);
+    }
     const [menu, cats] = await Promise.all([
       db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
       db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id)
     ]);
-    res.json({ menuItems: menu, categories: cats });
+    const responseData = { menuItems: menu, categories: cats };
+    posCache = { data: responseData, ts: now };
+    res.json(responseData);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1027,6 +1061,14 @@ app.post('/api/analytics/track', async (req, res) => {
       const duration = Math.floor((lastPing.getTime() - new Date(sess[0].visitTime!).getTime()) / 1000);
       await db.update(visits).set({ exitPage: path, lastPingAt: lastPing, durationSeconds: duration, isActive: true }).where(eq(visits.id, sess[0].id));
     }
+    
+    const cacheAge = s[0].cacheUpdatedAt ? Date.now() - new Date(s[0].cacheUpdatedAt).getTime() : Infinity;
+    if (cacheAge > 120000) {
+       const host = req.headers.host;
+       const protocol = host?.includes('localhost') ? 'http' : 'https';
+       fetch(`${protocol}://${host}/api/analytics/dashboard`).catch(() => {});
+    }
+    
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -1041,18 +1083,148 @@ app.post('/api/analytics/ping', async (req, res) => {
       const duration = Math.floor((lastPing.getTime() - new Date(sess[0].visitTime!).getTime()) / 1000);
       await db.update(visits).set({ exitPage: path, lastPingAt: lastPing, durationSeconds: duration, isActive: true }).where(eq(visits.id, sess[0].id));
     }
+    
+    let s = await db.select().from(analyticsSettings).limit(1);
+    if (s.length > 0) {
+      const cacheAge = s[0].cacheUpdatedAt ? Date.now() - new Date(s[0].cacheUpdatedAt).getTime() : Infinity;
+      if (cacheAge > 120000) {
+         const host = req.headers.host;
+         const protocol = host?.includes('localhost') ? 'http' : 'https';
+         fetch(`${protocol}://${host}/api/analytics/dashboard`).catch(() => {});
+      }
+    }
+    
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/analytics/dashboard', async (req, res) => {
   try {
-    const allVisits = await db.select().from(visits);
-    const allVisitors = await db.select().from(visitors);
-    const activeThreshold = new Date(Date.now() - 5 * 60000);
-    await db.update(visits).set({ isActive: false }).where(lt(visits.lastPingAt, activeThreshold));
-    const activeVisits = await db.select().from(visits).where(eq(visits.isActive, true));
-    res.json({ visits: allVisits, visitors: allVisitors, activeVisitors: activeVisits.length });
+    let settings = await db.select().from(analyticsSettings).limit(1);
+    if (!settings.length) {
+      settings = await db.insert(analyticsSettings).values({}).returning();
+    }
+    const set = settings[0];
+    
+    const now = Date.now();
+    const cacheAge = set.cacheUpdatedAt ? now - new Date(set.cacheUpdatedAt).getTime() : Infinity;
+    
+    // Stale-while-revalidate pattern
+    if (set.dashboardCache) {
+      res.json(set.dashboardCache);
+      
+      if (cacheAge > 120000) {
+        // Trigger background refresh
+        (async () => {
+          try {
+            const [
+              allVisits, allVisitors, allDemoNotices, totalVisitsCount, uniqueVisitorsCount,
+              returningVisitorsCount, avgSessionDuration, todayVisitsCount, weeklyVisitsCount,
+              monthlyVisitsCount, deviceData, browserData
+            ] = await Promise.all([
+              db.select().from(visits).orderBy(desc(visits.visitTime)).limit(100),
+              db.select().from(visitors).orderBy(desc(visitors.lastVisitAt)).limit(100),
+              db.select().from(demoNotices).orderBy(desc(demoNotices.createdAt)).limit(100),
+              db.execute(sql`SELECT COUNT(*) as count FROM visits`),
+              db.execute(sql`SELECT COUNT(*) as count FROM visitors`),
+              db.execute(sql`SELECT COUNT(*) as count FROM visitors WHERE total_visits > 1`),
+              db.execute(sql`SELECT AVG(duration_seconds) as avg_duration FROM visits`),
+              db.execute(sql`SELECT COUNT(*) as count FROM visits WHERE DATE(visit_time) = CURRENT_DATE`),
+              db.execute(sql`SELECT COUNT(*) as count FROM visits WHERE visit_time >= date_trunc('week', CURRENT_DATE)`),
+              db.execute(sql`SELECT COUNT(*) as count FROM visits WHERE visit_time >= date_trunc('month', CURRENT_DATE)`),
+              db.execute(sql`SELECT device_type, COUNT(*) as count FROM visitors GROUP BY device_type`),
+              db.execute(sql`SELECT browser, COUNT(*) as count FROM visitors GROUP BY browser`)
+            ]);
+
+            
+            const deviceDataMap: any = {};
+            deviceData.forEach((d: any) => { deviceDataMap[d.device_type || 'Unknown'] = Number(d.count); });
+            const browserDataMap: any = {};
+            browserData.forEach((d: any) => { browserDataMap[d.browser || 'Unknown'] = Number(d.count); });
+
+            const dashboardData = {
+              visits: allVisits,
+              visitors: allVisitors,
+              demoNotices: allDemoNotices,
+              activeVisitors: allVisits.filter((v:any) => v.isActive).length,
+              aggregates: {
+                totalVisits: Number(totalVisitsCount[0]?.count || 0),
+                uniqueVisitors: Number(uniqueVisitorsCount[0]?.count || 0),
+                returningVisitors: Number(returningVisitorsCount[0]?.count || 0),
+                avgSessionDuration: Number(avgSessionDuration[0]?.avg_duration || 0),
+                todayVisits: Number(todayVisitsCount[0]?.count || 0),
+                weeklyVisits: Number(weeklyVisitsCount[0]?.count || 0),
+                monthlyVisits: Number(monthlyVisitsCount[0]?.count || 0),
+                deviceData: deviceDataMap,
+                browserData: browserDataMap
+              }
+            };
+  
+            await db.update(analyticsSettings).set({ dashboardCache: dashboardData, cacheUpdatedAt: new Date() }).where(eq(analyticsSettings.id, set.id));
+          } catch (err) {
+            console.error("Background analytics refresh failed:", err);
+          }
+        })();
+      }
+      return;
+    }
+
+    // Initial fetch if no cache exists
+    const [
+      allVisits, allVisitors, allDemoNotices, totalVisitsCount, uniqueVisitorsCount,
+      returningVisitorsCount, avgSessionDuration, todayVisitsCount, weeklyVisitsCount,
+      monthlyVisitsCount, deviceData, browserData
+    ] = await Promise.all([
+      db.select().from(visits).orderBy(desc(visits.visitTime)).limit(100),
+      db.select().from(visitors).orderBy(desc(visitors.lastVisitAt)).limit(100),
+      db.select().from(demoNotices).orderBy(desc(demoNotices.createdAt)).limit(100),
+      db.execute(sql`SELECT COUNT(*) as count FROM visits`),
+      db.execute(sql`SELECT COUNT(*) as count FROM visitors`),
+      db.execute(sql`SELECT COUNT(*) as count FROM visitors WHERE total_visits > 1`),
+      db.execute(sql`SELECT AVG(duration_seconds) as avg_duration FROM visits`),
+      db.execute(sql`SELECT COUNT(*) as count FROM visits WHERE DATE(visit_time) = CURRENT_DATE`),
+      db.execute(sql`SELECT COUNT(*) as count FROM visits WHERE visit_time >= date_trunc('week', CURRENT_DATE)`),
+      db.execute(sql`SELECT COUNT(*) as count FROM visits WHERE visit_time >= date_trunc('month', CURRENT_DATE)`),
+      db.execute(sql`SELECT device_type, COUNT(*) as count FROM visitors GROUP BY device_type`),
+      db.execute(sql`SELECT browser, COUNT(*) as count FROM visitors GROUP BY browser`)
+    ]);
+
+    
+            const deviceDataMap: any = {};
+            deviceData.forEach((d: any) => { deviceDataMap[d.device_type || 'Unknown'] = Number(d.count); });
+            const browserDataMap: any = {};
+            browserData.forEach((d: any) => { browserDataMap[d.browser || 'Unknown'] = Number(d.count); });
+
+            const dashboardData = {
+              visits: allVisits,
+              visitors: allVisitors,
+              demoNotices: allDemoNotices,
+              activeVisitors: allVisits.filter((v:any) => v.isActive).length,
+              aggregates: {
+                totalVisits: Number(totalVisitsCount[0]?.count || 0),
+                uniqueVisitors: Number(uniqueVisitorsCount[0]?.count || 0),
+                returningVisitors: Number(returningVisitorsCount[0]?.count || 0),
+                avgSessionDuration: Number(avgSessionDuration[0]?.avg_duration || 0),
+                todayVisits: Number(todayVisitsCount[0]?.count || 0),
+                weeklyVisits: Number(weeklyVisitsCount[0]?.count || 0),
+                monthlyVisits: Number(monthlyVisitsCount[0]?.count || 0),
+                deviceData: deviceDataMap,
+                browserData: browserDataMap
+              }
+            };
+  
+    
+    await db.update(analyticsSettings).set({ dashboardCache: dashboardData, cacheUpdatedAt: new Date() }).where(eq(analyticsSettings.id, set.id));
+    res.json(dashboardData);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/analytics/demo-notice', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const result = await db.insert(demoNotices).values({ name }).returning();
+    res.json(result[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

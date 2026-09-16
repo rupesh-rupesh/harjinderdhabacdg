@@ -48,8 +48,10 @@ export default function AnalyticsDashboard() {
 
   if (isLoading) return <PanLoader text="Loading Analytics..." />;
 
-  const serverData = queryData?.data || { visits: [], visitors: [], activeVisitors: 0, aggregates: {} };
-  const aggs = serverData.aggregates || {};
+  const serverData = queryData?.data || {};
+
+  // Support both old flat format and new aggregates-nested format
+  const aggs = serverData.aggregates || serverData;
 
   const totalVisits = aggs.totalVisits || 0;
   const uniqueVisitors = aggs.uniqueVisitors || 0;
@@ -59,13 +61,20 @@ export default function AnalyticsDashboard() {
   const weeklyVisits = aggs.weeklyVisits || 0;
   const monthlyVisits = aggs.monthlyVisits || 0;
 
-  // Chart Data Processing
-  const deviceData = aggs.deviceData || {};
-  const deviceChart = Object.keys(deviceData).map(k => ({ name: k, value: deviceData[k] }));
+  // Chart Data Processing — handle both object and array formats
+  const rawDeviceData = aggs.deviceData || {};
+  const deviceChart = Array.isArray(rawDeviceData)
+    ? rawDeviceData
+    : Object.keys(rawDeviceData).map(k => ({ name: k, value: rawDeviceData[k] }));
   const COLORS = ['#f97316', '#3b82f6', '#8b5cf6', '#10b981'];
 
-  const browserData = aggs.browserData || {};
-  const browserChart = Object.keys(browserData).map(k => ({ name: k, value: browserData[k] }));
+  const rawBrowserData = aggs.browserData || {};
+  const browserChart = Array.isArray(rawBrowserData)
+    ? rawBrowserData
+    : Object.keys(rawBrowserData).map(k => ({ name: k, value: rawBrowserData[k] }));
+
+  const visits = serverData.visits || [];
+  const visitorsData = serverData.visitors || [];
 
   // Because the server does not send daily chart data in this quick refactor,
   // we will just use an empty array or basic fallback for the chart. 
@@ -88,7 +97,7 @@ export default function AnalyticsDashboard() {
     const nextD = new Date(d);
     nextD.setDate(nextD.getDate() + 1);
     
-    const count = (serverData.visits || []).filter((v: any) => {
+    const count = (visits).filter((v: any) => {
       const vTime = new Date(v.visitTime);
       return vTime >= d && vTime < nextD;
     }).length;
@@ -146,13 +155,14 @@ export default function AnalyticsDashboard() {
   };
 
   const formatDuration = (seconds: number) => {
-    if (seconds < 60) return `${seconds}s`;
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}m ${s}s`;
+    const totalSeconds = Math.round(seconds);
+    if (totalSeconds < 60) return `${totalSeconds}s`;
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
   };
 
-  const filteredVisitors = (serverData.visitors || []).filter((v: any) => 
+  const filteredVisitors = (visitorsData).filter((v: any) => 
     (v.deviceType || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (v.os || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (v.browser || '').toLowerCase().includes(searchTerm.toLowerCase())
