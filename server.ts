@@ -1392,10 +1392,15 @@ app.delete('/api/admin/pos/drafts/:tableNumber', async (req, res) => {
 app.post('/api/admin/pos/orders', async (req, res) => {
   try {
     const { tableNumber, items, total } = req.body;
-    let posUser = await db.select().from(users).where(eq(users.uid, 'pos_system')).limit(1);
-    if (posUser.length === 0) {
-      const nu = await db.insert(users).values({ uid: 'pos_system', email: 'pos@local', name: 'POS System' }).returning();
-      posUser = nu;
+    let posUserId = await cache.get('pos_system_user_id');
+    if (!posUserId) {
+      let posUser = await db.select().from(users).where(eq(users.uid, 'pos_system')).limit(1);
+      if (posUser.length === 0) {
+        const nu = await db.insert(users).values({ uid: 'pos_system', email: 'pos@local', name: 'POS System' }).returning();
+        posUser = nu;
+      }
+      posUserId = posUser[0].id.toString();
+      await cache.set('pos_system_user_id', posUserId);
     }
     const posItems = [{ name: `Table ${tableNumber}`, price: 0, quantity: 1, isTableMarker: true }, ...items];
     
@@ -1403,7 +1408,7 @@ app.post('/api/admin/pos/orders', async (req, res) => {
     const redisId = await cache.incr('order_id_seq');
     const newOrder = {
       id: redisId,
-      userId: posUser[0].id,
+      userId: Number(posUserId),
       items: JSON.stringify(posItems),
       total,
       status: 'pending',
