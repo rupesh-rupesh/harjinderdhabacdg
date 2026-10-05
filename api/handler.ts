@@ -1,14 +1,21 @@
+import 'dotenv/config';
 // Vercel Serverless Function entrypoint
 // This file is bundled by @vercel/node which handles TypeScript natively
 import express from 'express';
+import compression from 'compression';
+import path from 'path';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { integer, real, pgTable, serial, text, timestamp, boolean, jsonb } from 'drizzle-orm/pg-core';
-import { eq, desc, lt, inArray, sql, and, gt } from 'drizzle-orm';
+import { eq, desc, lt, inArray, sql, and, or, gt } from 'drizzle-orm';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import bcrypt from 'bcryptjs';
 import { Resend } from 'resend';
 import crypto from 'crypto';
+import { exec } from 'child_process';
+import cache from './src/lib/redis.js';
+
+console.log('RELOADING BACKEND...');
 
 // ─── Schema ────────────────────────────────────────────────────────────────
 const users = pgTable('users', {
@@ -181,65 +188,15 @@ if (!dbUrl) {
   }
 }
 
-// Serverless best practice: max 1 connection per cold start
-const queryClient = postgres(dbUrl || '', { 
-  max: 1,
-  idle_timeout: 20,
-  connect_timeout: 10, // Keep under Vercel's function timeout (10s hobby / 60s pro)
-  prepare: false,      // CRITICAL: Prevents prepared statement hangs with Supabase pooler
+// Serverless best practice: max 1 connection per cold start, but locally we need a pool
+const isVercel = process.env.VERCEL === '1';
+const queryClient = postgres(dbUrl || '', {
+  max: isVercel ? 1 : 10,
+  idle_timeout: isVercel ? 1 : 30,
+  connect_timeout: 10,
+  prepare: false // CRITICAL: Prevents prepared statement hangs with Supabase pooler
 });
 const db = drizzle(queryClient, { schema });
-
-// ─── In-Memory Cache ────────────────────────────────────────────────────────
-// Caches storefront data indefinitely. It is invalidated manually on admin updates.
-let storefrontCache: { data: any; ts: number } | null = null;
-const STOREFRONT_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 365 * 100; // 100 years
-
-function updateCachePiecemeal(type: 'category' | 'menu' | 'feature', action: 'add' | 'update' | 'delete', data: any, oldName?: string) {
-  if (!storefrontCache) return;
-
-  if (type === 'menu') {
-    if (action === 'delete') {
-      storefrontCache.data.menuItems = storefrontCache.data.menuItems.filter((m: any) => m.id !== data.id);
-    } else {
-      const idx = storefrontCache.data.menuItems.findIndex((m: any) => m.id === data.id);
-      if (idx !== -1) storefrontCache.data.menuItems[idx] = { ...storefrontCache.data.menuItems[idx], ...data };
-      else {
-        const visibleCats = storefrontCache.data.categories.map((c: any) => c.name);
-        if (visibleCats.includes(data.category)) storefrontCache.data.menuItems.push(data);
-      }
-    }
-  } else if (type === 'category') {
-    if (action === 'delete') {
-      storefrontCache.data.categories = storefrontCache.data.categories.filter((c: any) => c.id !== data.id);
-      const catName = oldName || data.name;
-      if (catName) storefrontCache.data.menuItems = storefrontCache.data.menuItems.filter((m: any) => m.category !== catName);
-    } else {
-      const idx = storefrontCache.data.categories.findIndex((c: any) => c.id === data.id);
-      if (idx !== -1 && oldName && oldName !== data.name) {
-        storefrontCache.data.menuItems = storefrontCache.data.menuItems.map((m: any) => m.category === oldName ? { ...m, category: data.name } : m);
-      }
-      if (idx !== -1) {
-        if (data.isHidden) {
-          storefrontCache.data.categories.splice(idx, 1);
-          storefrontCache.data.menuItems = storefrontCache.data.menuItems.filter((m: any) => m.category !== data.name);
-        } else {
-          storefrontCache.data.categories[idx] = { ...storefrontCache.data.categories[idx], ...data };
-        }
-      } else {
-        if (!data.isHidden) storefrontCache.data.categories.push(data);
-      }
-    }
-  } else if (type === 'feature') {
-    if (action === 'delete') {
-      storefrontCache.data.features = storefrontCache.data.features.filter((f: any) => f.id !== data.id);
-    } else {
-      const idx = storefrontCache.data.features.findIndex((f: any) => f.id === data.id);
-      if (idx !== -1) storefrontCache.data.features[idx] = { ...storefrontCache.data.features[idx], ...data };
-      else storefrontCache.data.features.push(data);
-    }
-  }
-}
 
 // ─── Firebase Admin ─────────────────────────────────────────────────────────
 let adminAuth: any = {
@@ -260,6 +217,7 @@ try {
 
 // ─── Express App ─────────────────────────────────────────────────────────────
 const app = express();
+app.use(compression());
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -296,7 +254,7 @@ async function ensureStaffTables() {
 
     // Ensure superadmin exists based on .env ADMIN_PASSWORD_HASH
     const adminEmail = (process.env.ADMIN_EMAIL || 'harjinderdhaba1991@gmail.com').toLowerCase();
-    const adminHash  = process.env.ADMIN_PASSWORD_HASH;
+    const adminHash = process.env.ADMIN_PASSWORD_HASH;
 
     if (adminHash) {
       const exists = await db.select().from(staffAccounts).where(eq(staffAccounts.email, adminEmail)).limit(1);
@@ -331,7 +289,7 @@ async function ensureStaffTables() {
 
 async function ensureAdminAccount() {
   const adminEmail = process.env.ADMIN_EMAIL;
-  const adminHash  = process.env.ADMIN_PASSWORD_HASH;
+  const adminHash = process.env.ADMIN_PASSWORD_HASH;
   if (!adminEmail || !adminHash) return;
   try {
     const existing = await db.select().from(staffAccounts).where(eq(staffAccounts.email, adminEmail)).limit(1);
@@ -345,42 +303,25 @@ async function ensureAdminAccount() {
       });
       console.log('[StaffAuth] Admin account seeded from env vars.');
     }
-  } catch (_) {}
+  } catch (_) { }
 }
 
 let staffTablesReady = false;
-// Cache the in-flight promise so concurrent cold-start requests don't
-// each fire their own DDL storm — they all await the same promise.
-let staffTablesInitPromise: Promise<void> | null = null;
 async function initStaffAuth() {
   if (staffTablesReady) return;
-  if (!staffTablesInitPromise) {
-    staffTablesInitPromise = (async () => {
-      await ensureStaffTables();
-      await ensureAdminAccount();
-      staffTablesReady = true;
-    })().catch(err => {
-      // Reset so it can retry on next request
-      staffTablesInitPromise = null;
-      console.error('[initStaffAuth] failed:', err);
-      throw err;
-    });
-  }
-  return staffTablesInitPromise;
+  await ensureStaffTables();
+  await ensureAdminAccount();
+  staffTablesReady = true;
 }
 
 async function createOtp(staffId: number): Promise<string> {
   const code = String(Math.floor(100000 + Math.random() * 900000));
-  // Cost 8 is sufficient for short-lived OTPs and much faster than 12 on serverless
   const hash = await bcrypt.hash(code, 8);
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
-  // Invalidate old OTPs and insert new one in parallel
-  await Promise.all([
-    db.update(otpSessions)
-      .set({ used: true })
-      .where(and(eq(otpSessions.staffId, staffId), eq(otpSessions.used, false))),
-    db.insert(otpSessions).values({ staffId, otpHash: hash, expiresAt }),
-  ]);
+  await db.update(otpSessions)
+    .set({ used: true })
+    .where(and(eq(otpSessions.staffId, staffId), eq(otpSessions.used, false)));
+  await db.insert(otpSessions).values({ staffId, otpHash: hash, expiresAt });
   return code;
 }
 
@@ -400,16 +341,11 @@ async function sendOtpEmail(toEmail: string, name: string, code: string): Promis
           </div>
           <h2 style="color:#C89B3C;font-size:22px;margin-bottom:8px;">Verification Code</h2>
           <p style="color:#d6d3d1;margin-bottom:24px;">Hello ${name}, use this code to sign in:</p>
-          <div style="background:#0d0804;border:2px solid #C89B3C55;border-radius:12px;padding:28px;text-align:center;margin-bottom:24px;box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
-            <div style="font-size:48px;font-weight:700;letter-spacing:16px;color:#C89B3C;font-family:monospace;user-select:all;cursor:pointer;">${code}</div>
-            <div style="margin-top:16px;font-size:12px;color:#a8a29e;">
-              <span style="display:inline-flex;align-items:center;padding:6px 12px;background:#1a1008;border-radius:16px;border:1px solid #33261c;">
-                📋 Double-click code to select and copy
-              </span>
-            </div>
+          <div style="background:#0d0804;border:2px solid #C89B3C33;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px;">
+            <span style="font-size:42px;font-weight:700;letter-spacing:12px;color:#C89B3C;font-family:monospace;">${code}</span>
           </div>
-          <p style="color:#78716c;font-size:13px;line-height:1.6;">This code expires in <strong>${OTP_EXPIRY_MINUTES} minutes</strong>. Do not share it with anyone.</p>
-          <p style="color:#44403c;font-size:12px;margin-top:16px;border-top:1px solid #33261c;padding-top:16px;">Harjinder Tourist Dhaba — Management System</p>
+          <p style="color:#78716c;font-size:13px;">This code expires in ${OTP_EXPIRY_MINUTES} minutes. Do not share it with anyone.</p>
+          <p style="color:#44403c;font-size:12px;margin-top:16px;">Harjinder Tourist Dhaba — Management System</p>
         </div>
       `,
     });
@@ -437,39 +373,15 @@ async function sendManagerWelcomeEmail(toEmail: string, name: string, password: 
             <h1 style="color:#ffffff;font-size:24px;font-weight:bold;margin:0;font-family:serif;">Harjinder Tourist <span style="color:#C89B3C;">Dhaba</span></h1>
           </div>
           <h2 style="color:#C89B3C;font-size:22px;margin-bottom:8px;">Welcome, ${name}!</h2>
-          <p style="color:#d6d3d1;margin-bottom:24px;line-height:1.6;">Your manager account has been successfully created. You can now access the management dashboard.</p>
-          <div style="background:#0d0804;border:1px solid #C89B3C33;border-radius:12px;padding:24px;margin-bottom:24px;box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
-            <table style="width:100%;border-spacing:0;">
-              <tr>
-                <td style="color:#a8a29e;padding:12px 0;font-size:13px;border-bottom:1px solid #292524;width:80px;vertical-align:top;">Login URL</td>
-                <td style="color:#C89B3C;padding:12px 0;font-size:14px;border-bottom:1px solid #292524;">
-                  <a href="${loginUrl}" style="color:#C89B3C;text-decoration:none;font-weight:bold;word-break:break-all;display:block;">${loginUrl}</a>
-                </td>
-              </tr>
-              <tr>
-                <td style="color:#a8a29e;padding:12px 0;font-size:13px;border-bottom:1px solid #292524;vertical-align:top;">Email</td>
-                <td style="color:#f5f5f4;padding:12px 0;font-size:14px;border-bottom:1px solid #292524;user-select:all;word-break:break-all;">${toEmail}</td>
-              </tr>
-              <tr>
-                <td style="color:#a8a29e;padding:16px 0 0 0;font-size:13px;vertical-align:middle;">Password</td>
-                <td style="padding:16px 0 0 0;">
-                  <div style="display:inline-block;background:#1a1008;border:1px solid #C89B3C55;border-radius:8px;padding:10px 16px;color:#f5f5f4;font-family:monospace;font-size:18px;font-weight:bold;letter-spacing:2px;user-select:all;cursor:pointer;">
-                    ${password}
-                  </div>
-                  <div style="font-size:12px;color:#a8a29e;margin-top:8px;">
-                    <span style="display:inline-flex;align-items:center;padding:4px 8px;background:#1a1008;border-radius:12px;border:1px solid #33261c;">
-                      📋 Double-click password to select and copy
-                    </span>
-                  </div>
-                </td>
-              </tr>
-            </table>
-          </div>
-          <p style="color:#a8a29e;font-size:13px;line-height:1.6;">Each login requires a 6-digit verification code sent to your email.</p>
-          <div style="background:rgba(239,68,68,0.1);border-left:4px solid #ef4444;padding:12px 16px;border-radius:4px;margin-top:16px;margin-bottom:24px;">
-            <p style="color:#ef4444;font-size:13px;margin:0;font-weight:bold;">⚠️ Please change your password after your first login.</p>
-          </div>
-          <p style="color:#44403c;font-size:12px;margin-top:24px;border-top:1px solid #33261c;padding-top:16px;">Harjinder Tourist Dhaba — Management System</p>
+          <p style="color:#d6d3d1;margin-bottom:24px;">Your manager account has been created for Harjinder Tourist Dhaba.</p>
+          <table style="width:100%;background:#0d0804;border:1px solid #C89B3C22;border-radius:12px;padding:20px;border-spacing:0;margin-bottom:24px;">
+            <tr><td style="color:#78716c;padding:6px 0;font-size:13px;width:80px;vertical-align:top;">Login URL</td><td style="color:#C89B3C;font-size:13px;word-break:break-all;"><a href="${loginUrl}" style="color:#C89B3C;text-decoration:none;">${loginUrl}</a></td></tr>
+            <tr><td style="color:#78716c;padding:6px 0;font-size:13px;vertical-align:top;">Email</td><td style="color:#f5f5f4;font-size:13px;word-break:break-all;">${toEmail}</td></tr>
+            <tr><td style="color:#78716c;padding:6px 0;font-size:13px;vertical-align:top;">Password</td><td style="color:#f5f5f4;font-family:monospace;font-size:14px;">${password}</td></tr>
+          </table>
+          <p style="color:#d6d3d1;font-size:13px;">Each login requires a 6-digit verification code sent to your email.</p>
+          <p style="color:#ef4444;font-size:12px;margin-top:8px;">⚠️ Please change your password after your first login.</p>
+          <p style="color:#44403c;font-size:12px;margin-top:24px;">Harjinder Tourist Dhaba — Management System</p>
         </div>
       `,
     });
@@ -637,8 +549,7 @@ app.post('/api/staff/setup', async (req, res) => {
       return res.status(403).json({ error: 'An admin account already exists. Use the login form.' });
     }
 
-    // Cost 10 balances security and serverless cold-start speed (12 is too slow on Vercel)
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12);
     const [newAdmin] = await db.insert(staffAccounts).values({
       email: email.trim().toLowerCase(),
       name: name.trim(),
@@ -687,44 +598,55 @@ app.get('/api/db-test', async (req, res) => {
   }
 });
 
-  
+
+
+// ─── POS / Storefront Caching Helpers ─────────────────────────────────────
+async function getCachedArray(key: string, fetchFn: () => Promise<any[]>) {
+  const cached = await cache.get(key);
+  if (cached) return JSON.parse(cached as string);
+  const data = await fetchFn();
+  await cache.set(key, JSON.stringify(data));
+  return data;
+}
+
+async function updateCachedArray(key: string, id: number, newItem: any | null, sortFn?: (a: any, b: any) => number) {
+  const cached = await cache.get(key);
+  if (cached) {
+    let arr = JSON.parse(cached as string);
+    const idx = arr.findIndex((item: any) => item.id === id);
+    if (newItem === null) {
+      if (idx !== -1) arr.splice(idx, 1);
+    } else {
+      if (idx !== -1) arr[idx] = newItem;
+      else arr.push(newItem);
+    }
+    if (sortFn) arr.sort(sortFn);
+    await cache.set(key, JSON.stringify(arr));
+  }
+}
 
 // ─── POS / Storefront / Admin Data ──────────────────────────────────────────
 app.get('/api/pos-data', async (req, res) => {
-  // Edge/Browser caching (60s fresh, 300s stale)
-  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+  // Using Redis forever-cache instead of HTTP cache
   try {
     const [menu, cats] = await Promise.all([
-      db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
-      db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id)
+      getCachedArray('cache:menu_items', () => db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id)),
+      getCachedArray('cache:categories', () => db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id))
     ]);
     res.json({ menuItems: menu, categories: cats });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/storefront-data', async (req, res) => {
-  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+  // Using Redis forever-cache instead of HTTP cache
   try {
-    // Serve from in-memory cache if it's still fresh
-    const now = Date.now();
-    if (storefrontCache && (now - storefrontCache.ts) < STOREFRONT_CACHE_TTL_MS) {
-      return res.json(storefrontCache.data);
-    }
-
-    // Cache miss — fetch fresh data from DB
     const [menu, cats, feats] = await Promise.all([
-      db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
-      db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id),
-      db.select().from(features).orderBy(features.displayOrder, features.id)
+      getCachedArray('cache:menu_items', () => db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id)),
+      getCachedArray('cache:categories', () => db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id)),
+      getCachedArray('cache:features', () => db.select().from(features).orderBy(features.displayOrder, features.id))
     ]);
-    const visibleCats = cats.filter(c => !c.isHidden);
-    const visibleCatNames = visibleCats.map(c => c.name);
-    const visibleMenu = menu.filter(m => visibleCatNames.includes(m.category));
-    const responseData = { menuItems: visibleMenu, categories: visibleCats, features: feats };
-
-    // Store in cache
-    storefrontCache = { data: responseData, ts: now };
-    return res.json(responseData);
+    const visibleCats = cats.filter((c: any) => !c.isHidden);
+    res.json({ menuItems: menu, categories: visibleCats, features: feats });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -745,7 +667,7 @@ app.post("/api/categories/:id/toggle-visibility", async (req, res) => {
     const { id } = req.params;
     const { isHidden } = req.body;
     const updated = await db.update(categories).set({ isHidden }).where(eq(categories.id, Number(id))).returning();
-    updateCachePiecemeal('category', 'update', updated[0]);
+    await updateCachedArray('cache:categories', Number(id), updated[0], (a, b) => a.id - b.id);
     res.json(updated[0]);
   } catch (error: any) {
     res.status(500).json({ error: "Failed to toggle category visibility: " + (error.message || error) });
@@ -753,6 +675,7 @@ app.post("/api/categories/:id/toggle-visibility", async (req, res) => {
 });
 
 app.get('/api/categories', async (req, res) => {
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
   try { res.json(await db.select().from(categories).where(eq(categories.isDeleted, false))); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -761,7 +684,7 @@ app.post('/api/categories', async (req, res) => {
   try {
     const { name, image, startTime, endTime } = req.body;
     const r = await db.insert(categories).values({ name, image, startTime: startTime || null, endTime: endTime || null }).returning();
-    updateCachePiecemeal('category', 'add', r[0]);
+    await updateCachedArray('cache:categories', r[0].id, r[0], (a, b) => a.id - b.id);
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -769,17 +692,17 @@ app.post('/api/categories', async (req, res) => {
 app.put('/api/categories/:id', async (req, res) => {
   try {
     const { name, image, startTime, endTime } = req.body;
-    
+
     // Get the old category name first
     const oldCat = await db.select().from(categories).where(eq(categories.id, Number(req.params.id))).limit(1);
-    
+
     // If name changed, update all menu items in this category
     if (oldCat.length > 0 && oldCat[0].name !== name) {
       await db.update(menuItems).set({ category: name }).where(eq(menuItems.category, oldCat[0].name));
     }
-    
+
     const r = await db.update(categories).set({ name, image, startTime: startTime || null, endTime: endTime || null }).where(eq(categories.id, Number(req.params.id))).returning();
-    updateCachePiecemeal('category', 'update', r[0], oldCat.length > 0 ? oldCat[0].name : undefined);
+    await updateCachedArray('cache:categories', r[0].id, r[0], (a, b) => a.id - b.id);
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -789,7 +712,7 @@ app.delete('/api/categories/:id', async (req, res) => {
     const cat = await db.select().from(categories).where(eq(categories.id, Number(req.params.id))).limit(1);
     if (cat.length > 0) await db.update(menuItems).set({ isDeleted: true }).where(eq(menuItems.category, cat[0].name));
     await db.update(categories).set({ isDeleted: true }).where(eq(categories.id, Number(req.params.id)));
-    if (cat.length > 0) updateCachePiecemeal('category', 'delete', cat[0]);
+    await updateCachedArray('cache:categories', Number(req.params.id), null);
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -799,23 +722,21 @@ app.post('/api/categories/:id/recover', async (req, res) => {
     const cat = await db.select().from(categories).where(eq(categories.id, Number(req.params.id))).limit(1);
     if (cat.length > 0) await db.update(menuItems).set({ isDeleted: false }).where(eq(menuItems.category, cat[0].name));
     const updated = await db.update(categories).set({ isDeleted: false }).where(eq(categories.id, Number(req.params.id))).returning();
-    if (updated.length > 0) updateCachePiecemeal('category', 'update', updated[0]);
+    if (updated.length > 0) {
+      await updateCachedArray('cache:categories', Number(req.params.id), updated[0], (a, b) => a.id - b.id);
+    }
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/categories/:id/permanent', async (req, res) => {
-  try { 
-    const cat = await db.select().from(categories).where(eq(categories.id, Number(req.params.id))).limit(1);
-    if (cat.length > 0) updateCachePiecemeal('category', 'delete', cat[0]);
-    await db.delete(categories).where(eq(categories.id, Number(req.params.id))); 
-    res.json({ success: true }); 
-  }
+  try { await db.delete(categories).where(eq(categories.id, Number(req.params.id))); res.json({ success: true }); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 // ─── Menu Items ───────────────────────────────────────────────────────────────
 app.get('/api/menu-items', async (req, res) => {
+  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
   try { res.json(await db.select().from(menuItems).where(eq(menuItems.isDeleted, false))); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -839,7 +760,7 @@ app.post('/api/menu-items', async (req, res) => {
       endTime: item.hasTiming && item.endTime ? item.endTime : null,
       variants: item.variants ? item.variants : []
     }).returning();
-    updateCachePiecemeal('menu', 'add', r[0]);
+    await updateCachedArray('cache:menu_items', r[0].id, r[0], (a, b) => a.id - b.id);
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -863,35 +784,31 @@ app.put('/api/menu-items/:id', async (req, res) => {
       endTime: item.hasTiming && item.endTime ? item.endTime : null,
       variants: item.variants ? item.variants : []
     }).where(eq(menuItems.id, Number(req.params.id))).returning();
-    updateCachePiecemeal('menu', 'update', r[0]);
+    await updateCachedArray('cache:menu_items', r[0].id, r[0], (a, b) => a.id - b.id);
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/menu-items/:id', async (req, res) => {
   try { 
-    const r = await db.update(menuItems).set({ isDeleted: true }).where(eq(menuItems.id, Number(req.params.id))).returning(); 
-    if (r.length > 0) updateCachePiecemeal('menu', 'delete', r[0]);
+    await db.update(menuItems).set({ isDeleted: true }).where(eq(menuItems.id, Number(req.params.id))); 
+    await updateCachedArray('cache:menu_items', Number(req.params.id), null);
     res.json({ success: true }); 
-  }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/menu-items/:id/recover', async (req, res) => {
   try { 
-    const r = await db.update(menuItems).set({ isDeleted: false }).where(eq(menuItems.id, Number(req.params.id))).returning(); 
-    if (r.length > 0) updateCachePiecemeal('menu', 'update', r[0]);
+    const updated = await db.update(menuItems).set({ isDeleted: false }).where(eq(menuItems.id, Number(req.params.id))).returning(); 
+    if (updated.length > 0) {
+      await updateCachedArray('cache:menu_items', Number(req.params.id), updated[0], (a, b) => a.id - b.id);
+    }
     res.json({ success: true }); 
-  }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/menu-items/:id/permanent', async (req, res) => {
-  try { 
-    updateCachePiecemeal('menu', 'delete', { id: Number(req.params.id) });
-    await db.delete(menuItems).where(eq(menuItems.id, Number(req.params.id))); 
-    res.json({ success: true }); 
-  }
+  try { await db.delete(menuItems).where(eq(menuItems.id, Number(req.params.id))); res.json({ success: true }); }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -903,8 +820,6 @@ app.get('/api/deleted-items', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-
-
 // ─── Features ─────────────────────────────────────────────────────────────────
 app.get('/api/features', async (req, res) => {
   try { res.json(await db.select().from(features).orderBy(features.displayOrder)); }
@@ -915,7 +830,7 @@ app.post('/api/features', async (req, res) => {
   try {
     const { title, description, iconName, videoUrl, displayOrder, isActive } = req.body;
     const r = await db.insert(features).values({ title, description, iconName: iconName || 'Sparkles', videoUrl: videoUrl || null, displayOrder: displayOrder ?? 0, isActive: isActive ?? true }).returning();
-    updateCachePiecemeal('feature', 'add', r[0]);
+    await updateCachedArray('cache:features', r[0].id, r[0], (a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -924,18 +839,17 @@ app.put('/api/features/:id', async (req, res) => {
   try {
     const { title, description, iconName, videoUrl, displayOrder, isActive } = req.body;
     const r = await db.update(features).set({ title, description, iconName, videoUrl: videoUrl || null, displayOrder, isActive }).where(eq(features.id, Number(req.params.id))).returning();
-    updateCachePiecemeal('feature', 'update', r[0]);
+    await updateCachedArray('cache:features', r[0].id, r[0], (a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/features/:id', async (req, res) => {
   try { 
-    updateCachePiecemeal('feature', 'delete', { id: Number(req.params.id) });
     await db.delete(features).where(eq(features.id, Number(req.params.id))); 
+    await updateCachedArray('cache:features', Number(req.params.id), null);
     res.json({ success: true }); 
-  }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────
@@ -1029,14 +943,14 @@ app.post('/api/analytics/track', async (req, res) => {
       const duration = Math.floor((lastPing.getTime() - new Date(sess[0].visitTime!).getTime()) / 1000);
       await db.update(visits).set({ exitPage: path, lastPingAt: lastPing, durationSeconds: duration, isActive: true }).where(eq(visits.id, sess[0].id));
     }
-    
+
     const cacheAge = s[0].cacheUpdatedAt ? Date.now() - new Date(s[0].cacheUpdatedAt).getTime() : Infinity;
     if (cacheAge > 120000) {
-       const host = req.headers.host;
-       const protocol = host?.includes('localhost') ? 'http' : 'https';
-       fetch(`${protocol}://${host}/api/analytics/dashboard`).catch(() => {});
+      const host = req.headers.host;
+      const protocol = host?.includes('localhost') ? 'http' : 'https';
+      fetch(`${protocol}://${host}/api/analytics/dashboard`).catch(() => { });
     }
-    
+
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -1051,17 +965,17 @@ app.post('/api/analytics/ping', async (req, res) => {
       const duration = Math.floor((lastPing.getTime() - new Date(sess[0].visitTime!).getTime()) / 1000);
       await db.update(visits).set({ exitPage: path, lastPingAt: lastPing, durationSeconds: duration, isActive: true }).where(eq(visits.id, sess[0].id));
     }
-    
+
     let s = await db.select().from(analyticsSettings).limit(1);
     if (s.length > 0) {
       const cacheAge = s[0].cacheUpdatedAt ? Date.now() - new Date(s[0].cacheUpdatedAt).getTime() : Infinity;
       if (cacheAge > 120000) {
-         const host = req.headers.host;
-         const protocol = host?.includes('localhost') ? 'http' : 'https';
-         fetch(`${protocol}://${host}/api/analytics/dashboard`).catch(() => {});
+        const host = req.headers.host;
+        const protocol = host?.includes('localhost') ? 'http' : 'https';
+        fetch(`${protocol}://${host}/api/analytics/dashboard`).catch(() => { });
       }
     }
-    
+
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -1073,10 +987,10 @@ app.get('/api/analytics/dashboard', async (req, res) => {
       settings = await db.insert(analyticsSettings).values({}).returning();
     }
     const set = settings[0];
-    
+
     const now = Date.now();
     const cacheAge = set.cacheUpdatedAt ? now - new Date(set.cacheUpdatedAt).getTime() : Infinity;
-    
+
     if (set.dashboardCache && cacheAge < 120000) {
       return res.json(set.dashboardCache);
     }
@@ -1137,9 +1051,9 @@ app.get('/api/analytics/dashboard', async (req, res) => {
       }
     };
 
-    await db.update(analyticsSettings).set({ 
-      dashboardCache: dashboardData, 
-      cacheUpdatedAt: new Date() 
+    await db.update(analyticsSettings).set({
+      dashboardCache: dashboardData,
+      cacheUpdatedAt: new Date()
     }).where(eq(analyticsSettings.id, set.id));
 
     res.json(dashboardData);
@@ -1175,8 +1089,8 @@ app.post('/api/analytics/visitors/bulk-delete', async (req, res) => {
 
 // ─── Managers / Staff ─────────────────────────────────────────────────────────
 app.get('/api/admin/staff', async (req, res) => {
-  try { 
-    res.json(await db.select().from(staffAccounts).where(inArray(staffAccounts.role, ['manager', 'admin']))); 
+  try {
+    res.json(await db.select().from(staffAccounts).where(inArray(staffAccounts.role, ['manager', 'admin'])));
   }
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -1188,7 +1102,7 @@ app.post('/api/admin/staff', async (req, res) => {
     if (!email || !password || !name || !role) {
       return res.status(400).json({ error: 'email, password, name, and role are required.' });
     }
-    
+
     // Ensure uppercase name
     const upperName = name.toUpperCase();
 
@@ -1198,15 +1112,14 @@ app.post('/api/admin/staff', async (req, res) => {
       return res.status(409).json({ error: 'A staff member with this email already exists.' });
     }
 
-    // Cost 10 balances security and serverless cold-start speed (12 is too slow on Vercel)
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12);
 
     // Also create Firebase user for legacy Firebase auth (if adminAuth is active)
     let fbUid = `staff_${Date.now()}`;
-    try { const fu = await adminAuth.createUser({ email, password, displayName: upperName }); fbUid = fu.uid; } catch (_) {}
+    try { const fu = await adminAuth.createUser({ email, password, displayName: upperName }); fbUid = fu.uid; } catch (_) { }
 
     // Insert into legacy users table
-    await db.insert(users).values({ uid: fbUid, email: email.toLowerCase(), name: upperName, role: role, permissions: permissions || {} }).catch(() => {});
+    await db.insert(users).values({ uid: fbUid, email: email.toLowerCase(), name: upperName, role: role, permissions: permissions || {} }).catch(() => { });
 
     // Insert into new staff_accounts table
     const newStaff = await db.insert(staffAccounts).values({
@@ -1230,21 +1143,21 @@ app.put('/api/admin/staff/:id', async (req, res) => {
     const { permissions, password, name, email } = req.body;
     const staffId = Number(req.params.id);
     const staff = await db.select().from(staffAccounts).where(eq(staffAccounts.id, staffId)).limit(1);
-    
+
     if (staff.length) {
       const staffUpdate: any = { permissions };
       if (name) staffUpdate.name = name;
       if (email) staffUpdate.email = email.toLowerCase();
-      if (password) staffUpdate.passwordHash = await bcrypt.hash(password, 10);
+      if (password) staffUpdate.passwordHash = await bcrypt.hash(password, 12);
       await db.update(staffAccounts).set(staffUpdate).where(eq(staffAccounts.id, staffId));
-      
+
       // Also update legacy users table if it exists
       const user = await db.select().from(users).where(eq(users.email, staff[0].email)).limit(1);
       if (user.length) {
-        if (password) { try { await adminAuth.updateUser(user[0].uid, { password }); } catch (_) {} }
-        if (name) { try { await adminAuth.updateUser(user[0].uid, { displayName: name }); } catch (_) {} }
-        if (email) { try { await adminAuth.updateUser(user[0].uid, { email: email.toLowerCase() }); } catch (_) {} }
-        
+        if (password) { try { await adminAuth.updateUser(user[0].uid, { password }); } catch (_) { } }
+        if (name) { try { await adminAuth.updateUser(user[0].uid, { displayName: name }); } catch (_) { } }
+        if (email) { try { await adminAuth.updateUser(user[0].uid, { email: email.toLowerCase() }); } catch (_) { } }
+
         const updateData: any = { permissions };
         if (name) updateData.name = name;
         if (email) updateData.email = email.toLowerCase();
@@ -1259,11 +1172,11 @@ app.delete('/api/admin/staff/:id', async (req, res) => {
   try {
     const staffId = Number(req.params.id);
     const staff = await db.select().from(staffAccounts).where(eq(staffAccounts.id, staffId)).limit(1);
-    
+
     if (staff.length) {
       const user = await db.select().from(users).where(eq(users.email, staff[0].email)).limit(1);
       if (user.length) {
-        try { await adminAuth.deleteUser(user[0].uid); } catch (_) {}
+        try { await adminAuth.deleteUser(user[0].uid); } catch (_) { }
         await db.delete(users).where(eq(users.id, user[0].id));
       }
       await db.delete(staffAccounts).where(eq(staffAccounts.id, staffId));
@@ -1287,6 +1200,41 @@ app.get('/api/admin/stats', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/api/admin/orders/test-active', (req, res) => {
+  console.log("TEST ACTIVE HIT!");
+  res.json({ message: 'It works!' });
+});
+
+app.get('/api/admin/orders/active', async (req, res) => {
+  try {
+    console.log("HIT /api/admin/orders/active");
+    const yesterday = new Date();
+    yesterday.setHours(yesterday.getHours() - 24);
+    
+    console.log("1. Fetching from Redis");
+    const activeStr = await cache.hGetAll('active_orders');
+    console.log("Redis response:", activeStr);
+    const activeRedis = Object.keys(activeStr || {}).map(k => JSON.parse(activeStr[k]));
+    
+    console.log("2. Fetching from Postgres");
+    const pgOrders = await db.select().from(orders).where(
+      sql`${orders.status} IN ('pending', 'processing') OR ${orders.createdAt} >= ${yesterday.toISOString()}`
+    ).orderBy(desc(orders.createdAt));
+    console.log("Postgres fetched", pgOrders.length);
+    
+    const merged = [...activeRedis, ...pgOrders];
+    const uniqueOrders = Array.from(new Map(merged.map(o => [String(o.id), o])).values());
+    uniqueOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    console.log("Sending response");
+    res.json(uniqueOrders);
+  }
+  catch (e: any) { 
+    console.error("ERROR in /api/admin/orders/active:", e);
+    res.status(500).json({ error: e.message, stack: e.stack }); 
+  }
+});
+
 app.get('/api/admin/daily-revenue', async (req, res) => {
   try {
     const r: any = await db.execute(sql`SELECT DATE(created_at) as date_str, COUNT(id) as order_count, COALESCE(SUM(total), 0) as revenue FROM orders WHERE status = 'completed' GROUP BY DATE(created_at) ORDER BY DATE(created_at) ASC`);
@@ -1295,8 +1243,150 @@ app.get('/api/admin/daily-revenue', async (req, res) => {
 });
 
 app.get('/api/admin/orders', async (req, res) => {
-  try { res.json(await db.select().from(orders).orderBy(desc(orders.createdAt))); }
+  try {
+    const limitNum = Math.min(parseInt(req.query.limit as string) || 50, 500);
+    const offsetNum = parseInt(req.query.offset as string) || 0;
+    const lite = req.query.lite === 'true';
+    const statusFilter = req.query.status as string;
+    const startDate = req.query.startDate as string;
+    const endDate = req.query.endDate as string;
+    const search = req.query.search as string;
+    const searchType = req.query.searchType as string;
+
+    const conditions = [];
+    if (statusFilter) conditions.push(eq(orders.status, statusFilter));
+    if (startDate && endDate) {
+      conditions.push(sql`created_at >= ${startDate} AND created_at <= ${endDate}`);
+    }
+
+    if (search) {
+      if (searchType === 'orderNo') {
+        const idStr = search.replace(/[^0-9]/g, '');
+        if (idStr) conditions.push(eq(orders.id, parseInt(idStr)));
+      } else if (searchType === 'amount') {
+        const amtStr = search.replace(/[^0-9.]/g, '');
+        if (amtStr) conditions.push(eq(orders.total, parseFloat(amtStr)));
+      } else if (searchType === 'table') {
+        conditions.push(sql`items::text ILIKE ${'%' + search + '%'}`);
+      } else {
+        // all
+        const idStr = search.replace(/[^0-9]/g, '');
+        const amtStr = search.replace(/[^0-9.]/g, '');
+        
+        const orConditions = [];
+        if (idStr) orConditions.push(eq(orders.id, parseInt(idStr)));
+        if (amtStr) orConditions.push(eq(orders.total, parseFloat(amtStr)));
+        orConditions.push(sql`items::text ILIKE ${'%' + search + '%'}`);
+        
+        conditions.push(or(...orConditions));
+      }
+    }
+
+    const whereClause = conditions.length > 0 ? (conditions.length === 1 ? conditions[0] : and(...conditions)) : undefined;
+
+    // --- Redis Cache Injection ---
+    
+    // 1. Fetch from Redis if asking for active/pending orders
+    if (statusFilter === 'pending' || statusFilter === 'processing') {
+       const activeStr = await cache.hGetAll('active_orders');
+       const activeArr = Object.keys(activeStr).map(k => JSON.parse(activeStr[k])).filter((o: any) => statusFilter ? o.status === statusFilter : true);
+       activeArr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+       return res.json(activeArr.slice(offsetNum, offsetNum + limitNum));
+    }
+
+    // 2. Fetch completed orders within last 48 hours (default mode - no date param)
+    if (statusFilter === 'completed' && !startDate && !search) {
+      // Compute the cutoff timestamp for 48 hours ago
+      const cutoff48h = new Date(Date.now() - 48 * 60 * 60 * 1000);
+
+      // Pull from Redis first
+      const keys = await cache.keys('completed_order:*');
+      const cachedOrders: any[] = [];
+      const cachedIds = new Set<number>();
+      for (const k of keys) {
+        const data = await cache.get(k);
+        if (data) {
+          const o = JSON.parse(data as string);
+          // Only include if within last 48h
+          if (new Date(o.createdAt) >= cutoff48h) {
+            cachedOrders.push(o);
+            cachedIds.add(o.id);
+          }
+        }
+      }
+
+      // Also fetch from DB for the 48h window to catch any orders not in Redis
+      const dbOrders = await db.select().from(orders)
+        .where(and(
+          eq(orders.status, 'completed'),
+          sql`created_at >= ${cutoff48h.toISOString()}`
+        ))
+        .orderBy(desc(orders.createdAt))
+        .limit(limitNum);
+
+      // Merge: DB is authoritative, add Redis-only entries that aren't in DB
+      const merged = [...dbOrders];
+      for (const co of cachedOrders) {
+        if (!merged.find((o: any) => o.id === co.id)) {
+          merged.push(co);
+        }
+      }
+      merged.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return res.json(merged.slice(0, limitNum));
+    }
+
+    // --- Fallback to DB ---
+    let query: any;
+    if (lite) {
+      query = db.select({
+        id: orders.id,
+        userId: orders.userId,
+        total: orders.total,
+        status: orders.status,
+        createdAt: orders.createdAt
+      }).from(orders);
+    } else {
+      query = db.select().from(orders);
+    }
+
+    if (whereClause) {
+      query = query.where(whereClause);
+    }
+
+    query = query.orderBy(desc(orders.createdAt)).limit(limitNum).offset(offsetNum);
+
+    res.json(await query);
+  }
   catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── POS Drafts (Redis) ────────────────────────────────────────────────────────
+app.post('/api/admin/pos/drafts', async (req, res) => {
+  try {
+    const { tableNumber, items, total } = req.body;
+    const draftId = `draft:table:${tableNumber}`;
+    await cache.set(draftId, JSON.stringify({ tableNumber, items, total, updatedAt: Date.now() }));
+    res.json({ success: true, tableNumber });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/pos/drafts', async (req, res) => {
+  try {
+    const keys = await cache.keys('draft:table:*');
+    const drafts = [];
+    for (const key of keys) {
+      const data = await cache.get(key);
+      if (data) drafts.push(JSON.parse(data as string));
+    }
+    res.json(drafts);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/pos/drafts/:tableNumber', async (req, res) => {
+  try {
+    await cache.del(`draft:table:${req.params.tableNumber}`);
+    res.json({ success: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/admin/pos/orders', async (req, res) => {
@@ -1308,8 +1398,23 @@ app.post('/api/admin/pos/orders', async (req, res) => {
       posUser = nu;
     }
     const posItems = [{ name: `Table ${tableNumber}`, price: 0, quantity: 1, isTableMarker: true }, ...items];
-    const r = await db.insert(orders).values({ userId: posUser[0].id, items: JSON.stringify(posItems), total, status: 'pending' }).returning();
-    res.json(r[0]);
+    
+    // Save to Redis active orders hash instead of DB immediately
+    const redisId = await cache.incr('order_id_seq');
+    const newOrder = {
+      id: redisId,
+      userId: posUser[0].id,
+      items: JSON.stringify(posItems),
+      total,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    await cache.hSet('active_orders', redisId.toString(), JSON.stringify(newOrder));
+    
+    // Clear draft if exists
+    await cache.del(`draft:table:${tableNumber}`);
+
+    res.json(newOrder);
   } catch (e: any) { res.status(500).json({ error: 'POS order failed: ' + e.message }); }
 });
 
@@ -1321,8 +1426,37 @@ app.put('/api/admin/orders/:id', async (req, res) => {
     if (items !== undefined) updateData.items = items;
     if (total !== undefined) updateData.total = total;
     if (Object.keys(updateData).length === 0) return res.status(400).json({ error: 'No fields to update' });
+    
+    // Check if order exists in Redis active_orders
+    const redisOrderStr = await cache.hGet('active_orders', Number(req.params.id).toString());
+    if (redisOrderStr) {
+      let redisOrder = JSON.parse(redisOrderStr);
+      redisOrder = { ...redisOrder, ...updateData };
+      if (redisOrder.status === 'completed' || redisOrder.status === 'cancelled') {
+        await cache.hDel('active_orders', redisOrder.id.toString());
+        const r = await db.insert(orders).values({
+          id: redisOrder.id,
+          userId: redisOrder.userId,
+          items: redisOrder.items,
+          total: redisOrder.total,
+          status: redisOrder.status,
+          createdAt: new Date(redisOrder.createdAt)
+        }).returning();
+        if (redisOrder.status === 'completed') {
+           await cache.setEx(`completed_order:${r[0].id}`, 48 * 60 * 60, JSON.stringify(r[0]));
+        }
+        return res.json(r[0]);
+      } else {
+        await cache.hSet('active_orders', redisOrder.id.toString(), JSON.stringify(redisOrder));
+        return res.json(redisOrder);
+      }
+    }
+
     const r = await db.update(orders).set(updateData).where(eq(orders.id, Number(req.params.id))).returning();
-    res.json(r[0]);
+    if (r.length > 0 && r[0].status === 'completed') {
+       await cache.setEx(`completed_order:${r[0].id}`, 48 * 60 * 60, JSON.stringify(r[0]));
+    }
+    res.json(r[0] || {});
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1335,17 +1469,70 @@ app.delete('/api/admin/orders/:id', async (req, res) => {
 app.post('/api/orders', async (req, res) => {
   try {
     const { items, total, userId } = req.body;
-    const r = await db.insert(orders).values({ userId: userId || 1, items: JSON.stringify(items), total, status: 'pending' }).returning();
-    res.json(r[0]);
+    
+    const redisId = await cache.incr('order_id_seq');
+    const newOrder = {
+      id: redisId,
+      userId: userId || 1,
+      items: typeof items === 'string' ? items : JSON.stringify(items),
+      total,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    await cache.hSet('active_orders', redisId.toString(), JSON.stringify(newOrder));
+    
+    res.json(newOrder);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Printing (Windows Native) ────────────────────────────────────────────────
+app.get('/api/print/windows-printers', (req, res) => {
+  if (process.platform !== 'win32') {
+    return res.json({ printers: [] });
+  }
+  exec('powershell "Get-Printer | Select-Object -ExpandProperty Name"', (error, stdout) => {
+    if (error) {
+      console.error("Failed to get windows printers:", error);
+      return res.status(500).json({ error: 'Failed to list printers' });
+    }
+    const printers = stdout.split('\\n').map(p => p.trim()).filter(p => p.length > 0);
+    res.json({ printers });
+  });
+});
 
-// ─── Vercel Handler ───────────────────────────────────────────────────────────
+app.post('/api/print/raw', express.json({ limit: '10mb' }), (req, res) => {
+  const { printerName, data } = req.body;
+  if (!printerName || !data) return res.status(400).json({ error: 'Missing printerName or data' });
+
+  if (process.platform !== 'win32') {
+    return res.status(500).json({ error: 'Windows native printing is only supported on Windows.' });
+  }
+
+  const base64Data = data;
+  // Use RawPrint equivalent in powershell using generic /Raw print approach or a simpler approach:
+  // Write the base64 raw bytes to a file, then copy it to the printer share or use Out-Printer (Out-Printer requires text). 
+  // Since thermal printers take raw ESC/POS binary, sending it via generic text printer driver works if we write to LPT/COM or shared name.
+  // Actually, standard Windows spooler raw printing is hard from pure JS/PowerShell without C#. 
+  // But there's a workaround: Write file, then use "print /d:\\\\%COMPUTERNAME%\\PrinterName temp.bin"
+  // Let's use PowerShell to write the raw bytes to a temp file, then copy to the printer using CMD print.
+  const command = `powershell "$bytes = [Convert]::FromBase64String('${base64Data}'); $path = [System.IO.Path]::GetTempFileName(); [System.IO.File]::WriteAllBytes($path, $bytes); cmd /c print /D:\\"\\\\$env:COMPUTERNAME\\${printerName}\\" $path; Remove-Item $path"`;
+
+  exec(command, (error) => {
+    if (error) {
+      console.error("Print failed:", error);
+      // fallback if not shared: sometimes RawPrint requires the printer to be shared.
+    }
+    res.json({ success: true });
+  });
+});
+
+
+// Vite middleware for development
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+
 export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.url && !req.url.startsWith('/api')) {
     req.url = '/api' + (req.url.startsWith('/') ? '' : '/') + req.url;
   }
   return app(req as any, res as any);
 }
-

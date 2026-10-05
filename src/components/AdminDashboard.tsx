@@ -21,6 +21,7 @@ const ManagerOrders = lazy(() => import('./ManagerOrders'));
 const ManagerBilling = lazy(() => import('./ManagerBilling'));
 const AdminManagers = lazy(() => import('./AdminManagers'));
 const PrinterSettings = lazy(() => import('./PrinterSettings'));
+const ManagerDailyRevenue = lazy(() => import('./ManagerDailyRevenue'));
 
 const DynamicIcon = ({ name, className }: { name: string, className?: string }) => {
   const IconComponent = (Icons as any)[name] || Icons.Sparkles;
@@ -55,6 +56,7 @@ const getSuggestedIcon = (title: string) => {
 const SPICE_LEVELS = ['None', 'Mild', 'Medium', 'Spicy', 'Extra Spicy'];
 
 export default function AdminDashboard() {
+  const mainWebsiteUrl = `${window.location.protocol}//${window.location.host.replace(/^(admin|manager)\./, '')}`;
   const [session, setSession] = useState<{ name: string; email: string; role: string; sessionToken: string } | null>(() => {
     try {
       const stored = localStorage.getItem('staff_session');
@@ -102,7 +104,7 @@ export default function AdminDashboard() {
 
   const fetchData = (a?: any, b?: any) => refetchData();
 
-  const [activeModule, setActiveModule] = useState<'menu' | 'features' | 'recover' | 'analytics' | 'reviews' | 'managers' | 'stats' | 'orders' | 'billing' | 'printer'>('billing');
+  const [activeModule, setActiveModule] = useState<'menu' | 'features' | 'recover' | 'analytics' | 'reviews' | 'managers' | 'stats' | 'orders' | 'billing' | 'printer' | 'revenue'>('billing');
   const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
 
   const [isFeatureFormOpen, setIsFeatureFormOpen] = useState(false);
@@ -1162,6 +1164,7 @@ export default function AdminDashboard() {
             { key: 'printer', label: 'Printer Settings', icon: <Printer className="w-5 h-5" /> },
             { key: 'managers',  label: 'Manage Staff',      icon: <Users className="w-5 h-5" /> },
             { key: 'stats',     label: 'Revenue Stats',     icon: <Activity className="w-5 h-5" /> },
+            { key: 'revenue',   label: 'Daily Revenue',     icon: <Clock className="w-5 h-5" /> },
             { key: 'orders',    label: 'Orders Control',    icon: <Package className="w-5 h-5" /> },
             { key: 'billing',   label: 'Make Bills',        icon: <ShoppingCart className="w-5 h-5" /> },
           ] as const).map(({ key, label, icon }) => (
@@ -1197,10 +1200,10 @@ export default function AdminDashboard() {
             <span className="icon"><Lock className="w-5 h-5" style={{ color: '#ef4444' }} /></span>
             Lock Dashboard
           </button>
-          <Link to="/" className="dash-sidebar-item">
+          <a href={mainWebsiteUrl} className="dash-sidebar-item">
             <span className="icon"><ArrowLeft className="w-5 h-5" /></span>
             Back to Website
-          </Link>
+          </a>
         </div>
       </aside>
 
@@ -1231,6 +1234,8 @@ export default function AdminDashboard() {
           <AdminManagers />
         ) : activeModule === 'stats' ? (
           <ManagerStats role="admin" />
+        ) : activeModule === 'revenue' ? (
+          <ManagerDailyRevenue />
         ) : activeModule === 'orders' ? (
           <ManagerOrders managerName="Admin" role="admin" />
         ) : activeModule === 'billing' ? (
@@ -1257,9 +1262,9 @@ export default function AdminDashboard() {
           </div>
           
           <div className="flex gap-3 flex-wrap">
-            <Link to="/" className="px-4 py-2 text-stone-600 hover:text-dhaba-orange font-medium bg-white border border-stone-200 rounded-lg shadow-sm transition-colors text-sm sm:text-base">
+            <a href={mainWebsiteUrl} className="px-4 py-2 text-stone-600 hover:text-dhaba-orange font-medium bg-white border border-stone-200 rounded-lg shadow-sm transition-colors text-sm sm:text-base">
               View Website
-            </Link>
+            </a>
             {!activeCategoryName ? (
               <button 
                 onClick={() => { setEditingCategory(null); setCategoryForm({ name: '', image: '', startTime: '', endTime: '' }); setIsCategoryModalOpen(true); }}

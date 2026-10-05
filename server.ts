@@ -7,12 +7,13 @@ import path from 'path';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { integer, real, pgTable, serial, text, timestamp, boolean, jsonb } from 'drizzle-orm/pg-core';
-import { eq, desc, lt, inArray, sql, and, gt } from 'drizzle-orm';
+import { eq, desc, lt, inArray, sql, and, or, gt } from 'drizzle-orm';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import bcrypt from 'bcryptjs';
 import { Resend } from 'resend';
 import crypto from 'crypto';
 import { exec } from 'child_process';
+import cache from './src/lib/redis.js';
 
 console.log('RELOADING BACKEND...');
 
@@ -599,28 +600,52 @@ app.get('/api/db-test', async (req, res) => {
 
 
 
+// ─── POS / Storefront Caching Helpers ─────────────────────────────────────
+async function getCachedArray(key: string, fetchFn: () => Promise<any[]>) {
+  const cached = await cache.get(key);
+  if (cached) return JSON.parse(cached as string);
+  const data = await fetchFn();
+  await cache.set(key, JSON.stringify(data));
+  return data;
+}
+
+async function updateCachedArray(key: string, id: number, newItem: any | null, sortFn?: (a: any, b: any) => number) {
+  const cached = await cache.get(key);
+  if (cached) {
+    let arr = JSON.parse(cached as string);
+    const idx = arr.findIndex((item: any) => item.id === id);
+    if (newItem === null) {
+      if (idx !== -1) arr.splice(idx, 1);
+    } else {
+      if (idx !== -1) arr[idx] = newItem;
+      else arr.push(newItem);
+    }
+    if (sortFn) arr.sort(sortFn);
+    await cache.set(key, JSON.stringify(arr));
+  }
+}
+
 // ─── POS / Storefront / Admin Data ──────────────────────────────────────────
 app.get('/api/pos-data', async (req, res) => {
-  // Edge/Browser caching (60s fresh, 300s stale)
-  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+  // Using Redis forever-cache instead of HTTP cache
   try {
     const [menu, cats] = await Promise.all([
-      db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
-      db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id)
+      getCachedArray('cache:menu_items', () => db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id)),
+      getCachedArray('cache:categories', () => db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id))
     ]);
     res.json({ menuItems: menu, categories: cats });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/storefront-data', async (req, res) => {
-  res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+  // Using Redis forever-cache instead of HTTP cache
   try {
     const [menu, cats, feats] = await Promise.all([
-      db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id),
-      db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id),
-      db.select().from(features).orderBy(features.displayOrder, features.id)
+      getCachedArray('cache:menu_items', () => db.select().from(menuItems).where(eq(menuItems.isDeleted, false)).orderBy(menuItems.id)),
+      getCachedArray('cache:categories', () => db.select().from(categories).where(eq(categories.isDeleted, false)).orderBy(categories.id)),
+      getCachedArray('cache:features', () => db.select().from(features).orderBy(features.displayOrder, features.id))
     ]);
-    const visibleCats = cats.filter(c => !c.isHidden);
+    const visibleCats = cats.filter((c: any) => !c.isHidden);
     res.json({ menuItems: menu, categories: visibleCats, features: feats });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -642,6 +667,7 @@ app.post("/api/categories/:id/toggle-visibility", async (req, res) => {
     const { id } = req.params;
     const { isHidden } = req.body;
     const updated = await db.update(categories).set({ isHidden }).where(eq(categories.id, Number(id))).returning();
+    await updateCachedArray('cache:categories', Number(id), updated[0], (a, b) => a.id - b.id);
     res.json(updated[0]);
   } catch (error: any) {
     res.status(500).json({ error: "Failed to toggle category visibility: " + (error.message || error) });
@@ -658,6 +684,7 @@ app.post('/api/categories', async (req, res) => {
   try {
     const { name, image, startTime, endTime } = req.body;
     const r = await db.insert(categories).values({ name, image, startTime: startTime || null, endTime: endTime || null }).returning();
+    await updateCachedArray('cache:categories', r[0].id, r[0], (a, b) => a.id - b.id);
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -675,6 +702,7 @@ app.put('/api/categories/:id', async (req, res) => {
     }
 
     const r = await db.update(categories).set({ name, image, startTime: startTime || null, endTime: endTime || null }).where(eq(categories.id, Number(req.params.id))).returning();
+    await updateCachedArray('cache:categories', r[0].id, r[0], (a, b) => a.id - b.id);
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -684,6 +712,7 @@ app.delete('/api/categories/:id', async (req, res) => {
     const cat = await db.select().from(categories).where(eq(categories.id, Number(req.params.id))).limit(1);
     if (cat.length > 0) await db.update(menuItems).set({ isDeleted: true }).where(eq(menuItems.category, cat[0].name));
     await db.update(categories).set({ isDeleted: true }).where(eq(categories.id, Number(req.params.id)));
+    await updateCachedArray('cache:categories', Number(req.params.id), null);
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -692,7 +721,10 @@ app.post('/api/categories/:id/recover', async (req, res) => {
   try {
     const cat = await db.select().from(categories).where(eq(categories.id, Number(req.params.id))).limit(1);
     if (cat.length > 0) await db.update(menuItems).set({ isDeleted: false }).where(eq(menuItems.category, cat[0].name));
-    await db.update(categories).set({ isDeleted: false }).where(eq(categories.id, Number(req.params.id)));
+    const updated = await db.update(categories).set({ isDeleted: false }).where(eq(categories.id, Number(req.params.id))).returning();
+    if (updated.length > 0) {
+      await updateCachedArray('cache:categories', Number(req.params.id), updated[0], (a, b) => a.id - b.id);
+    }
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -728,6 +760,7 @@ app.post('/api/menu-items', async (req, res) => {
       endTime: item.hasTiming && item.endTime ? item.endTime : null,
       variants: item.variants ? item.variants : []
     }).returning();
+    await updateCachedArray('cache:menu_items', r[0].id, r[0], (a, b) => a.id - b.id);
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -751,18 +784,27 @@ app.put('/api/menu-items/:id', async (req, res) => {
       endTime: item.hasTiming && item.endTime ? item.endTime : null,
       variants: item.variants ? item.variants : []
     }).where(eq(menuItems.id, Number(req.params.id))).returning();
+    await updateCachedArray('cache:menu_items', r[0].id, r[0], (a, b) => a.id - b.id);
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/menu-items/:id', async (req, res) => {
-  try { await db.update(menuItems).set({ isDeleted: true }).where(eq(menuItems.id, Number(req.params.id))); res.json({ success: true }); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
+  try { 
+    await db.update(menuItems).set({ isDeleted: true }).where(eq(menuItems.id, Number(req.params.id))); 
+    await updateCachedArray('cache:menu_items', Number(req.params.id), null);
+    res.json({ success: true }); 
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/menu-items/:id/recover', async (req, res) => {
-  try { await db.update(menuItems).set({ isDeleted: false }).where(eq(menuItems.id, Number(req.params.id))); res.json({ success: true }); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
+  try { 
+    const updated = await db.update(menuItems).set({ isDeleted: false }).where(eq(menuItems.id, Number(req.params.id))).returning(); 
+    if (updated.length > 0) {
+      await updateCachedArray('cache:menu_items', Number(req.params.id), updated[0], (a, b) => a.id - b.id);
+    }
+    res.json({ success: true }); 
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/menu-items/:id/permanent', async (req, res) => {
@@ -788,6 +830,7 @@ app.post('/api/features', async (req, res) => {
   try {
     const { title, description, iconName, videoUrl, displayOrder, isActive } = req.body;
     const r = await db.insert(features).values({ title, description, iconName: iconName || 'Sparkles', videoUrl: videoUrl || null, displayOrder: displayOrder ?? 0, isActive: isActive ?? true }).returning();
+    await updateCachedArray('cache:features', r[0].id, r[0], (a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -796,13 +839,17 @@ app.put('/api/features/:id', async (req, res) => {
   try {
     const { title, description, iconName, videoUrl, displayOrder, isActive } = req.body;
     const r = await db.update(features).set({ title, description, iconName, videoUrl: videoUrl || null, displayOrder, isActive }).where(eq(features.id, Number(req.params.id))).returning();
+    await updateCachedArray('cache:features', r[0].id, r[0], (a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
     res.json(r[0]);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/features/:id', async (req, res) => {
-  try { await db.delete(features).where(eq(features.id, Number(req.params.id))); res.json({ success: true }); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
+  try { 
+    await db.delete(features).where(eq(features.id, Number(req.params.id))); 
+    await updateCachedArray('cache:features', Number(req.params.id), null);
+    res.json({ success: true }); 
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────
@@ -896,14 +943,14 @@ app.post('/api/analytics/track', async (req, res) => {
       const duration = Math.floor((lastPing.getTime() - new Date(sess[0].visitTime!).getTime()) / 1000);
       await db.update(visits).set({ exitPage: path, lastPingAt: lastPing, durationSeconds: duration, isActive: true }).where(eq(visits.id, sess[0].id));
     }
-    
+
     const cacheAge = s[0].cacheUpdatedAt ? Date.now() - new Date(s[0].cacheUpdatedAt).getTime() : Infinity;
     if (cacheAge > 120000) {
-       const host = req.headers.host;
-       const protocol = host?.includes('localhost') ? 'http' : 'https';
-       fetch(`${protocol}://${host}/api/analytics/dashboard`).catch(() => {});
+      const host = req.headers.host;
+      const protocol = host?.includes('localhost') ? 'http' : 'https';
+      fetch(`${protocol}://${host}/api/analytics/dashboard`).catch(() => { });
     }
-    
+
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -918,17 +965,17 @@ app.post('/api/analytics/ping', async (req, res) => {
       const duration = Math.floor((lastPing.getTime() - new Date(sess[0].visitTime!).getTime()) / 1000);
       await db.update(visits).set({ exitPage: path, lastPingAt: lastPing, durationSeconds: duration, isActive: true }).where(eq(visits.id, sess[0].id));
     }
-    
+
     let s = await db.select().from(analyticsSettings).limit(1);
     if (s.length > 0) {
       const cacheAge = s[0].cacheUpdatedAt ? Date.now() - new Date(s[0].cacheUpdatedAt).getTime() : Infinity;
       if (cacheAge > 120000) {
-         const host = req.headers.host;
-         const protocol = host?.includes('localhost') ? 'http' : 'https';
-         fetch(`${protocol}://${host}/api/analytics/dashboard`).catch(() => {});
+        const host = req.headers.host;
+        const protocol = host?.includes('localhost') ? 'http' : 'https';
+        fetch(`${protocol}://${host}/api/analytics/dashboard`).catch(() => { });
       }
     }
-    
+
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
@@ -940,10 +987,10 @@ app.get('/api/analytics/dashboard', async (req, res) => {
       settings = await db.insert(analyticsSettings).values({}).returning();
     }
     const set = settings[0];
-    
+
     const now = Date.now();
     const cacheAge = set.cacheUpdatedAt ? now - new Date(set.cacheUpdatedAt).getTime() : Infinity;
-    
+
     if (set.dashboardCache && cacheAge < 120000) {
       return res.json(set.dashboardCache);
     }
@@ -1003,10 +1050,10 @@ app.get('/api/analytics/dashboard', async (req, res) => {
         }, {})
       }
     };
-    
-    await db.update(analyticsSettings).set({ 
-      dashboardCache: dashboardData, 
-      cacheUpdatedAt: new Date() 
+
+    await db.update(analyticsSettings).set({
+      dashboardCache: dashboardData,
+      cacheUpdatedAt: new Date()
     }).where(eq(analyticsSettings.id, set.id));
 
     res.json(dashboardData);
@@ -1153,6 +1200,41 @@ app.get('/api/admin/stats', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/api/admin/orders/test-active', (req, res) => {
+  console.log("TEST ACTIVE HIT!");
+  res.json({ message: 'It works!' });
+});
+
+app.get('/api/admin/orders/active', async (req, res) => {
+  try {
+    console.log("HIT /api/admin/orders/active");
+    const yesterday = new Date();
+    yesterday.setHours(yesterday.getHours() - 24);
+    
+    console.log("1. Fetching from Redis");
+    const activeStr = await cache.hGetAll('active_orders');
+    console.log("Redis response:", activeStr);
+    const activeRedis = Object.keys(activeStr || {}).map(k => JSON.parse(activeStr[k]));
+    
+    console.log("2. Fetching from Postgres");
+    const pgOrders = await db.select().from(orders).where(
+      sql`${orders.status} IN ('pending', 'processing') OR ${orders.createdAt} >= ${yesterday.toISOString()}`
+    ).orderBy(desc(orders.createdAt));
+    console.log("Postgres fetched", pgOrders.length);
+    
+    const merged = [...activeRedis, ...pgOrders];
+    const uniqueOrders = Array.from(new Map(merged.map(o => [String(o.id), o])).values());
+    uniqueOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    console.log("Sending response");
+    res.json(uniqueOrders);
+  }
+  catch (e: any) { 
+    console.error("ERROR in /api/admin/orders/active:", e);
+    res.status(500).json({ error: e.message, stack: e.stack }); 
+  }
+});
+
 app.get('/api/admin/daily-revenue', async (req, res) => {
   try {
     const r: any = await db.execute(sql`SELECT DATE(created_at) as date_str, COUNT(id) as order_count, COALESCE(SUM(total), 0) as revenue FROM orders WHERE status = 'completed' GROUP BY DATE(created_at) ORDER BY DATE(created_at) ASC`);
@@ -1166,16 +1248,94 @@ app.get('/api/admin/orders', async (req, res) => {
     const offsetNum = parseInt(req.query.offset as string) || 0;
     const lite = req.query.lite === 'true';
     const statusFilter = req.query.status as string;
-    const dateFilter = req.query.date as string;
+    const startDate = req.query.startDate as string;
+    const endDate = req.query.endDate as string;
+    const search = req.query.search as string;
+    const searchType = req.query.searchType as string;
 
     const conditions = [];
     if (statusFilter) conditions.push(eq(orders.status, statusFilter));
-    // If dateFilter is provided, we use a raw SQL condition or ilike on text, but createdAt is timestamp.
-    // For simplicity, we cast it to date: eq(sql`DATE(created_at)`, dateFilter)
-    if (dateFilter) conditions.push(sql`DATE(created_at) = ${dateFilter}`);
+    if (startDate && endDate) {
+      conditions.push(sql`created_at >= ${startDate} AND created_at <= ${endDate}`);
+    }
+
+    if (search) {
+      if (searchType === 'orderNo') {
+        const idStr = search.replace(/[^0-9]/g, '');
+        if (idStr) conditions.push(eq(orders.id, parseInt(idStr)));
+      } else if (searchType === 'amount') {
+        const amtStr = search.replace(/[^0-9.]/g, '');
+        if (amtStr) conditions.push(eq(orders.total, parseFloat(amtStr)));
+      } else if (searchType === 'table') {
+        conditions.push(sql`items::text ILIKE ${'%' + search + '%'}`);
+      } else {
+        // all
+        const idStr = search.replace(/[^0-9]/g, '');
+        const amtStr = search.replace(/[^0-9.]/g, '');
+        
+        const orConditions = [];
+        if (idStr) orConditions.push(eq(orders.id, parseInt(idStr)));
+        if (amtStr) orConditions.push(eq(orders.total, parseFloat(amtStr)));
+        orConditions.push(sql`items::text ILIKE ${'%' + search + '%'}`);
+        
+        conditions.push(or(...orConditions));
+      }
+    }
 
     const whereClause = conditions.length > 0 ? (conditions.length === 1 ? conditions[0] : and(...conditions)) : undefined;
 
+    // --- Redis Cache Injection ---
+    
+    // 1. Fetch from Redis if asking for active/pending orders
+    if (statusFilter === 'pending' || statusFilter === 'processing') {
+       const activeStr = await cache.hGetAll('active_orders');
+       const activeArr = Object.keys(activeStr).map(k => JSON.parse(activeStr[k])).filter((o: any) => statusFilter ? o.status === statusFilter : true);
+       activeArr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+       return res.json(activeArr.slice(offsetNum, offsetNum + limitNum));
+    }
+
+    // 2. Fetch completed orders within last 48 hours (default mode - no date param)
+    if (statusFilter === 'completed' && !startDate && !search) {
+      // Compute the cutoff timestamp for 48 hours ago
+      const cutoff48h = new Date(Date.now() - 48 * 60 * 60 * 1000);
+
+      // Pull from Redis first
+      const keys = await cache.keys('completed_order:*');
+      const cachedOrders: any[] = [];
+      const cachedIds = new Set<number>();
+      for (const k of keys) {
+        const data = await cache.get(k);
+        if (data) {
+          const o = JSON.parse(data as string);
+          // Only include if within last 48h
+          if (new Date(o.createdAt) >= cutoff48h) {
+            cachedOrders.push(o);
+            cachedIds.add(o.id);
+          }
+        }
+      }
+
+      // Also fetch from DB for the 48h window to catch any orders not in Redis
+      const dbOrders = await db.select().from(orders)
+        .where(and(
+          eq(orders.status, 'completed'),
+          sql`created_at >= ${cutoff48h.toISOString()}`
+        ))
+        .orderBy(desc(orders.createdAt))
+        .limit(limitNum);
+
+      // Merge: DB is authoritative, add Redis-only entries that aren't in DB
+      const merged = [...dbOrders];
+      for (const co of cachedOrders) {
+        if (!merged.find((o: any) => o.id === co.id)) {
+          merged.push(co);
+        }
+      }
+      merged.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return res.json(merged.slice(0, limitNum));
+    }
+
+    // --- Fallback to DB ---
     let query: any;
     if (lite) {
       query = db.select({
@@ -1200,6 +1360,35 @@ app.get('/api/admin/orders', async (req, res) => {
   catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── POS Drafts (Redis) ────────────────────────────────────────────────────────
+app.post('/api/admin/pos/drafts', async (req, res) => {
+  try {
+    const { tableNumber, items, total } = req.body;
+    const draftId = `draft:table:${tableNumber}`;
+    await cache.set(draftId, JSON.stringify({ tableNumber, items, total, updatedAt: Date.now() }));
+    res.json({ success: true, tableNumber });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/pos/drafts', async (req, res) => {
+  try {
+    const keys = await cache.keys('draft:table:*');
+    const drafts = [];
+    for (const key of keys) {
+      const data = await cache.get(key);
+      if (data) drafts.push(JSON.parse(data as string));
+    }
+    res.json(drafts);
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/pos/drafts/:tableNumber', async (req, res) => {
+  try {
+    await cache.del(`draft:table:${req.params.tableNumber}`);
+    res.json({ success: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/admin/pos/orders', async (req, res) => {
   try {
     const { tableNumber, items, total } = req.body;
@@ -1209,8 +1398,23 @@ app.post('/api/admin/pos/orders', async (req, res) => {
       posUser = nu;
     }
     const posItems = [{ name: `Table ${tableNumber}`, price: 0, quantity: 1, isTableMarker: true }, ...items];
-    const r = await db.insert(orders).values({ userId: posUser[0].id, items: JSON.stringify(posItems), total, status: 'pending' }).returning();
-    res.json(r[0]);
+    
+    // Save to Redis active orders hash instead of DB immediately
+    const redisId = await cache.incr('order_id_seq');
+    const newOrder = {
+      id: redisId,
+      userId: posUser[0].id,
+      items: JSON.stringify(posItems),
+      total,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    await cache.hSet('active_orders', redisId.toString(), JSON.stringify(newOrder));
+    
+    // Clear draft if exists
+    await cache.del(`draft:table:${tableNumber}`);
+
+    res.json(newOrder);
   } catch (e: any) { res.status(500).json({ error: 'POS order failed: ' + e.message }); }
 });
 
@@ -1222,8 +1426,37 @@ app.put('/api/admin/orders/:id', async (req, res) => {
     if (items !== undefined) updateData.items = items;
     if (total !== undefined) updateData.total = total;
     if (Object.keys(updateData).length === 0) return res.status(400).json({ error: 'No fields to update' });
+    
+    // Check if order exists in Redis active_orders
+    const redisOrderStr = await cache.hGet('active_orders', Number(req.params.id).toString());
+    if (redisOrderStr) {
+      let redisOrder = JSON.parse(redisOrderStr);
+      redisOrder = { ...redisOrder, ...updateData };
+      if (redisOrder.status === 'completed' || redisOrder.status === 'cancelled') {
+        await cache.hDel('active_orders', redisOrder.id.toString());
+        const r = await db.insert(orders).values({
+          id: redisOrder.id,
+          userId: redisOrder.userId,
+          items: redisOrder.items,
+          total: redisOrder.total,
+          status: redisOrder.status,
+          createdAt: new Date(redisOrder.createdAt)
+        }).returning();
+        if (redisOrder.status === 'completed') {
+           await cache.setEx(`completed_order:${r[0].id}`, 48 * 60 * 60, JSON.stringify(r[0]));
+        }
+        return res.json(r[0]);
+      } else {
+        await cache.hSet('active_orders', redisOrder.id.toString(), JSON.stringify(redisOrder));
+        return res.json(redisOrder);
+      }
+    }
+
     const r = await db.update(orders).set(updateData).where(eq(orders.id, Number(req.params.id))).returning();
-    res.json(r[0]);
+    if (r.length > 0 && r[0].status === 'completed') {
+       await cache.setEx(`completed_order:${r[0].id}`, 48 * 60 * 60, JSON.stringify(r[0]));
+    }
+    res.json(r[0] || {});
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1236,8 +1469,19 @@ app.delete('/api/admin/orders/:id', async (req, res) => {
 app.post('/api/orders', async (req, res) => {
   try {
     const { items, total, userId } = req.body;
-    const r = await db.insert(orders).values({ userId: userId || 1, items: JSON.stringify(items), total, status: 'pending' }).returning();
-    res.json(r[0]);
+    
+    const redisId = await cache.incr('order_id_seq');
+    const newOrder = {
+      id: redisId,
+      userId: userId || 1,
+      items: typeof items === 'string' ? items : JSON.stringify(items),
+      total,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    await cache.hSet('active_orders', redisId.toString(), JSON.stringify(newOrder));
+    
+    res.json(newOrder);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

@@ -1,23 +1,21 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import PanLoader from './PanLoader';
-import { ShoppingCart, Package, Activity, Calendar, Printer, ArrowLeft, Lock, UserCircle, X, LayoutDashboard, ChevronLeft, Menu } from 'lucide-react';
+import { ShoppingCart, Package, Activity, Printer, ArrowLeft, Lock, UserCircle, X, LayoutDashboard, ChevronLeft, Menu } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 const ManagerBilling = lazy(() => import('./ManagerBilling'));
 const ManagerOrders = lazy(() => import('./ManagerOrders'));
 const ManagerStats = lazy(() => import('./ManagerStats'));
-const ManagerDailyRevenue = lazy(() => import('./ManagerDailyRevenue'));
 const PrinterSettings = lazy(() => import('./PrinterSettings'));
 import StaffLoginModal from './StaffLoginModal';
 
-type Module = 'billing' | 'orders' | 'stats' | 'revenue' | 'printer';
+type Module = 'billing' | 'orders' | 'stats' | 'printer';
 
 const NAV_ITEMS: { key: Module; label: string; icon: React.ReactNode }[] = [
   { key: 'billing',  label: 'POS Billing',      icon: <ShoppingCart className="w-5 h-5" /> },
   { key: 'orders',   label: 'Order Overview',   icon: <Package className="w-5 h-5" /> },
   { key: 'stats',    label: 'Manager Stats',    icon: <Activity className="w-5 h-5" /> },
-  { key: 'revenue',  label: 'Daily Revenue',    icon: <Calendar className="w-5 h-5" /> },
   { key: 'printer',  label: 'Printer Settings', icon: <Printer className="w-5 h-5" /> },
 ];
 
@@ -25,11 +23,11 @@ const MODULE_TITLES: Record<Module, string> = {
   billing:  'POS Billing',
   orders:   'Order Overview',
   stats:    'Manager Stats',
-  revenue:  'Daily Revenue',
   printer:  'Printer Settings',
 };
 
 export default function ManagerDashboard() {
+  const mainWebsiteUrl = `${window.location.protocol}//${window.location.host.replace(/^(admin|manager)\./, '')}`;
   const [session, setSession] = useState<{ name: string; email: string; role: string; sessionToken: string } | null>(() => {
     try {
       const stored = localStorage.getItem('staff_session');
@@ -179,10 +177,10 @@ export default function ManagerDashboard() {
             <span className="icon"><Lock className="w-5 h-5" style={{ color: '#ef4444' }} /></span>
             Lock Dashboard
           </button>
-          <Link to="/" className="dash-sidebar-item">
+          <a href={mainWebsiteUrl} className="dash-sidebar-item">
             <span className="icon"><ArrowLeft className="w-5 h-5" /></span>
             Back to Storefront
-          </Link>
+          </a>
         </div>
       </aside>
 
@@ -212,8 +210,6 @@ export default function ManagerDashboard() {
               <ManagerOrders onEditOrder={(order) => { setEditingOrder(order); setActiveModule('billing'); }} />
             ) : activeModule === 'stats' ? (
               <ManagerStats />
-            ) : activeModule === 'revenue' ? (
-              <ManagerDailyRevenue />
             ) : activeModule === 'printer' ? (
               <PrinterSettings role="manager" />
             ) : null}

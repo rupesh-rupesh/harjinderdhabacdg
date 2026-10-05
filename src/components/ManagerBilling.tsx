@@ -219,6 +219,16 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
   }, [selectedItemDetail, isCustomItemModalOpen]);
   const [editingCustomItem, setEditingCustomItem] = useState<{ cartItemId: string, name: string, price: number } | null>(null);
 
+  const { data: draftsData = [], refetch: fetchDrafts } = useQuery({
+    queryKey: ['pos_drafts'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/pos/drafts');
+      if (res.ok) return res.json();
+      return [];
+    },
+    refetchInterval: 5000,
+  });
+
   useEffect(() => {
     if (cart.length > 0) {
       cartEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -229,19 +239,33 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
     if (tableSelection !== null && !isSubmitting) {
       if (cart.length > 0) {
         localStorage.setItem(`dhaba_draft_cart_${tableSelection}`, JSON.stringify(cart));
+        const total = cart.reduce((sum, item) => sum + (Number(item.price) * item.quantity), 0);
+        fetch('/api/admin/pos/drafts', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ tableNumber: tableSelection, items: cart, total })
+        }).then(() => fetchDrafts && fetchDrafts()).catch(()=>{});
       } else {
         localStorage.removeItem(`dhaba_draft_cart_${tableSelection}`);
+        fetch(`/api/admin/pos/drafts/${tableSelection}`, { method: 'DELETE' }).then(() => fetchDrafts && fetchDrafts()).catch(()=>{});
       }
     }
   }, [cart, tableSelection, isSubmitting]);
 
   const handlePrintCart = async () => {
     if (cart.length === 0) { toast.error("Cart is empty!"); return; }
+    
+    const printItems = [
+      { name: `Table ${tableSelection}`, price: 0, quantity: 1, isTableMarker: true },
+      ...cart
+    ];
+    
     const draftOrder = {
       id: editingOrderId || 'DRAFT',
       tableNumber: tableSelection,
-      items: JSON.stringify(cart),
-      createdAt: new Date().toISOString()
+      items: JSON.stringify(printItems),
+      createdAt: new Date().toISOString(),
+      total: cartTotal
     };
     if (printerService.isBrowserPrint()) {
       // Pure browser path — no thermal printer configured at all
@@ -347,9 +371,9 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
 
 
   const { data: serverOrders = [], isFetching: ordersFetching, refetch: fetchOrders } = useQuery({
-    queryKey: ['admin_orders'],
+    queryKey: ['admin_orders_active'],
     queryFn: async () => {
-      const res = await fetch('/api/admin/orders');
+      const res = await fetch('/api/admin/orders/active');
       if (res.ok) {
         const ct = res.headers.get('content-type');
         if (ct && ct.includes('application/json')) {
@@ -465,7 +489,7 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
   const draftOrder = {
     id: 'DRAFT',
     createdAt: new Date().toISOString(),
-    items: cart,
+    items: [ { name: `Table ${tableSelection}`, price: 0, quantity: 1, isTableMarker: true }, ...cart ],
     total: generateGst ? cartTotal + (cartTotal * 0.05) : cartTotal
   };
 
@@ -899,6 +923,8 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
               } catch (e) { return false; }
             });
             const isActive = !!tableOrder;
+            const tableDraft = draftsData.find((d: any) => Number(d.tableNumber) === num);
+            const isDraft = !isActive && !!tableDraft;
 
             return (
               <button type="button"
@@ -906,6 +932,9 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                 onClick={() => {
                   if (isActive) {
                     setCheckoutTable({ num, order: tableOrder });
+                  } else if (isDraft) {
+                    setCart(tableDraft.items || []);
+                    setTableSelection(num);
                   } else {
                     const saved = localStorage.getItem(`dhaba_draft_cart_${num}`);
                     if (saved) {
@@ -925,22 +954,30 @@ export default function ManagerBilling({ editingOrder, clearEditingOrder, manage
                 }}
                 className={`aspect-[4/3] rounded-3xl flex flex-col items-center justify-center gap-3 transition-all duration-300 group relative border overflow-hidden ${isActive
                   ? 'bg-green-100 shadow-md hover:shadow-lg hover:-translate-y-1 animate-rgb-glow'
+                  : isDraft 
+                  ? 'bg-orange-50 shadow-md border-orange-300 hover:shadow-lg hover:-translate-y-1'
                   : 'bg-white/80 backdrop-blur-md border-stone-200 shadow-sm hover:shadow-xl hover:border-dhaba-orange/50 hover:bg-white hover:-translate-y-1'
                   }`}
               >
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${isActive
                   ? 'bg-green-200 shadow-inner'
+                  : isDraft ? 'bg-orange-200 shadow-inner'
                   : 'bg-stone-50 group-hover:bg-dhaba-orange/10 group-hover:scale-110'
                   }`}>
-                  <TablePeopleIcon className={`w-8 h-8 ${isActive ? 'text-green-700' : 'text-stone-400 group-hover:text-dhaba-orange'
+                  <TablePeopleIcon className={`w-8 h-8 ${isActive ? 'text-green-700' : isDraft ? 'text-orange-600' : 'text-stone-400 group-hover:text-dhaba-orange'
                     }`} />
                 </div>
                 <div className="flex flex-col items-center gap-0.5 relative z-10">
-                  <span className={`text-lg font-black tracking-tight ${isActive ? 'text-green-950' : 'text-stone-700'
+                  <span className={`text-lg font-black tracking-tight ${isActive ? 'text-green-950' : isDraft ? 'text-orange-950' : 'text-stone-700'
                     }`}>Table {num}</span>
                   {isActive && (
                     <span className="text-sm sm:text-base font-black text-white bg-green-500 px-3 py-0.5 rounded-full shadow-md mt-1 border border-green-400">
                       ₹{tableOrder.total}
+                    </span>
+                  )}
+                  {isDraft && (
+                    <span className="text-sm sm:text-base font-bold text-orange-900 bg-orange-300/50 px-3 py-0.5 rounded-full shadow-sm mt-1 border border-orange-400">
+                      Draft: ₹{tableDraft.total}
                     </span>
                   )}
                 </div>

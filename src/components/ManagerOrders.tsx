@@ -14,7 +14,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager", ro
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'all' | 'table' | 'amount' | 'orderNo'>('all');
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'cancelled'>('active');
-  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'yesterday' | 'custom'>('all');
+  const [dateFilter, setDateFilter] = useState<'48h' | 'today' | 'yesterday' | 'custom'>('48h');
   const [customDate, setCustomDate] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | string | null>(null);
@@ -120,9 +120,43 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager", ro
   };
 
   const { data: serverOrders = [], isLoading: loading, refetch: fetchOrders } = useQuery({
-    queryKey: ['admin_orders'],
+    queryKey: ['admin_orders', activeTab, searchQuery, searchType, dateFilter, customDate],
     queryFn: async () => {
-      const res = await fetch('/api/admin/orders');
+      let url = '/api/admin/orders?limit=500';
+      if (activeTab === 'active') {
+        url = '/api/admin/orders/active';
+      } else {
+        url += `&status=${activeTab}`;
+        if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}&searchType=${searchType}`;
+        
+        // Helper: get UTC ISO start/end of a local calendar day
+        const localDayRange = (localDate: Date) => {
+          const start = new Date(localDate);
+          start.setHours(0, 0, 0, 0);
+          const end = new Date(localDate);
+          end.setHours(23, 59, 59, 999);
+          return { startDate: start.toISOString(), endDate: end.toISOString() };
+        };
+
+        if (dateFilter === 'today') {
+          const { startDate, endDate } = localDayRange(new Date());
+          url += `&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
+        } else if (dateFilter === 'yesterday') {
+          const d = new Date();
+          d.setDate(d.getDate() - 1);
+          const { startDate, endDate } = localDayRange(d);
+          url += `&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
+        } else if (dateFilter === 'custom' && customDate) {
+          // customDate is YYYY-MM-DD — parse as local date (not UTC)
+          const parts = customDate.split('-').map(Number);
+          const localCustomDate = new Date(parts[0], parts[1] - 1, parts[2]);
+          const { startDate, endDate } = localDayRange(localCustomDate);
+          url += `&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
+        }
+        // '48h' (default) = no date param → server returns Redis + DB last 48h
+      }
+
+      const res = await fetch(url);
       if (res.ok) {
         const ct = res.headers.get('content-type');
         if (ct && ct.includes('application/json')) {
@@ -161,7 +195,7 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager", ro
       }
 
       // Optimistically update the orders list in cache
-      queryClient.setQueryData(['admin_orders'], (oldOrders: any[]) => {
+      queryClient.setQueryData(['admin_orders_active'], (oldOrders: any[]) => {
         if (!oldOrders) return oldOrders;
         return oldOrders.map(o => o.id === id ? { ...o, status } : o);
       });
@@ -297,20 +331,9 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager", ro
       } else if (activeTab === 'completed') {
         if (order.status !== 'completed') return false;
         
-        if (dateFilter === 'all') matchesTab = true;
-        else if (dateFilter === 'today') {
-          const orderDate = new Date(order.createdAt).setHours(0,0,0,0);
-          const today = new Date().setHours(0,0,0,0);
-          matchesTab = orderDate === today;
-        } else if (dateFilter === 'yesterday') {
-          const orderDate = new Date(order.createdAt).setHours(0,0,0,0);
-          const yesterday = new Date();
-          yesterday.setDate(yesterday.getDate() - 1);
-          matchesTab = orderDate === yesterday.setHours(0,0,0,0);
-        } else if (dateFilter === 'custom' && customDate) {
-          const orderDate = new Date(order.createdAt).setHours(0,0,0,0);
-          const cDate = new Date(customDate).setHours(0,0,0,0);
-          matchesTab = orderDate === cDate;
+        // Server already filtered by the correct date range — just pass all through
+        if (dateFilter === '48h' || dateFilter === 'today' || dateFilter === 'yesterday' || dateFilter === 'custom') {
+          matchesTab = true;
         } else {
           matchesTab = true;
         }
@@ -450,13 +473,13 @@ export default function ManagerOrders({ onEditOrder, managerName = "Manager", ro
         {activeTab === 'completed' && (
           <div className="flex flex-col sm:flex-row items-center justify-between bg-white p-3 rounded-2xl shadow-sm border border-stone-100 gap-3">
              <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0 scrollbar-hide">
-                {['all', 'today', 'yesterday', 'custom'].map(filter => (
+                {['48h', 'today', 'yesterday', 'custom'].map(filter => (
                    <button type="button" 
                      key={filter} 
                      onClick={() => setDateFilter(filter as any)}
                      className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-colors ${dateFilter === filter ? 'bg-dhaba-orange text-white shadow-sm' : 'bg-stone-50 border border-stone-200 text-stone-600 hover:bg-stone-100'}`}
                    >
-                     {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                     {filter === '48h' ? 'Last 48 Hours' : filter.charAt(0).toUpperCase() + filter.slice(1)}
                    </button>
                 ))}
              </div>
