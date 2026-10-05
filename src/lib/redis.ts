@@ -1,7 +1,5 @@
 import { createClient } from 'redis';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import 'dotenv/config';
 
 // Create a fallback in-memory Map for when Redis is not available
 class InMemoryCache {
