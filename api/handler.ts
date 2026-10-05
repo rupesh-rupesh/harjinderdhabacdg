@@ -13,7 +13,7 @@ import bcrypt from 'bcryptjs';
 import { Resend } from 'resend';
 import crypto from 'crypto';
 import { exec } from 'child_process';
-import cache from './src/lib/redis.js';
+import cache from '../src/lib/redis.js';
 
 console.log('RELOADING BACKEND...');
 
