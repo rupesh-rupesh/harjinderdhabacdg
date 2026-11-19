@@ -73,8 +73,9 @@ function LenisScroller() {
 
 export default function App() {
   const hostname = window.location.hostname;
-  const isAdmin = hostname.startsWith('admin.');
-  const isManager = hostname.startsWith('manager.');
+  const pathname = window.location.pathname;
+  const isAdmin = hostname.startsWith('admin.') || pathname.startsWith('/admin') || pathname.startsWith('/htd-ctrl-9x7k2m/admin');
+  const isManager = hostname.startsWith('manager.') || pathname.startsWith('/manager') || pathname.startsWith('/htd-ctrl-9x7k2m/manager');
 
   if (isAdmin) {
     return (

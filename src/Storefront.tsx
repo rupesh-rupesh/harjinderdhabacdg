@@ -1376,7 +1376,7 @@ export default function Storefront() {
                       <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Across Internet</p>
                     </div>
                   </div>
-
+ 
                   {/* Card 3: Legacy */}
                   <div className="bg-white p-4 rounded-2xl shadow-sm border border-stone-100 flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:-translate-y-1 group">
                     <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center shrink-0 border border-rose-100 group-hover:bg-rose-500 transition-colors duration-300">
@@ -1530,7 +1530,7 @@ export default function Storefront() {
                     Rupesh
                   </span>
                 </div>
-              </a>
+              </a> 
             </div>
           </footer>
         </>

@@ -101,7 +101,14 @@ export default function StaffLoginModal({ role, onSuccess }: StaffLoginModalProp
       
       setStaffId(data.staffId);
       setOtpSent(true);
-      toast.success('OTP sent to your email');
+      if (data.devOtp) {
+        console.log('[Dev] Verification OTP is:', data.devOtp);
+      }
+      if (data.emailWarning) {
+        toast.error(data.emailWarning);
+      } else {
+        toast.success('OTP sent to your email');
+      }
     } catch (err) {
       setError('Connection failed. Please try again.');
     } finally {
