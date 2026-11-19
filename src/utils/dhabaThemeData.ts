@@ -60,7 +60,7 @@ export const CATEGORY_META_MAP: Record<string, CategoryMeta> = {
   },
   Snacks: {
     emoji: "🍢",
-    punjabi: "ਸਨੈਕਸ ਤੇ ਟਿੱਕੇ",
+    punjabi: "ਸਨੈਕਸ",
     subtitle: "ਤੰਦੂਰੀ ਟਿੱਕਾ ਤੇ ਕੁਰਕੁਰੇ ਸਟਾਰਟਰ",
     accentColor: "bg-rose-100",
   },
@@ -90,7 +90,7 @@ export const CATEGORY_META_MAP: Record<string, CategoryMeta> = {
   },
   Beverages: {
     emoji: "🥤",
-    punjabi: "ਪੀਣ ਵਾਲੇ ਪਦਾਰਥ",
+    punjabi: "ਕੌਫ਼ੀ ਤੇ ਲੱਸੀ",
     subtitle: "ਮਿੱਠੀ ਲੱਸੀ, ਸ਼ੇਕ, ਕੋਲਡ ਡ੍ਰਿੰਕਸ ਤੇ ਚਾਹ",
     accentColor: "bg-cyan-100",
   },
@@ -102,7 +102,7 @@ export const CATEGORY_META_MAP: Record<string, CategoryMeta> = {
   },
   Shakes: {
     emoji: "🧋",
-    punjabi: "ਸ਼ੇਕਸ ਤੇ",
+    punjabi: "ਸ਼ੇਕਸ ",
     subtitle: "ਠੰਢੇ ਆਈਸਕ੍ਰੀਮ ਸ਼ੇਕ ਤੇ ਕੋਲਡ ਕੌਫ਼ੀ",
     accentColor: "bg-purple-100",
   },
