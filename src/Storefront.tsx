@@ -9,7 +9,7 @@ import { getCategoryMeta, getDishPunjabi } from './utils/dhabaThemeData';
 
 import { DevEmptyStateText } from './components/DevEmptyStateText';
 import React, { useState, useEffect } from 'react';
-import { MapPin, Phone, Clock, Truck, Coffee, Utensils, Star, ArrowRight, ArrowLeft, Instagram, Facebook, Menu, X, ShoppingBag, BookOpen, ShoppingCart, Minus, Plus, Trash2, Search, Layers, Image as ImageIcon, TrendingUp, Flame, Lock, ChevronRight, ChefHat, MessageCircle, Navigation, Info, CheckCircle2, Users } from 'lucide-react';
+import { MapPin, Phone, Clock, Truck, Coffee, Utensils, Star, ArrowRight, ArrowLeft, Instagram, Facebook, Menu, X, ShoppingBag, BookOpen, ShoppingCart, Minus, Plus, Trash2, Search, Layers, Image as ImageIcon, TrendingUp, Flame, Lock, ChevronRight, ChefHat, MessageCircle, Navigation, Info, CheckCircle2, Users, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { generatePdfMenu } from './utils/generatePdfMenu';
