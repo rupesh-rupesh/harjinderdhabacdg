@@ -326,12 +326,12 @@ export default function OrderView({
                            <div>
                              <div className="flex justify-between items-start mb-1 gap-2">
                                <h3 className="font-serif font-bold text-stone-800 text-lg sm:text-xl leading-tight group-hover:text-dhaba-orange transition-colors">{item.name}</h3>
-                               <div className="font-sans font-bold text-dhaba-orange whitespace-nowrap text-xl flex flex-col items-end">
-                              <div>₹{item.price}</div>
-                              {item.fullPortionPieces && <div className="text-[13px] text-stone-400 font-medium mt-0.5">{item.fullPortionPieces} Pieces</div>}
+                               {item.fullPortionPieces && (
+                                <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200/60 font-semibold px-2 py-0.5 rounded-md whitespace-nowrap">
+                                  {item.fullPortionPieces} Pieces
+                                </div>
+                              )}
                             </div>
-                             </div>
-                             <p className="text-stone-500 text-sm font-light leading-relaxed line-clamp-2 mb-3 mt-1">{item.description}</p>
                            </div>
                            
                            <div className="flex items-center justify-between mt-auto">

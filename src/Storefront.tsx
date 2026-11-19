@@ -1,5 +1,6 @@
 import Testimonials from './components/Testimonials.tsx';
 import BanquetSection from './components/BanquetSection.tsx';
+import { getCategoryMeta, getDishPunjabi } from './utils/dhabaThemeData';
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -409,24 +410,65 @@ export default function Storefront() {
     return "Utensils";
   };
 
-  const categories = ['All', ...Array.from(new Set(menuItems.filter(item => item.isPopular || item.isBestSeller).map(item => item.category)))];
-  const allCategories = ['All', ...Array.from(new Set(menuItems.map(item => item.category)))];
+  // Visible categories from DB (strictly excluding disabled/hidden categories)
+  const visibleCategories = React.useMemo(() => {
+    return (dbCategories || []).filter((c: any) => !c.isHidden);
+  }, [dbCategories]);
 
-  const filteredMenu = menuItems.filter(item => {
-    const isPopularOrBest = item.isPopular || item.isBestSeller;
-    if (!isPopularOrBest) return false;
-    const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const visibleCategoryNamesSet = React.useMemo(() => {
+    return new Set(visibleCategories.map((c: any) => (c.name || '').trim().toLowerCase()));
+  }, [visibleCategories]);
 
-  const orderMenuFiltered = menuItems.filter(item => {
-    const matchesCategory = orderCategory === 'All' || item.category === orderCategory;
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  // Categories list for tabs/ribbon: 'All' + visible categories
+  const categories = React.useMemo(() => {
+    return ['All', ...visibleCategories.map((c: any) => c.name)];
+  }, [visibleCategories]);
+
+  // Duplicated categories for infinite moving line ticker
+  const marqueeCategories = React.useMemo(() => {
+    if (categories.length === 0) return [];
+    if (categories.length < 6) {
+      return [...categories, ...categories, ...categories, ...categories];
+    }
+    return [...categories, ...categories];
+  }, [categories]);
+
+  const filteredMenu = React.useMemo(() => {
+    return menuItems.filter(item => {
+      if (item.dietaryPreference === 'non-veg') return false;
+
+      // Ensure item's category is enabled / visible
+      const catName = (item.category || '').trim().toLowerCase();
+      if (!visibleCategoryNamesSet.has(catName)) return false;
+
+      const isPopularOrBest = item.isPopular || item.isBestSeller;
+      if (!isPopularOrBest) return false;
+
+      const matchesCategory = selectedCategory === 'All' || catName === selectedCategory.trim().toLowerCase();
+      const matchesSearch = !searchQuery.trim() || item.name.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [menuItems, visibleCategoryNamesSet, selectedCategory, searchQuery]);
+
+  const orderMenuFiltered = React.useMemo(() => {
+    return menuItems.filter(item => {
+      if (item.dietaryPreference === 'non-veg') return false;
+      const catName = (item.category || '').trim().toLowerCase();
+      if (!visibleCategoryNamesSet.has(catName)) return false;
+
+      const matchesCategory = orderCategory === 'All' || catName === orderCategory.trim().toLowerCase();
+      const matchesSearch = !searchQuery.trim() || item.name.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [menuItems, visibleCategoryNamesSet, orderCategory, searchQuery]);
+
+  const visibleSpecials = React.useMemo(() => {
+    return specials.filter(item => {
+      if (item.dietaryPreference === 'non-veg') return false;
+      const catName = (item.category || '').trim().toLowerCase();
+      return visibleCategoryNamesSet.has(catName);
+    });
+  }, [specials, visibleCategoryNamesSet]);
 
 
   const getQuantity = (item: any) => {
@@ -787,9 +829,10 @@ export default function Storefront() {
                       </div>
                     </div>
                   ))
-                ) : specials.length > 0 ? (
-                  specials.map((item, idx) => {
+                ) : visibleSpecials.length > 0 ? (
+                  visibleSpecials.map((item, idx) => {
                     const locked = isItemLocked(item);
+                    const punjabiName = getDishPunjabi(item.name);
                     return (
                       <div key={idx} onClick={() => !locked && setSelectedItemDetail(item)} className={`${!showAllSpecials ? 'flex-none w-[280px] sm:w-[320px] md:w-[340px] snap-start' : 'w-full'} group relative bg-white rounded-[2rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-stone-100/80 overflow-hidden transition-all duration-500 transform hover:-translate-y-2 flex flex-col cursor-pointer ${locked ? 'opacity-80 grayscale-[50%] cursor-not-allowed' : ''}`}>
                         <div className="h-56 relative overflow-hidden flex-shrink-0">
@@ -849,23 +892,22 @@ export default function Storefront() {
                             </div>
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
-                          <div className="absolute bottom-4 right-4 flex items-center gap-1.5">
-                            <span className={`bg-white/90 backdrop-blur-md text-[var(--color-brown)] text-xs font-bold tracking-wider px-3 py-1.5 rounded-lg shadow-sm ${locked ? 'line-through text-stone-500' : ''}`}>
-                              ₹{item.price}
-                            </span>
-                            {locked && (
+                          {locked && (
+                            <div className="absolute bottom-4 right-4 flex items-center gap-1.5">
                               <div className="bg-[var(--color-brown)] text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-xl flex items-center gap-1 border border-[var(--color-gold)]/30">
                                 <Lock className="w-3 h-3" /> Locked
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
 
                         <div className="p-6 flex flex-col flex-grow bg-white">
-                          <div className="flex justify-between items-start mb-2 gap-4">
+                          <div className="flex flex-col mb-4">
                             <h3 className="font-serif font-bold text-xl text-[var(--color-brown)] line-clamp-1 leading-tight">{item.name}</h3>
+                            {punjabiName && (
+                              <p className="text-[var(--color-gold)] font-serif font-semibold text-xs mt-1">{punjabiName}</p>
+                            )}
                           </div>
-                          <p className="text-[#5A4A42] text-sm mb-6 line-clamp-2 leading-relaxed font-light">{item.description}</p>
 
                           <div className="mt-auto pt-4 border-t border-stone-100/80">
                             <button
@@ -922,21 +964,52 @@ export default function Storefront() {
                 </div>
               </div>
 
-              <div className="mb-12 flex flex-col gap-6">
-                <div className="flex flex-wrap gap-2">
-                  {categories.map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => setSelectedCategory(cat)}
-                      className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 shadow-sm ${selectedCategory === cat
-                        ? 'bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold)]/80 text-white border-transparent shadow-[0_10px_20px_rgba(200,155,60,0.2)] transform scale-105'
-                        : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50 hover:text-[var(--color-brown)] hover:border-[var(--color-gold)]/50'
-                        }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
+              <div className="mb-10 flex flex-col gap-5">
+                {/* Auto-moving Category Strip (Pauses on Hover) */}
+                <div className="relative overflow-hidden group/storefrontMarquee py-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+                  <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-[var(--color-ivory)] to-transparent z-10" />
+                  <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[var(--color-ivory)] to-transparent z-10" />
+
+                  <div className="storefront-marquee-track flex gap-3 w-max">
+                    {marqueeCategories.map((cat, idx) => {
+                      const sel = selectedCategory === cat;
+                      const meta = getCategoryMeta(cat);
+                      return (
+                        <button
+                          key={`${cat}-${idx}`}
+                          onClick={() => setSelectedCategory(cat)}
+                          className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 shadow-sm whitespace-nowrap cursor-pointer ${
+                            sel
+                              ? 'bg-gradient-to-r from-[var(--color-gold)] to-[#b38827] text-white border-transparent shadow-[0_8px_20px_rgba(200,155,60,0.25)] scale-105'
+                              : 'bg-white text-stone-700 border border-stone-200 hover:border-[var(--color-gold)] hover:text-[var(--color-brown)] hover:shadow-md'
+                          }`}
+                        >
+                          <span className="text-base">{meta.emoji}</span>
+                          <span>{cat}</span>
+                          {meta.punjabi && meta.punjabi !== "ਸਾਰੇ ਪਕਵਾਨ" && (
+                            <span className={`text-[10px] font-serif ${sel ? 'text-amber-100' : 'text-[#C89B3C]'}`}>• {meta.punjabi}</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
+
+                {/* Active Category Indicator / Reset */}
+                {selectedCategory !== 'All' && (
+                  <div className="flex items-center justify-between bg-amber-50/80 border border-amber-200/70 px-4 py-2 rounded-xl">
+                    <span className="text-xs font-semibold text-[var(--color-brown)] flex items-center gap-2">
+                      <span>{getCategoryMeta(selectedCategory).emoji}</span>
+                      <span>Showing: <strong>{selectedCategory}</strong> — {getCategoryMeta(selectedCategory).punjabi}</span>
+                    </span>
+                    <button
+                      onClick={() => setSelectedCategory('All')}
+                      className="text-xs text-stone-500 hover:text-[var(--color-gold)] flex items-center gap-1 cursor-pointer font-medium"
+                    >
+                      <X className="w-3.5 h-3.5" /> Show All
+                    </button>
+                  </div>
+                )}
 
                 <div className="relative w-full max-w-md">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -1001,13 +1074,6 @@ export default function Storefront() {
                             </span>
                           )}
                         </div>
-
-                        {/* Price Overlay */}
-                        <div className="absolute bottom-3 right-3 z-20 transition-transform duration-500 group-hover:-translate-y-1">
-                          <span className="bg-white/95 backdrop-blur-md text-[var(--color-brown)] font-black text-lg px-4 py-1.5 rounded-xl shadow-md border border-white flex items-center gap-1">
-                            ₹{item.price}
-                          </span>
-                        </div>
                       </div>
 
                       {/* Content Bottom */}
@@ -1031,8 +1097,12 @@ export default function Storefront() {
                           )}
                         </div>
 
-                        <h3 className="text-xl font-bold font-serif text-[#3a2e28] leading-tight mb-2 transition-colors line-clamp-1 group-hover:text-amber-900" title={item.name}>{item.name}</h3>
-                        <p className="text-[#6b5a52] text-sm leading-relaxed mb-5 flex-grow line-clamp-2 font-light">{item.description}</p>
+                        <div className="flex flex-col mb-4">
+                          <h3 className="text-xl font-bold font-serif text-[#3a2e28] leading-tight transition-colors line-clamp-1 group-hover:text-amber-900" title={item.name}>{item.name}</h3>
+                          {getDishPunjabi(item.name) && (
+                            <p className="text-[var(--color-gold)] font-serif font-semibold text-xs mt-1">{getDishPunjabi(item.name)}</p>
+                          )}
+                        </div>
 
                         {/* Action Footer */}
                         <div className="mt-auto pt-4 border-t border-stone-100 transition-colors group-hover:border-[var(--color-gold)]/10">
@@ -1658,7 +1728,7 @@ export default function Storefront() {
                     </div>
 
                     <div className="flex items-center justify-between mt-3">
-                      <p className="font-sans font-bold text-[var(--color-gold)] text-lg">₹{item.numericPrice * item.quantity}</p>
+                      <span className="text-xs font-semibold text-[var(--color-gold)] uppercase tracking-wider">Item #{idx + 1}</span>
 
                       <div className="flex items-center bg-stone-50 border border-stone-200/80 rounded-xl p-1 shadow-inner">
                         <button
@@ -1686,20 +1756,13 @@ export default function Storefront() {
 
           {cartItems.length > 0 && (
             <div className="p-6 border-t border-stone-100 bg-[var(--color-ivory)] space-y-4">
-              <div className="flex justify-between text-stone-600">
-                <span>Subtotal</span>
-                <span className="font-medium text-[var(--color-brown)]">₹{cartTotal}</span>
+              <div className="flex justify-between items-center text-stone-600">
+                <span className="font-medium text-sm">Selected Items</span>
+                <span className="font-bold text-[var(--color-brown)]">{cartCount} items</span>
               </div>
-              <div className="flex justify-between text-stone-600">
-                <span>Taxes & Fees</span>
-                <span className="font-medium text-[var(--color-brown)]">₹{Math.round(cartTotal * 0.05)}</span>
-              </div>
-              <div className="flex justify-between items-center text-lg font-bold text-[var(--color-brown)] pt-2 border-t border-stone-200">
-                <span>Total</span>
-                <span className="text-[var(--color-gold)]">₹{cartTotal + Math.round(cartTotal * 0.05)}</span>
-              </div>
+              <p className="text-[11px] text-stone-500 italic">Freshly prepared with pure desi ghee • Takes 15–20 mins</p>
               <button onClick={() => { setCurrentView("checkout"); setIsCartOpen(false); }} className="w-full bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold)]/80 hover:from-[#E6B355] hover:to-[var(--color-gold)] text-white py-4 rounded-2xl font-semibold text-lg transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl active:scale-95 focus:outline-none">
-                Proceed to Checkout
+                Proceed to Order
               </button>
             </div>
           )}
@@ -1772,10 +1835,15 @@ export default function Storefront() {
             </div>
 
             <div className="p-6 sm:p-8 overflow-y-auto flex-grow flex flex-col" data-lenis-prevent="true">
-              <div className="prose prose-stone max-w-none mb-8 flex-grow">
-                <p className="text-stone-500 text-base sm:text-lg leading-relaxed whitespace-pre-line font-light">
-                  {selectedItemDetail.description}
-                </p>
+              <div className="flex flex-col gap-2 mb-6 flex-grow">
+                {getDishPunjabi(selectedItemDetail.name) && (
+                  <p className="text-[var(--color-gold)] font-serif font-bold text-xl">{getDishPunjabi(selectedItemDetail.name)}</p>
+                )}
+                <div className="flex flex-wrap gap-2 text-xs mt-2">
+                  <span className="bg-green-50 text-green-700 border border-green-200 px-3 py-1 rounded-full font-medium">🌿 100% Pure Vegetarian</span>
+                  <span className="bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-full font-medium">🥛 Prepared in Desi Ghee</span>
+                  <span className="bg-stone-50 text-stone-600 border border-stone-200 px-3 py-1 rounded-full font-medium">⏱️ 15–20 Mins Preparation</span>
+                </div>
               </div>
 
               <div className="flex flex-col gap-4 mt-auto pt-6 border-t border-stone-100">
@@ -1799,9 +1867,8 @@ export default function Storefront() {
                         }}
                         className={`group relative flex flex-col items-center justify-center p-4 sm:p-5 border ${v.outOfStock ? 'border-stone-200 bg-stone-100 opacity-60 cursor-not-allowed' : 'border-stone-200 hover:border-[var(--color-gold)] hover:bg-[var(--color-gold)]/5 hover:-translate-y-1 hover:shadow-md'} rounded-2xl transition-all duration-300`}
                       >
-                        <span className={`text-[10px] sm:text-xs uppercase tracking-widest font-bold mb-2 ${v.outOfStock ? 'text-stone-400' : 'text-stone-500 group-hover:text-[var(--color-gold)]'} transition-colors`}>{v.name}</span>
-                        <span className={`text-xl sm:text-2xl font-bold ${v.outOfStock ? 'text-stone-400' : 'text-[var(--color-brown)]'}`}>₹{v.price}</span>
-                        {v.outOfStock && <span className="absolute top-2 right-2 text-[8px] uppercase font-bold text-red-500 bg-red-100 px-1 py-0.5 rounded">Out of stock</span>}
+                        <span className={`text-xs uppercase tracking-widest font-bold mb-1 ${v.outOfStock ? 'text-stone-400' : 'text-stone-700 group-hover:text-[var(--color-gold)]'} transition-colors`}>{v.name}</span>
+                        {v.outOfStock && <span className="text-[8px] uppercase font-bold text-red-500 bg-red-100 px-1 py-0.5 rounded">Out of stock</span>}
                       </button>
                     ))}
                   </div>
@@ -1811,22 +1878,16 @@ export default function Storefront() {
                       onClick={() => { addToCart({ ...selectedItemDetail, isHalf: true }); setSelectedItemDetail(null); }}
                       className="group relative flex flex-col items-center justify-center p-5 sm:p-6 bg-stone-50 border border-stone-200/80 rounded-[1.5rem] hover:bg-gradient-to-br hover:from-[var(--color-gold)] hover:to-[#E6B355] hover:border-transparent transition-all duration-500 shadow-sm hover:shadow-xl transform hover:-translate-y-1"
                     >
-                      <span className="text-xs uppercase tracking-widest font-bold text-stone-500 group-hover:text-orange-100 mb-1.5 transition-colors">Half</span>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-2xl font-bold text-[var(--color-brown)] group-hover:text-white transition-colors">₹{selectedItemDetail.halfPrice}</span>
-                        {selectedItemDetail.halfPortionPieces && <span className="text-[13px] font-medium text-stone-400 group-hover:text-white/80">{selectedItemDetail.halfPortionPieces} Pieces</span>}
-                      </div>
+                      <span className="text-sm uppercase tracking-widest font-bold text-stone-600 group-hover:text-white mb-1 transition-colors">Half Portion</span>
+                      {selectedItemDetail.halfPortionPieces && <span className="text-[13px] font-medium text-stone-400 group-hover:text-white/80">{selectedItemDetail.halfPortionPieces} Pieces</span>}
                       <div className="absolute inset-0 rounded-2xl ring-2 ring-transparent group-hover:ring-dhaba-orange/30 transition-all pointer-events-none"></div>
                     </button>
                     <button
                       onClick={() => { addToCart({ ...selectedItemDetail, isHalf: false }); setSelectedItemDetail(null); }}
                       className="group relative flex flex-col items-center justify-center p-5 sm:p-6 bg-stone-50 border border-stone-200/80 rounded-[1.5rem] hover:bg-gradient-to-br hover:from-[var(--color-gold)] hover:to-[#E6B355] hover:border-transparent transition-all duration-500 shadow-sm hover:shadow-xl transform hover:-translate-y-1"
                     >
-                      <span className="text-xs uppercase tracking-widest font-bold text-stone-500 group-hover:text-orange-100 mb-1.5 transition-colors">Full</span>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-2xl font-bold text-[var(--color-brown)] group-hover:text-white transition-colors">₹{selectedItemDetail.price}</span>
-                        {selectedItemDetail.fullPortionPieces && <span className="text-[13px] font-medium text-stone-400 group-hover:text-white/80">{selectedItemDetail.fullPortionPieces} Pieces</span>}
-                      </div>
+                      <span className="text-sm uppercase tracking-widest font-bold text-stone-600 group-hover:text-white mb-1 transition-colors">Full Portion</span>
+                      {selectedItemDetail.fullPortionPieces && <span className="text-[13px] font-medium text-stone-400 group-hover:text-white/80">{selectedItemDetail.fullPortionPieces} Pieces</span>}
                       <div className="absolute inset-0 rounded-2xl ring-2 ring-transparent group-hover:ring-dhaba-orange/30 transition-all pointer-events-none"></div>
                     </button>
                   </div>
@@ -1836,19 +1897,16 @@ export default function Storefront() {
                       onClick={() => { addToCart({ ...selectedItemDetail, isButter: false }); setSelectedItemDetail(null); }}
                       className="group relative flex flex-col items-center justify-center p-5 sm:p-6 bg-stone-50 border border-stone-200/80 rounded-[1.5rem] hover:bg-gradient-to-br hover:from-[var(--color-gold)] hover:to-[#E6B355] hover:border-transparent transition-all duration-500 shadow-sm hover:shadow-xl transform hover:-translate-y-1"
                     >
-                      <span className="text-xs uppercase tracking-widest font-bold text-stone-500 group-hover:text-orange-100 mb-1.5 transition-colors">Without Butter</span>
-                      <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-2xl font-bold text-[var(--color-brown)] group-hover:text-white transition-colors">₹{selectedItemDetail.price}</span>
-                        {selectedItemDetail.fullPortionPieces && <span className="text-[13px] font-medium text-stone-400 group-hover:text-white/80">{selectedItemDetail.fullPortionPieces} Pieces</span>}
-                      </div>
+                      <span className="text-sm uppercase tracking-widest font-bold text-stone-600 group-hover:text-white mb-1 transition-colors">Without Butter</span>
+                      {selectedItemDetail.fullPortionPieces && <span className="text-[13px] font-medium text-stone-400 group-hover:text-white/80">{selectedItemDetail.fullPortionPieces} Pieces</span>}
                       <div className="absolute inset-0 rounded-2xl ring-2 ring-transparent group-hover:ring-dhaba-orange/30 transition-all pointer-events-none"></div>
                     </button>
                     <button
                       onClick={() => { addToCart({ ...selectedItemDetail, isButter: true }); setSelectedItemDetail(null); }}
                       className="group relative flex flex-col items-center justify-center p-5 sm:p-6 bg-stone-50 border border-stone-200/80 rounded-[1.5rem] hover:bg-gradient-to-br hover:from-[var(--color-gold)] hover:to-[#E6B355] hover:border-transparent transition-all duration-500 shadow-sm hover:shadow-xl transform hover:-translate-y-1"
                     >
-                      <span className="text-xs uppercase tracking-widest font-bold text-stone-500 group-hover:text-orange-100 mb-1.5 transition-colors">With Butter</span>
-                      <span className="text-2xl font-bold text-[var(--color-brown)] group-hover:text-white transition-colors">₹{selectedItemDetail.price + selectedItemDetail.butterPrice}</span>
+                      <span className="text-sm uppercase tracking-widest font-bold text-stone-600 group-hover:text-white mb-1 transition-colors">With Butter</span>
+                      {selectedItemDetail.fullPortionPieces && <span className="text-[13px] font-medium text-stone-400 group-hover:text-white/80">{selectedItemDetail.fullPortionPieces} Pieces</span>}
                       <div className="absolute inset-0 rounded-2xl ring-2 ring-transparent group-hover:ring-dhaba-orange/30 transition-all pointer-events-none"></div>
                     </button>
                   </div>
@@ -1858,7 +1916,7 @@ export default function Storefront() {
                     className="w-full bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold)]/80 hover:from-[#E6B355] hover:to-[var(--color-gold)] text-white font-semibold py-4 rounded-2xl transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl hover:-translate-y-1 text-lg group active:scale-95"
                   >
                     <ShoppingCart className="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" />
-                    <span>Add to Cart — ₹{selectedItemDetail.price}</span>
+                    <span>Add to Cart</span>
                   </button>
                 )}
               </div>
@@ -1888,7 +1946,7 @@ export default function Storefront() {
               </div>
               <div className="text-left flex flex-col justify-center">
                 <span className="text-[11px] font-bold text-white/90 tracking-wider uppercase">{cartCount} ITEM{cartCount > 1 ? 'S' : ''}</span>
-                <span className="font-extrabold text-xl sm:text-2xl leading-none">₹{cartTotal}</span>
+                <span className="font-extrabold text-lg sm:text-xl leading-none">Review Items</span>
               </div>
             </div>
             <div className="flex items-center gap-1.5 font-bold text-lg sm:text-xl tracking-wide pr-1">
@@ -1913,6 +1971,22 @@ export default function Storefront() {
         <span className="hidden sm:inline font-bold text-xs tracking-wide">Quick Chat</span>
       </a>
 
+
+      {/* Category Marquee Animation Styles */}
+      <style>{`
+        @keyframes storefrontMarquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(calc(-50% - 6px)); }
+        }
+        .storefront-marquee-track {
+          animation: storefrontMarquee 36s linear infinite;
+          will-change: transform;
+        }
+        .group\\/storefrontMarquee:hover .storefront-marquee-track,
+        .storefront-marquee-track:hover {
+          animation-play-state: paused !important;
+        }
+      `}</style>
 
     </div>
   );

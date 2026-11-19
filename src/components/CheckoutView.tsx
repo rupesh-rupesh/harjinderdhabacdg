@@ -120,8 +120,8 @@ export default function CheckoutView({
               <span className="font-bold text-dhaba-dark">#HTD-{Math.floor(1000 + Math.random() * 9000)}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-stone-500">Amount</span>
-              <span className="font-bold text-dhaba-orange">₹{finalTotal}</span>
+              <span className="text-stone-500">Status</span>
+              <span className="font-bold text-dhaba-orange">Confirmed</span>
             </div>
           </div>
           <p className="text-sm text-stone-400">Redirecting to home...</p>
@@ -283,7 +283,7 @@ export default function CheckoutView({
                     <div className="flex-1">
                       <h4 className="font-bold text-stone-800 text-sm line-clamp-1">{item.name}</h4>
                       <p className="text-stone-500 text-xs">Qty: {item.quantity}</p>
-                      <p className="font-bold text-dhaba-dark text-sm mt-1">₹{item.numericPrice * item.quantity}</p>
+                      
                     </div>
                   </div>
                 ))}
@@ -291,25 +291,17 @@ export default function CheckoutView({
 
               <div className="space-y-3 text-sm border-t border-stone-100 pt-4 mb-4">
                 <div className="flex justify-between text-stone-600">
-                  <span>Subtotal</span>
-                  <span className="font-medium text-dhaba-dark">₹{cartTotal}</span>
+                  <span>Total Items</span>
+                  <span className="font-bold text-dhaba-dark">{cartItems.reduce((acc: number, i: any) => acc + i.quantity, 0)} items</span>
                 </div>
                 <div className="flex justify-between text-stone-600">
-                  <span>Taxes (5%)</span>
-                  <span className="font-medium text-dhaba-dark">₹{taxAmount}</span>
+                  <span>Order Type</span>
+                  <span className="font-medium text-dhaba-dark uppercase">Takeaway / Pickup</span>
                 </div>
-                {orderType === 'takeaway' && (
-                  <div className="flex justify-between text-stone-600">
-                    <span>Packing Charges</span>
-                    <span className="font-medium text-dhaba-dark">₹20</span>
-                  </div>
-                )}
-                <div className="flex justify-between items-center text-lg font-bold text-dhaba-dark pt-3 border-t border-stone-100">
-                  <span>Total</span>
-                  <span className="text-dhaba-orange">₹{finalTotal + (orderType === 'takeaway' ? 20 : 0)}</span>
-                </div>
+                <p className="text-xs text-stone-500 pt-1 italic">
+                  Pure Desi Ghee Preparation • Freshly cooked to order
+                </p>
               </div>
-
               <button 
                 type="submit" 
                 form="checkout-form"

@@ -723,7 +723,9 @@ app.get('/api/storefront-data', async (req, res) => {
       getCachedArray('cache:features', () => db.select().from(features).orderBy(features.displayOrder, features.id))
     ]);
     const visibleCats = cats.filter((c: any) => !c.isHidden);
-    res.json({ menuItems: menu, categories: visibleCats, features: feats });
+    const visibleCatNames = new Set(visibleCats.map((c: any) => (c.name || '').trim().toLowerCase()));
+    const visibleMenu = menu.filter((item: any) => !item.category || visibleCatNames.has((item.category || '').trim().toLowerCase()));
+    res.json({ menuItems: visibleMenu, categories: visibleCats, features: feats });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 

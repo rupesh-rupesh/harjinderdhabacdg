@@ -145,10 +145,11 @@ export default function MenuView({
 
   /* ── visible categories from DB ── */
   const visibleCats = useMemo(() => dbCategories.filter(c => !c.isHidden), [dbCategories]);
+  const visibleCatNames = useMemo(() => new Set(visibleCats.map(c => (c.name || '').trim().toLowerCase())), [visibleCats]);
 
   /* ── category list (All + visible DB cats) ── */
   const enrichedCats = useMemo(() => {
-    const allCount = menuItems.filter(i => i.dietaryPreference !== 'non-veg').length;
+    const allCount = menuItems.filter(i => i.dietaryPreference !== 'non-veg' && visibleCatNames.has((i.category || '').trim().toLowerCase())).length;
     const catMeta = getCategoryMeta('All');
     const list = [{
       id: '__all__',
@@ -171,16 +172,28 @@ export default function MenuView({
       });
     }
     return list;
-  }, [visibleCats, menuItems]);
+  }, [visibleCats, visibleCatNames, menuItems]);
+
+  /* ── marquee duplicated list for infinite seamless loop ── */
+  const marqueeCats = useMemo(() => {
+    if (enrichedCats.length === 0) return [];
+    if (enrichedCats.length < 5) {
+      return [...enrichedCats, ...enrichedCats, ...enrichedCats, ...enrichedCats];
+    }
+    return [...enrichedCats, ...enrichedCats];
+  }, [enrichedCats]);
 
   /* ── filtered + grouped items ── */
   const filteredItems = useMemo(() => {
     return menuItems.filter(item => {
       if (item.dietaryPreference === 'non-veg') return false;
 
+      // Strictly exclude dishes belonging to disabled categories
+      const iCat = (item.category || '').trim().toLowerCase();
+      if (!visibleCatNames.has(iCat)) return false;
+
       // Category filter — EXACT match
       if (activeCategory !== 'All') {
-        const iCat = (item.category || '').trim().toLowerCase();
         const aCat = activeCategory.trim().toLowerCase();
         if (iCat !== aCat) return false;
       }
@@ -407,7 +420,7 @@ export default function MenuView({
         <div className="max-w-6xl mx-auto">
 
           {/* Section heading */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-[10px] sm:text-xs text-[#F97316] font-bold tracking-widest uppercase">
                 ✦ ਖਾਣ-ਪੀਣ ਦੀਆਂ ਸ਼੍ਰੇਣੀਆਂ ✦
@@ -416,72 +429,66 @@ export default function MenuView({
                 Explore by Category
               </h2>
             </div>
-            {/* Scroll arrows */}
-            <div className="flex gap-1.5">
-              <button
-                onClick={() => scrollCats('l')}
-                className="p-2 rounded-full border border-stone-200 text-stone-500 hover:border-[#F97316] hover:text-[#F97316] transition-colors cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => scrollCats('r')}
-                className="p-2 rounded-full border border-stone-200 text-stone-500 hover:border-[#F97316] hover:text-[#F97316] transition-colors cursor-pointer"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+            <span className="text-[11px] text-stone-400 font-medium italic hidden sm:inline">
+              ✦ Auto-moving · Hover to pause
+            </span>
           </div>
 
-          {/* Category cards carousel */}
-          <div ref={catScrollRef} className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 snap-x">
-            {enrichedCats.map(cat => {
-              const sel = activeCategory === cat.name;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => selectCategory(cat.name)}
-                  className={`flex-shrink-0 w-32 sm:w-40 rounded-2xl overflow-hidden border-2 transition-all duration-250 group snap-start cursor-pointer flex flex-col ${
-                    sel
-                      ? 'border-[#F97316] shadow-lg shadow-[#F97316]/20 -translate-y-1'
-                      : 'border-stone-200/80 hover:border-[#F97316]/50 hover:shadow-md hover:-translate-y-0.5 bg-white'
-                  }`}
-                >
-                  {/* Image area */}
-                  <div className="relative h-20 sm:h-24 w-full overflow-hidden">
-                    <CategoryImage
-                      image={cat.image || undefined}
-                      emoji={cat.meta.emoji}
-                      name={cat.name}
-                      className="group-hover:scale-105 transition-transform duration-400"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+          {/* Category cards moving line (Continuous scroll, pauses on hover) */}
+          <div className="relative overflow-hidden group/marquee py-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+            {/* Subtle fade edges for premium look */}
+            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent z-10" />
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-10" />
 
-                    {/* Dish count */}
-                    <span className="absolute bottom-1.5 left-2 text-white text-[10px] font-semibold">
-                      {cat.count} dish{cat.count !== 1 ? 'es' : ''}
-                    </span>
+            <div className="category-marquee-track flex gap-3.5 w-max">
+              {marqueeCats.map((cat, idx) => {
+                const sel = activeCategory === cat.name;
+                return (
+                  <button
+                    key={`${cat.id}-${idx}`}
+                    onClick={() => selectCategory(cat.name)}
+                    className={`flex-shrink-0 w-32 sm:w-40 rounded-2xl overflow-hidden border-2 transition-all duration-300 group cursor-pointer flex flex-col text-left ${
+                      sel
+                        ? 'border-[#F97316] shadow-lg shadow-[#F97316]/20 ring-2 ring-[#F97316]/30 -translate-y-1'
+                        : 'border-stone-200/80 hover:border-[#F97316]/60 hover:shadow-md hover:-translate-y-0.5 bg-white'
+                    }`}
+                  >
+                    {/* Image area */}
+                    <div className="relative h-20 sm:h-24 w-full overflow-hidden">
+                      <CategoryImage
+                        image={cat.image || undefined}
+                        emoji={cat.meta.emoji}
+                        name={cat.name}
+                        className="group-hover:scale-105 transition-transform duration-400"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
 
-                    {/* Active checkmark */}
-                    {sel && (
-                      <span className="absolute top-1.5 right-1.5 bg-[#F97316] text-white w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
-                        <Check className="w-3 h-3" />
+                      {/* Dish count */}
+                      <span className="absolute bottom-1.5 left-2 text-white text-[10px] font-semibold">
+                        {cat.count} dish{cat.count !== 1 ? 'es' : ''}
                       </span>
-                    )}
-                  </div>
 
-                  {/* Text area */}
-                  <div className={`p-2 flex-1 ${sel ? 'bg-orange-50' : 'bg-white'}`}>
-                    <p className={`font-serif font-bold text-xs truncate ${sel ? 'text-[#F97316]' : 'text-stone-800 group-hover:text-[#F97316]'} transition-colors`}>
-                      {cat.name}
-                    </p>
-                    <p className="text-[#C89B3C] text-[10px] font-serif font-semibold truncate">
-                      {cat.meta.punjabi}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
+                      {/* Active checkmark */}
+                      {sel && (
+                        <span className="absolute top-1.5 right-1.5 bg-[#F97316] text-white w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
+                          <Check className="w-3 h-3" />
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Text area */}
+                    <div className={`p-2 flex-1 w-full ${sel ? 'bg-orange-50' : 'bg-white'}`}>
+                      <p className={`font-serif font-bold text-xs truncate ${sel ? 'text-[#F97316]' : 'text-stone-800 group-hover:text-[#F97316]'} transition-colors`}>
+                        {cat.name}
+                      </p>
+                      <p className="text-[#C89B3C] text-[10px] font-serif font-semibold truncate">
+                        {cat.meta.punjabi}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Quick pill strip for desktop wrapping */}
@@ -638,8 +645,8 @@ export default function MenuView({
 
                         {/* Body */}
                         <div className="p-4 flex flex-col flex-1">
-                          {/* Name + Price */}
-                          <div className="flex justify-between items-start gap-2 mb-1">
+                          {/* Name + Pieces */}
+                          <div className="flex justify-between items-start gap-2 mb-2">
                             <div className="flex-1 min-w-0">
                               <h3 className="font-serif font-bold text-[#241712] text-base leading-snug group-hover:text-[#F97316] transition-colors line-clamp-2">
                                 {item.name}
@@ -648,20 +655,14 @@ export default function MenuView({
                                 <p className="text-[#C89B3C] text-[11px] font-serif font-semibold mt-0.5">{punjabi}</p>
                               )}
                             </div>
-                            <div className="text-right flex-shrink-0">
-                              <span className="font-black text-[#241712] text-lg">₹{item.price}</span>
-                              {item.fullPortionPieces && (
-                                <span className="block text-[10px] text-stone-400 font-normal">({item.fullPortionPieces} pcs)</span>
-                              )}
-                            </div>
+                            {item.fullPortionPieces && (
+                              <div className="text-right flex-shrink-0">
+                                <span className="text-[10px] text-[#C89B3C] font-semibold bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-md">
+                                  {item.fullPortionPieces} pcs
+                                </span>
+                              </div>
+                            )}
                           </div>
-
-                          {/* Description */}
-                          {item.description && (
-                            <p className="text-stone-500 text-xs leading-relaxed line-clamp-2 mb-2 flex-1">
-                              {item.description}
-                            </p>
-                          )}
 
                           {/* Spice level */}
                           {item.spiceLevel && item.spiceLevel !== 'None' && item.spiceLevel !== 'mild' && (
@@ -771,9 +772,9 @@ export default function MenuView({
               </div>
               <div className="text-left">
                 <span className="text-xs text-orange-100 block font-medium">
-                  {cartCount === 1 ? '1 item' : `${cartCount} items`} added
+                  {cartCount === 1 ? '1 item' : `${cartCount} items`} selected
                 </span>
-                <span className="font-extrabold text-base">₹{cartTotal.toFixed(2)}</span>
+                <span className="font-extrabold text-base">View Selection</span>
               </div>
             </div>
             <div className="flex items-center gap-1.5 bg-white text-[#F97316] px-3.5 py-1.5 rounded-xl font-bold text-sm">
@@ -783,10 +784,23 @@ export default function MenuView({
         </div>
       )}
 
-      {/* scrollbar hide */}
+      {/* scrollbar hide & marquee styles */}
       <style>{`
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+        @keyframes categoryMarquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(calc(-50% - 7px)); }
+        }
+        .category-marquee-track {
+          animation: categoryMarquee 38s linear infinite;
+          will-change: transform;
+        }
+        .group\\/marquee:hover .category-marquee-track,
+        .category-marquee-track:hover {
+          animation-play-state: paused !important;
+        }
       `}</style>
     </div>
   );
