@@ -13,17 +13,17 @@ import StaffLoginModal from './StaffLoginModal';
 type Module = 'billing' | 'orders' | 'stats' | 'printer';
 
 const NAV_ITEMS: { key: Module; label: string; icon: React.ReactNode }[] = [
-  { key: 'billing',  label: 'POS Billing',      icon: <ShoppingCart className="w-5 h-5" /> },
-  { key: 'orders',   label: 'Order Overview',   icon: <Package className="w-5 h-5" /> },
-  { key: 'stats',    label: 'Manager Stats',    icon: <Activity className="w-5 h-5" /> },
-  { key: 'printer',  label: 'Printer Settings', icon: <Printer className="w-5 h-5" /> },
+  { key: 'billing', label: 'POS Billing', icon: <ShoppingCart className="w-5 h-5" /> },
+  { key: 'orders', label: 'Order Overview', icon: <Package className="w-5 h-5" /> },
+  { key: 'stats', label: 'Manager Stats', icon: <Activity className="w-5 h-5" /> },
+  { key: 'printer', label: 'Printer Settings', icon: <Printer className="w-5 h-5" /> },
 ];
 
 const MODULE_TITLES: Record<Module, string> = {
-  billing:  'POS Billing',
-  orders:   'Order Overview',
-  stats:    'Manager Stats',
-  printer:  'Printer Settings',
+  billing: 'POS Billing',
+  orders: 'Order Overview',
+  stats: 'Manager Stats',
+  printer: 'Printer Settings',
 };
 
 export default function ManagerDashboard() {
@@ -32,13 +32,13 @@ export default function ManagerDashboard() {
     try {
       const stored = localStorage.getItem('staff_session');
       if (!stored) return null;
-      
+
       let lastActive = localStorage.getItem('staff_last_active');
       if (!lastActive) {
         lastActive = Date.now().toString();
         localStorage.setItem('staff_last_active', lastActive);
       }
-      
+
       if (Date.now() - Number(lastActive) > 12 * 60 * 60 * 1000) {
         localStorage.removeItem('staff_session');
         localStorage.removeItem('staff_last_active');
@@ -186,7 +186,7 @@ export default function ManagerDashboard() {
 
       {/* ── Main Area ── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        
+
         {/* Floating Main Menu Toggle Button (Mobile/when closed) */}
         {!isSidebarOpen && (
           <button
@@ -198,21 +198,21 @@ export default function ManagerDashboard() {
         )}
 
         {/* Scrollable Content */}
-        <div 
+        <div
           data-lenis-prevent="true"
           className={`flex-1 ${activeModule === 'billing' ? 'overflow-hidden p-0' : 'overflow-y-auto p-4 sm:p-6 lg:p-8 pb-8'}`}
         >
           <div className={`${activeModule === 'billing' ? 'h-full' : 'max-w-6xl mx-auto w-full'}`}>
             <Suspense fallback={<PanLoader text="Loading module..." />}>
-            {activeModule === 'billing' ? (
-              <ManagerBilling editingOrder={editingOrder} clearEditingOrder={() => setEditingOrder(null)} />
-            ) : activeModule === 'orders' ? (
-              <ManagerOrders onEditOrder={(order) => { setEditingOrder(order); setActiveModule('billing'); }} />
-            ) : activeModule === 'stats' ? (
-              <ManagerStats />
-            ) : activeModule === 'printer' ? (
-              <PrinterSettings role="manager" />
-            ) : null}
+              {activeModule === 'billing' ? (
+                <ManagerBilling editingOrder={editingOrder} clearEditingOrder={() => setEditingOrder(null)} />
+              ) : activeModule === 'orders' ? (
+                <ManagerOrders onEditOrder={(order) => { setEditingOrder(order); setActiveModule('billing'); }} />
+              ) : activeModule === 'stats' ? (
+                <ManagerStats />
+              ) : activeModule === 'printer' ? (
+                <PrinterSettings role="manager" />
+              ) : null}
             </Suspense>
           </div>
         </div>

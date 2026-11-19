@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Menu, Search, ShoppingCart, Minus, Plus, ChevronRight, Clock, Star, Sun, Coffee, CupSoda, Pizza, ConciergeBell, Utensils, UtensilsCrossed, Flame, Soup, Droplets, Leaf, Info } from 'lucide-react';
 import { NoodleBowlIcon } from './CustomIcons';
+import { getCategoryMeta } from '../utils/dhabaThemeData';
 
 interface OrderViewProps {
   isLoading?: boolean;
@@ -194,7 +195,9 @@ export default function OrderView({
                 </button>
                 {dbCategories.filter(category => !category.isHidden).map(category => {
                   const meta = getCategoryMetadata(category.name);
+                  const catMeta = getCategoryMeta(category.name);
                   const Icon = meta.icon;
+                  const displayImage = category.image || null;
                   return (
                   <button
                     key={category.id}
@@ -205,13 +208,16 @@ export default function OrderView({
                     className="bg-white rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-stone-200/50 transition-all duration-500 border border-stone-100 group text-left transform hover:-translate-y-2 h-56 sm:h-72 flex flex-col relative"
                   >
                     <div className="h-3/5 w-full overflow-hidden relative bg-stone-100">
-                      {category.image ? (
-                         <img src={category.image} alt={category.name} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
+                      {displayImage ? (
+                        <img src={displayImage} alt={category.name} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" />
                       ) : (
-                         <div className="w-full h-full bg-stone-200 flex items-center justify-center">
-                           <span className="text-stone-400 text-xs">No Image</span>
-                         </div>
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100">
+                          <span className="text-5xl">{catMeta.emoji}</span>
+                        </div>
                       )}
+                      <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-md px-2 py-1 rounded-full text-xs shadow-sm flex items-center gap-1 font-medium">
+                        <span>{catMeta.emoji}</span>
+                      </div>
                     </div>
                     
                     <div className="h-2/5 p-4 sm:p-5 flex flex-col justify-end relative bg-white">
@@ -222,8 +228,10 @@ export default function OrderView({
                       </div>
                       
                       <div className="mt-auto pr-8">
-                        <h3 className="font-serif font-bold text-stone-800 text-lg sm:text-xl group-hover:text-dhaba-orange transition-colors line-clamp-1">{category.name}</h3>
-                        <p className="text-stone-500 text-[10px] sm:text-xs font-light mt-0.5 line-clamp-1">{meta.subtitle}</p>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-serif font-bold text-stone-800 text-lg sm:text-xl group-hover:text-dhaba-orange transition-colors line-clamp-1">{category.name}</h3>
+                        </div>
+                        <p className="text-[#C89B3C] font-serif text-[11px] sm:text-xs font-semibold line-clamp-1">{catMeta.punjabi}</p>
                       </div>
                       
                       <div className="absolute bottom-4 sm:bottom-5 right-4 sm:right-5 w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-stone-200 flex items-center justify-center text-stone-400 group-hover:text-dhaba-orange group-hover:border-dhaba-orange transition-colors">
