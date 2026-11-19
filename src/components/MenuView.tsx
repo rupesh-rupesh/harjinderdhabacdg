@@ -447,42 +447,47 @@ export default function MenuView({
                   <button
                     key={`${cat.id}-${idx}`}
                     onClick={() => selectCategory(cat.name)}
-                    className={`flex-shrink-0 w-32 sm:w-40 rounded-2xl overflow-hidden border-2 transition-all duration-300 group cursor-pointer flex flex-col text-left ${
+                    className={`flex-shrink-0 w-36 sm:w-44 rounded-2xl overflow-hidden border-2 transition-all duration-300 group cursor-pointer flex flex-col text-left shadow-sm ${
                       sel
-                        ? 'border-[#F97316] shadow-lg shadow-[#F97316]/20 ring-2 ring-[#F97316]/30 -translate-y-1'
-                        : 'border-stone-200/80 hover:border-[#F97316]/60 hover:shadow-md hover:-translate-y-0.5 bg-white'
+                        ? 'border-[var(--color-gold)] bg-amber-50/40 shadow-lg shadow-[var(--color-gold)]/20 ring-2 ring-[var(--color-gold)]/30 -translate-y-1'
+                        : 'border-stone-200/90 hover:border-[var(--color-gold)]/70 hover:shadow-md hover:-translate-y-0.5 bg-white'
                     }`}
                   >
                     {/* Image area */}
-                    <div className="relative h-20 sm:h-24 w-full overflow-hidden">
+                    <div className="relative h-24 sm:h-28 w-full overflow-hidden bg-stone-100">
                       <CategoryImage
                         image={cat.image || undefined}
                         emoji={cat.meta.emoji}
                         name={cat.name}
-                        className="group-hover:scale-105 transition-transform duration-400"
+                        className="group-hover:scale-108 transition-transform duration-500 ease-out"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+
+                      {/* Top emoji pill */}
+                      <span className="absolute top-2 left-2 text-sm bg-white/90 backdrop-blur-md px-2 py-0.5 rounded-full shadow-sm">
+                        {cat.meta.emoji}
+                      </span>
 
                       {/* Dish count */}
-                      <span className="absolute bottom-1.5 left-2 text-white text-[10px] font-semibold">
+                      <span className="absolute bottom-2 left-2 text-white/95 text-[10px] font-semibold bg-black/40 backdrop-blur-xs px-2 py-0.5 rounded-md border border-white/10">
                         {cat.count} dish{cat.count !== 1 ? 'es' : ''}
                       </span>
 
                       {/* Active checkmark */}
                       {sel && (
-                        <span className="absolute top-1.5 right-1.5 bg-[#F97316] text-white w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
-                          <Check className="w-3 h-3" />
+                        <span className="absolute top-2 right-2 bg-gradient-to-r from-[var(--color-gold)] to-[#b38827] text-white w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
+                          <Check className="w-3 h-3 stroke-[3]" />
                         </span>
                       )}
                     </div>
 
-                    {/* Text area */}
-                    <div className={`p-2 flex-1 w-full ${sel ? 'bg-orange-50' : 'bg-white'}`}>
-                      <p className={`font-serif font-bold text-xs truncate ${sel ? 'text-[#F97316]' : 'text-stone-800 group-hover:text-[#F97316]'} transition-colors`}>
-                        {cat.name}
-                      </p>
-                      <p className="text-[#C89B3C] text-[10px] font-serif font-semibold truncate">
+                    {/* Text area with prominent Punjabi Gurmukhi name */}
+                    <div className={`p-2.5 flex-1 w-full flex flex-col justify-center ${sel ? 'bg-amber-50/80' : 'bg-white'}`}>
+                      <p className="text-[#C89B3C] text-[11px] sm:text-xs font-serif font-bold truncate tracking-wide leading-tight">
                         {cat.meta.punjabi}
+                      </p>
+                      <p className={`font-serif font-bold text-xs sm:text-sm truncate mt-0.5 ${sel ? 'text-[#241712]' : 'text-stone-800 group-hover:text-[#F97316]'} transition-colors`}>
+                        {cat.name}
                       </p>
                     </div>
                   </button>
@@ -499,14 +504,15 @@ export default function MenuView({
                 <button
                   key={`pill-${cat.id}`}
                   onClick={() => selectCategory(cat.name)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all border cursor-pointer ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all border cursor-pointer ${
                     sel
-                      ? 'bg-[#F97316] text-white border-[#F97316] shadow-sm'
-                      : 'bg-white text-stone-600 border-stone-200 hover:border-[#F97316]/50 hover:text-[#F97316]'
+                      ? 'bg-gradient-to-r from-[var(--color-gold)] to-[#b38827] text-white border-transparent shadow-sm'
+                      : 'bg-white text-stone-700 border-stone-200 hover:border-[var(--color-gold)]/60 hover:text-[var(--color-brown)]'
                   }`}
                 >
                   <span>{cat.meta.emoji}</span>
                   <span>{cat.name}</span>
+                  <span className={`text-[10px] font-serif ${sel ? 'text-amber-100' : 'text-[#C89B3C]'}`}>• {cat.meta.punjabi}</span>
                 </button>
               );
             })}
@@ -590,19 +596,17 @@ export default function MenuView({
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                   {section.items.map(item => {
                     const locked = isItemLocked(item);
-                    const qty = getQuantity(item);
-                    const hasOpts = item.hasHalfPortion || item.hasButterOption || (item.variants && item.variants.length > 0);
                     const punjabi = getDishPunjabi(item.name, item.punjabi);
 
                     return (
                       <div
                         key={item.id}
                         onClick={() => !locked && setSelectedItemDetail(item)}
-                        className={`bg-white rounded-2xl overflow-hidden border border-stone-100 shadow-sm flex flex-col transition-all duration-300 group
-                          ${locked ? 'opacity-70 grayscale-[30%]' : 'hover:shadow-xl hover:shadow-stone-900/10 hover:-translate-y-1 cursor-pointer'}`}
+                        className={`bg-white rounded-3xl overflow-hidden border border-[#E5D5C0]/80 shadow-[0_4px_20px_rgba(0,0,0,0.04)] flex flex-col transition-all duration-300 group
+                          ${locked ? 'opacity-70 grayscale-[30%]' : 'hover:shadow-[0_16px_36px_rgba(200,155,60,0.15)] hover:border-[var(--color-gold)]/60 hover:-translate-y-1 cursor-pointer'}`}
                       >
                         {/* Image */}
-                        <div className="relative h-44 overflow-hidden bg-stone-100">
+                        <div className="relative h-48 overflow-hidden bg-stone-100">
                           <FoodImage image={item.image} name={item.name} emoji={catMeta.emoji} />
 
                           {/* Top badges */}
@@ -611,13 +615,13 @@ export default function MenuView({
                           </div>
 
                           {item.isDhabaSpecial && (
-                            <div className="absolute top-2.5 left-2.5 z-10 bg-[#F97316] text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 shadow">
+                            <div className="absolute top-2.5 left-2.5 z-10 bg-gradient-to-r from-[#F97316] to-[#E8690D] text-white text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow">
                               <Sparkles className="w-3 h-3" /> Dhaba SPL
                             </div>
                           )}
                           {!item.isDhabaSpecial && item.isBestSeller && (
-                            <div className="absolute top-2.5 left-2.5 z-10 bg-[#C89B3C] text-[#241712] text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1 shadow">
-                              <Star className="w-3 h-3 fill-[#241712]" /> Best Seller
+                            <div className="absolute top-2.5 left-2.5 z-10 bg-[var(--color-gold)] text-white text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow">
+                              <Star className="w-3 h-3 fill-current" /> Best Seller
                             </div>
                           )}
 
@@ -643,72 +647,55 @@ export default function MenuView({
                           )}
                         </div>
 
-                        {/* Body */}
-                        <div className="p-4 flex flex-col flex-1">
-                          {/* Name + Pieces */}
-                          <div className="flex justify-between items-start gap-2 mb-2">
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-serif font-bold text-[#241712] text-base leading-snug group-hover:text-[#F97316] transition-colors line-clamp-2">
-                                {item.name}
-                              </h3>
-                              {punjabi && (
-                                <p className="text-[#C89B3C] text-[11px] font-serif font-semibold mt-0.5">{punjabi}</p>
-                              )}
-                            </div>
+                        {/* Body - Clean Authentic Presentation without Action Buttons */}
+                        <div className="p-5 flex flex-col flex-1">
+                          {/* Punjabi Name */}
+                          <p className="text-[#C89B3C] font-serif font-bold text-xs sm:text-sm tracking-wide leading-tight">
+                            {punjabi}
+                          </p>
+
+                          {/* English Title + Pieces */}
+                          <div className="flex justify-between items-start gap-2 mt-1 mb-2">
+                            <h3 className="font-serif font-bold text-[#241712] text-base sm:text-lg leading-snug group-hover:text-[#F97316] transition-colors line-clamp-1 flex-1" title={item.name}>
+                              {item.name}
+                            </h3>
                             {item.fullPortionPieces && (
-                              <div className="text-right flex-shrink-0">
-                                <span className="text-[10px] text-[#C89B3C] font-semibold bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-md">
-                                  {item.fullPortionPieces} pcs
-                                </span>
-                              </div>
+                              <span className="text-[10px] text-[#C89B3C] font-semibold bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-md flex-shrink-0">
+                                {item.fullPortionPieces} pcs
+                              </span>
                             )}
                           </div>
 
-                          {/* Spice level */}
-                          {item.spiceLevel && item.spiceLevel !== 'None' && item.spiceLevel !== 'mild' && (
-                            <div className="flex items-center gap-1 text-[11px] text-rose-600 mb-2 bg-rose-50 px-2 py-0.5 rounded-md w-fit border border-rose-100">
-                              <Flame className="w-3 h-3 fill-rose-500" />
-                              <span>{item.spiceLevel}</span>
-                            </div>
-                          )}
+                          {/* Tags row */}
+                          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                            <span className="text-[10px] uppercase font-semibold text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">
+                              {item.category}
+                            </span>
+                            {item.spiceLevel && item.spiceLevel !== 'None' && item.spiceLevel !== 'mild' && (
+                              <span className="flex items-center gap-1 text-[10px] text-rose-600 font-semibold bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100">
+                                <Flame className="w-3 h-3 fill-rose-500" /> {item.spiceLevel}
+                              </span>
+                            )}
+                            {item.isWithoutButter && (
+                              <span className="text-[10px] text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                                No Butter
+                              </span>
+                            )}
+                          </div>
 
-                          {/* CTA */}
-                          <div className="mt-auto pt-3 border-t border-stone-100">
-                            {locked ? (
-                              <div className="text-center text-xs text-stone-400 font-semibold py-2 bg-stone-50 rounded-xl">
-                                {item.outOfStock ? 'Out of Stock' : `Available at ${item.startTime || 'later'}`}
-                              </div>
-                            ) : hasOpts ? (
-                              <button
-                                onClick={e => { e.stopPropagation(); setSelectedItemDetail(item); }}
-                                className="w-full border-2 border-[#F97316] text-[#F97316] font-bold py-2.5 rounded-xl text-sm hover:bg-[#F97316] hover:text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer group/btn"
-                              >
-                                <Plus className="w-4 h-4 group-hover/btn:rotate-90 transition-transform" />
-                                Options
-                              </button>
-                            ) : qty === 0 ? (
-                              <button
-                                onClick={e => { e.stopPropagation(); addToCart({ ...item, isHalf: false }); }}
-                                className="w-full bg-[#241712] hover:bg-[#3A2418] text-white font-bold py-2.5 rounded-xl text-sm transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow-md active:scale-95 cursor-pointer"
-                              >
-                                <Plus className="w-4 h-4" /> Add to Cart
-                              </button>
+                          {/* Subtle Footer Ornament */}
+                          <div className="mt-auto pt-3 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
+                            <span className="text-[11px] font-serif text-[#C89B3C] italic flex items-center gap-1">
+                              ✦ ਖ਼ਾਲਸ ਦੇਸੀ ਘਿਓ
+                            </span>
+                            {item.hasHalfPortion ? (
+                              <span className="text-[10px] font-medium text-stone-600 bg-stone-50 border border-stone-200 px-2 py-0.5 rounded-md">
+                                Half / Full Available
+                              </span>
                             ) : (
-                              <div className="flex items-center justify-between bg-[#241712] text-white rounded-xl overflow-hidden p-1 shadow-sm">
-                                <button
-                                  onClick={e => { e.stopPropagation(); updateQuantity(item.name, item.isHalf || false, item.isButter || false, -1); }}
-                                  className="p-2 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                                >
-                                  <Minus className="w-3.5 h-3.5" />
-                                </button>
-                                <span className="font-black text-sm min-w-[2rem] text-center">{qty}</span>
-                                <button
-                                  onClick={e => { e.stopPropagation(); updateQuantity(item.name, item.isHalf || false, item.isButter || false, 1); }}
-                                  className="p-2 bg-[#C89B3C] text-[#241712] rounded-lg hover:bg-[#D4AF37] transition-colors cursor-pointer"
-                                >
-                                  <Plus className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
+                              <span className="text-[10px] font-medium text-stone-500 bg-stone-50 px-2 py-0.5 rounded-md">
+                                Full Portion
+                              </span>
                             )}
                           </div>
                         </div>

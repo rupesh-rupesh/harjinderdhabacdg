@@ -222,7 +222,6 @@ export default function Storefront() {
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
 
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [showAllSpecials, setShowAllSpecials] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -469,6 +468,15 @@ export default function Storefront() {
       return visibleCategoryNamesSet.has(catName);
     });
   }, [specials, visibleCategoryNamesSet]);
+
+  // Duplicated specials for continuous auto-moving Dhaba Specials marquee
+  const marqueeSpecials = React.useMemo(() => {
+    if (visibleSpecials.length === 0) return [];
+    if (visibleSpecials.length < 5) {
+      return [...visibleSpecials, ...visibleSpecials, ...visibleSpecials, ...visibleSpecials];
+    }
+    return [...visibleSpecials, ...visibleSpecials];
+  }, [visibleSpecials]);
 
 
   const getQuantity = (item: any) => {
@@ -738,11 +746,14 @@ export default function Storefront() {
                 <span className="font-semibold tracking-[0.22em] uppercase text-xs sm:text-sm" style={{ color: '#C89B3C' }}>Welcome to the Highway Legend</span>
                 <div className="h-px w-8 sm:w-12" style={{ background: 'linear-gradient(90deg, #C89B3C, transparent)' }} />
               </div>
-              <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-serif font-bold text-white mb-6 leading-[1.1] drop-shadow-xl">
+              <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-serif font-bold text-white mb-4 leading-[1.1] drop-shadow-xl">
                 <span className="sr-only">Harjinder Tourist Dhaba - The Best Family Dhaba for Pure Veg Food in Kharar, Mohali</span>
                 The True Taste of{' '}<br className="hidden sm:block" />
                 <span style={{ background: 'linear-gradient(135deg, #C89B3C, #e8bb5c, #C89B3C)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Punjab</span>
               </h1>
+              <p className="text-[#C89B3C] font-serif font-bold text-lg sm:text-2xl tracking-wide mb-4 drop-shadow-md">
+                ਸੁਆਦ ਜੋ ਯਾਦ ਰਹਿ ਜਾਵੇ
+              </p>
               <p className="text-sm sm:text-lg md:text-xl text-stone-300 mb-10 sm:mb-12 max-w-2xl mx-auto font-light leading-relaxed px-2">
                 Stop by for a piping hot meal, rich with desi ghee and traditional spices. Serving travelers and families with love and authenticity since 1991.
               </p>
@@ -793,161 +804,130 @@ export default function Storefront() {
             </div>
           )}
 
-          {/* Our Specials (Responsive Grid/Scroll) */}
-          <section id="specials" className="relative z-20 -mt-12 pt-24 pb-12 bg-[var(--color-ivory)] border-b border-stone-200/50 overflow-hidden rounded-t-[3rem] shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.1)]">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10">
-              <div className="flex flex-col items-center text-center gap-4">
-                <div className="flex items-center justify-center gap-4 mb-2">
+          {/* Our Specials (Auto-Moving Marquee Track - Pauses on Hover) */}
+          <section id="specials" className="relative z-20 -mt-12 pt-24 pb-14 bg-[var(--color-ivory)] border-b border-stone-200/50 overflow-hidden rounded-t-[3rem] shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.1)]">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
+              <div className="flex flex-col items-center text-center gap-2">
+                <div className="flex items-center justify-center gap-4 mb-1">
                   <div className="h-px w-12 bg-[var(--color-gold)]/40"></div>
-                  <h2 className="text-sm font-bold text-[var(--color-gold)] tracking-[0.2em] uppercase">Culinary Excellence</h2>
+                  <h2 className="text-xs sm:text-sm font-bold text-[var(--color-gold)] tracking-[0.25em] uppercase font-serif">
+                    ✦ ਖਾਸ ਪਕਵਾਨ · Culinary Excellence ✦
+                  </h2>
                   <div className="h-px w-12 bg-[var(--color-gold)]/40"></div>
                 </div>
-                <h2 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-[var(--color-brown)] drop-shadow-sm tracking-tight">Our Specials</h2>
-                <p className="text-[#5A4A42] max-w-2xl text-base md:text-lg font-light leading-relaxed mt-4">
-                  Explore our most loved, highly recommended authentic dishes cooked with secret family recipes.
+                <h2 className="text-3xl md:text-5xl lg:text-6xl font-serif font-extrabold text-[var(--color-brown)] drop-shadow-sm tracking-tight">
+                  Dhaba Specials
+                </h2>
+                <p className="text-[var(--color-gold)] font-serif font-bold text-base sm:text-lg mt-0.5">
+                  ਸਾਡੇ ਸਭ ਤੋਂ ਮਸ਼ਹੂਰ ਤੇ ਖਾਸ ਪਕਵਾਨ
                 </p>
+                <p className="text-[#5A4A42] max-w-2xl text-xs sm:text-sm font-light leading-relaxed mt-1">
+                  Explore our most loved, highly recommended authentic dishes cooked with secret family recipes in pure desi ghee.
+                </p>
+                <span className="text-[11px] text-stone-400 font-medium italic mt-1">
+                  ✦ Auto-moving · Hover over any dish to pause ✦
+                </span>
               </div>
             </div>
 
-            {/* Container */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center">
-              <div className={`${!showAllSpecials ? 'flex overflow-x-auto snap-x snap-mandatory pb-12' : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 pb-4'} gap-6 lg:gap-8 pt-4 w-full hide-scrollbar scroll-smooth`} data-lenis-prevent="true">
+            {/* Continuous auto-moving carousel track, pauses on hover */}
+            <div className="relative overflow-hidden group/specialsMarquee py-3 w-full">
+              <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-[var(--color-ivory)] to-transparent z-10" />
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-[var(--color-ivory)] to-transparent z-10" />
+
+              <div className="specials-marquee-track flex gap-6 w-max px-4">
                 {isLoading ? (
-                  [1, 2, 3].map(i => (
-                    <div key={i} className={`${!showAllSpecials ? 'flex-none w-[280px] sm:w-[320px] md:w-[340px]' : 'w-full'} relative bg-white/80 backdrop-blur-sm rounded-[2rem] shadow-sm border border-stone-100 overflow-hidden flex flex-col animate-pulse`}>
-                      <div className="h-56 bg-stone-200 w-full flex-shrink-0"></div>
-                      <div className="p-6 flex flex-col flex-grow">
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="h-6 bg-stone-200 rounded w-1/2"></div>
-                          <div className="h-6 bg-stone-200 rounded w-1/4"></div>
-                        </div>
-                        <div className="h-4 bg-stone-200 rounded w-full mb-2"></div>
-                        <div className="h-4 bg-stone-200 rounded w-3/4 mb-4"></div>
-                        <div className="mt-auto pt-4 border-t border-stone-100 flex justify-between">
-                          <div className="h-10 bg-stone-200 rounded w-full"></div>
-                        </div>
+                  [1, 2, 3, 4].map(i => (
+                    <div key={i} className="w-[280px] sm:w-[320px] rounded-3xl bg-white/80 border border-stone-100 overflow-hidden flex flex-col animate-pulse shadow-sm">
+                      <div className="h-52 bg-stone-200 w-full shrink-0"></div>
+                      <div className="p-5 flex flex-col flex-grow gap-2">
+                        <div className="h-4 bg-stone-200 rounded w-1/3"></div>
+                        <div className="h-6 bg-stone-200 rounded w-3/4"></div>
+                        <div className="h-4 bg-stone-200 rounded w-1/2 mt-auto"></div>
                       </div>
                     </div>
                   ))
                 ) : visibleSpecials.length > 0 ? (
-                  visibleSpecials.map((item, idx) => {
+                  marqueeSpecials.map((item, idx) => {
                     const locked = isItemLocked(item);
                     const punjabiName = getDishPunjabi(item.name);
                     return (
-                      <div key={idx} onClick={() => !locked && setSelectedItemDetail(item)} className={`${!showAllSpecials ? 'flex-none w-[280px] sm:w-[320px] md:w-[340px] snap-start' : 'w-full'} group relative bg-white rounded-[2rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-stone-100/80 overflow-hidden transition-all duration-500 transform hover:-translate-y-2 flex flex-col cursor-pointer ${locked ? 'opacity-80 grayscale-[50%] cursor-not-allowed' : ''}`}>
-                        <div className="h-56 relative overflow-hidden flex-shrink-0">
-                          <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
-                            {item.isBestSeller && (
-                              <span className="bg-[var(--color-gold)] text-white text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm flex items-center">
-                                <Star className="w-3 h-3 mr-1 fill-current" /> Best Seller
-                              </span>
-                            )}
-                            {item.isPopular && (
-                              <span className="bg-[var(--color-brown)] text-[var(--color-gold)] text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm flex items-center border border-[var(--color-gold)]/20">
-                                <TrendingUp className="w-3 h-3 mr-1" /> Popular
-                              </span>
-                            )}
-                            {item.isSpicy && (
-                              <span className="bg-red-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm flex items-center">
-                                <Flame className="w-3 h-3 mr-1" /> Spicy
-                              </span>
-                            )}
-                          </div>
-
-                          {locked && (
-                            <div className="absolute inset-0 bg-[var(--color-brown)]/40 backdrop-blur-[2px] z-20 flex items-center justify-center">
-                              <div className="bg-white/90 backdrop-blur-md p-3 rounded-full shadow-xl">
-                                <Lock className="w-6 h-6 text-[var(--color-brown)]" />
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="absolute top-4 right-4 z-10 group-hover:scale-110 transition-transform duration-300">
-                            <div className="bg-white/90 backdrop-blur-md p-1.5 rounded-xl shadow-sm flex items-center justify-center cursor-help">
-                              <DietaryBadge type={item.dietaryPreference} />
-                              {/* Tooltip */}
-                              <div className="absolute right-0 top-full mt-2 w-64 bg-white text-[var(--color-brown)] p-4 rounded-xl shadow-xl text-xs opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all duration-300 pointer-events-none transform origin-top-right scale-95 group-hover/tooltip:scale-100 border border-stone-100 text-left">
-                                <p className="font-bold mb-1 text-sm">{item.dietaryPreference}</p>
-                                <p className="text-[#5A4A42] leading-relaxed">This item is prepared according to strict {item.dietaryPreference.toLowerCase()} guidelines.</p>
-                              </div>
-                            </div>
-                          </div>
+                      <div
+                        key={`${item.id || item.name}-${idx}`}
+                        onClick={() => !locked && setSelectedItemDetail(item)}
+                        className={`w-[280px] sm:w-[320px] rounded-3xl bg-white border border-[#E5D5C0]/80 shadow-[0_8px_25px_rgba(36,23,18,0.06)] hover:shadow-[0_20px_45px_rgba(200,155,60,0.18)] hover:border-[var(--color-gold)]/60 transition-all duration-500 overflow-hidden flex flex-col group/card cursor-pointer transform hover:-translate-y-1.5 ${locked ? 'opacity-70 grayscale-[40%]' : ''}`}
+                      >
+                        {/* Food Image */}
+                        <div className="h-52 relative overflow-hidden bg-stone-100 shrink-0">
                           {item.image ? (
-                            <>
-                              <img
-                                src={item.image}
-                                alt={item.name}
-                                className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700 ease-in-out"
-                              />
-                              <div className="absolute bottom-4 left-4 bg-black/40 hover:bg-black/60 backdrop-blur-md p-1.5 rounded-full text-white cursor-help group/info z-30 transition-colors shadow-sm">
-                                <Info className="w-4 h-4" />
-                                <div className="absolute left-0 bottom-full mb-2 w-48 bg-stone-900 text-white text-[10px] p-2 rounded-lg shadow-xl opacity-0 invisible group-hover/info:opacity-100 group-hover/info:visible transition-all duration-300 pointer-events-none border border-white/10 z-40 text-left leading-tight">
-                                  Product representation only. Our freshly prepared dishes look and taste even better in person.
-                                </div>
-                              </div>
-                            </>
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              className="w-full h-full object-cover group-hover/card:scale-108 transition-transform duration-700 ease-out"
+                            />
                           ) : (
-                            <div className="w-full h-full bg-stone-100 flex items-center justify-center transform group-hover:scale-110 transition-transform duration-700 ease-in-out">
-                              <DynamicIcon name={getItemFallbackIcon(item.category)} className="w-16 h-16 text-stone-300" />
+                            <div className="w-full h-full flex items-center justify-center bg-amber-50/60">
+                              <span className="text-4xl">🍛</span>
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
-                          {locked && (
-                            <div className="absolute bottom-4 right-4 flex items-center gap-1.5">
-                              <div className="bg-[var(--color-brown)] text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-xl flex items-center gap-1 border border-[var(--color-gold)]/30">
-                                <Lock className="w-3 h-3" /> Locked
-                              </div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
+
+                          {/* Top Badges */}
+                          <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5">
+                            <span className="bg-gradient-to-r from-[#F97316] to-[#E8690D] text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow flex items-center gap-1">
+                              <Sparkles className="w-3 h-3" /> Dhaba SPL
+                            </span>
+                            {item.isBestSeller && (
+                              <span className="bg-[var(--color-gold)] text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shadow flex items-center gap-1">
+                                <Star className="w-2.5 h-2.5 fill-current" /> Best Seller
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="absolute top-3 right-3 z-10">
+                            <div className="bg-white/95 backdrop-blur-md p-1.5 rounded-xl shadow-sm">
+                              <DietaryBadge type={item.dietaryPreference || 'veg'} />
                             </div>
-                          )}
+                          </div>
+
+                          {/* Category Pill on Image Bottom */}
+                          <div className="absolute bottom-3 left-3 z-10">
+                            <span className="text-[10px] font-bold text-white/95 bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/20">
+                              {item.category}
+                            </span>
+                          </div>
                         </div>
 
-                        <div className="p-6 flex flex-col flex-grow bg-white">
-                          <div className="flex flex-col mb-4">
-                            <h3 className="font-serif font-bold text-xl text-[var(--color-brown)] line-clamp-1 leading-tight">{item.name}</h3>
-                            {punjabiName && (
-                              <p className="text-[var(--color-gold)] font-serif font-semibold text-xs mt-1">{punjabiName}</p>
-                            )}
-                          </div>
+                        {/* Card Content (NO View Details, NO Add to Cart) */}
+                        <div className="p-5 flex flex-col flex-grow bg-white">
+                          <p className="text-[var(--color-gold)] font-serif font-bold text-sm tracking-wide leading-tight">
+                            {punjabiName}
+                          </p>
+                          <h3 className="font-serif font-bold text-lg text-[var(--color-brown)] group-hover/card:text-[#F97316] transition-colors leading-snug line-clamp-1 mt-0.5" title={item.name}>
+                            {item.name}
+                          </h3>
 
-                          <div className="mt-auto pt-4 border-t border-stone-100/80">
-                            <button
-                              disabled={locked}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!locked) setSelectedItemDetail(item);
-                              }}
-                              className={`w-full bg-[var(--color-ivory)] hover:bg-[var(--color-brown)] border border-[var(--color-gold)]/20 hover:border-transparent text-[var(--color-brown)] hover:text-[var(--color-gold)] font-semibold py-3 rounded-xl transition-all duration-500 flex items-center justify-center group/btn shadow-sm ${locked ? 'opacity-50 cursor-not-allowed hover:bg-[var(--color-ivory)] hover:text-[var(--color-brown)] hover:border-[var(--color-gold)]/20' : ''}`}
-                            >
-                              {locked ? 'Unavailable' : (
-                                <>
-                                  View Details
-                                  <ChevronRight className="w-4 h-4 ml-1 group-hover/btn:translate-x-1 transition-transform" />
-                                </>
-                              )}
-                            </button>
+                          {/* Subtle decorative gold line & attributes */}
+                          <div className="mt-auto pt-3 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
+                            <span className="text-[11px] font-serif text-[#C89B3C] italic flex items-center gap-1">
+                              ✦ ਖ਼ਾਲਸ ਦੇਸੀ ਘਿਓ
+                            </span>
+                            {item.fullPortionPieces && (
+                              <span className="text-[10px] font-semibold text-[#C89B3C] bg-amber-50 border border-amber-200/50 px-2 py-0.5 rounded-md">
+                                {item.fullPortionPieces} pcs
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
                     );
                   })
                 ) : (
-                  <div className="col-span-full text-center py-20 bg-white/50 backdrop-blur-sm rounded-[2rem] border border-stone-200/50">
-                    <ChefHat className="w-16 h-16 text-stone-300 mx-auto mb-4" />
-                    <h3 className="text-xl font-bold text-[var(--color-brown)] mb-2">{apiError ? `Error: ${apiError}` : "Our menu is being prepared"}</h3>
-                    <p className="text-[#5A4A42]">Check back soon for our delicious offerings.</p>
+                  <div className="text-center py-12 px-6 bg-white rounded-3xl border border-stone-200 mx-auto">
+                    <p className="text-stone-500">Our special menu is being prepared with love.</p>
                   </div>
                 )}
               </div>
-              {specials.length > 0 && (
-                <div className="mt-4 mb-4 flex justify-center w-full">
-                  <button
-                    onClick={() => setShowAllSpecials(!showAllSpecials)}
-                    className="bg-transparent border border-[var(--color-gold)] text-[var(--color-brown)] hover:bg-[var(--color-gold)] hover:text-white px-8 py-3 rounded-full font-semibold transition-all duration-300 shadow-sm hover:shadow-md"
-                  >
-                    {showAllSpecials ? 'Show Less' : 'View All Specials'}
-                  </button>
-                </div>
-              )}
             </div>
           </section>
 
@@ -986,7 +966,7 @@ export default function Storefront() {
                         >
                           <span className="text-base">{meta.emoji}</span>
                           <span>{cat}</span>
-                          {meta.punjabi && meta.punjabi !== "ਸਾਰੇ ਪਕਵਾਨ" && (
+                          {meta.punjabi && (
                             <span className={`text-[10px] font-serif ${sel ? 'text-amber-100' : 'text-[#C89B3C]'}`}>• {meta.punjabi}</span>
                           )}
                         </button>
@@ -1097,52 +1077,29 @@ export default function Storefront() {
                           )}
                         </div>
 
-                        <div className="flex flex-col mb-4">
-                          <h3 className="text-xl font-bold font-serif text-[#3a2e28] leading-tight transition-colors line-clamp-1 group-hover:text-amber-900" title={item.name}>{item.name}</h3>
-                          {getDishPunjabi(item.name) && (
-                            <p className="text-[var(--color-gold)] font-serif font-semibold text-xs mt-1">{getDishPunjabi(item.name)}</p>
-                          )}
+                        <div className="flex flex-col mb-3">
+                          <p className="text-[var(--color-gold)] font-serif font-bold text-sm tracking-wide leading-tight">
+                            {getDishPunjabi(item.name)}
+                          </p>
+                          <h3 className="text-xl font-bold font-serif text-[var(--color-brown)] leading-tight transition-colors line-clamp-1 group-hover:text-[#F97316] mt-1" title={item.name}>
+                            {item.name}
+                          </h3>
                         </div>
 
-                        {/* Action Footer */}
-                        <div className="mt-auto pt-4 border-t border-stone-100 transition-colors group-hover:border-[var(--color-gold)]/10">
-                          <div className="w-full">
-                            {(item.hasHalfPortion || item.hasButterOption) ? (
-                              <button
-                                onClick={() => setSelectedItemDetail(item)}
-                                className="w-full bg-[var(--color-ivory)] hover:bg-[var(--color-brown)] border border-[var(--color-gold)]/20 hover:border-transparent text-[var(--color-brown)] hover:text-[var(--color-gold)] font-semibold py-3 rounded-xl transition-all duration-500 flex items-center justify-center gap-2 shadow-sm group/btn"
-                              >
-                                <span>Add to Order</span>
-                                <ShoppingCart className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
-                              </button>
-                            ) : (
-                              getQuantity(item) === 0 ? (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); addToCart({ ...item, isHalf: false }); }}
-                                  className="w-full bg-[var(--color-ivory)] hover:bg-[var(--color-brown)] border border-[var(--color-gold)]/20 hover:border-transparent text-[var(--color-brown)] hover:text-[var(--color-gold)] font-semibold py-3 rounded-xl transition-all duration-500 flex items-center justify-center gap-2 shadow-sm group/btn"
-                                >
-                                  <span>Add to Order</span>
-                                  <ShoppingCart className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
-                                </button>
-                              ) : (
-                                <div className="flex items-center justify-between bg-dhaba-orange text-white rounded-xl overflow-hidden shadow-sm h-[48px] w-full animate-in fade-in zoom-in-75 duration-300">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); updateQuantity(item.name, item.isHalf || false, item.isButter || false, -1, item.variantName); }}
-                                    className="h-full bg-black/10 hover:bg-black/20 transition-colors flex items-center justify-center flex-1"
-                                  >
-                                    <Minus className="w-4 h-4" />
-                                  </button>
-                                  <span className="font-bold text-center text-lg flex-[2]">{getQuantity(item)}</span>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); updateQuantity(item.name, item.isHalf || false, item.isButter || false, 1, item.variantName); }}
-                                    className="h-full bg-black/10 hover:bg-black/20 transition-colors flex items-center justify-center flex-1"
-                                  >
-                                    <Plus className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              )
-                            )}
-                          </div>
+                        {/* Authentic Dhaba presentation footer (NO Add to Cart / Add to Order buttons) */}
+                        <div className="mt-auto pt-3 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
+                          <span className="text-[11px] font-serif text-[#C89B3C] italic flex items-center gap-1">
+                            ✦ ਖ਼ਾਲਸ ਦੇਸੀ ਘਿਓ
+                          </span>
+                          {item.hasHalfPortion ? (
+                            <span className="text-[10px] font-medium text-stone-600 bg-stone-50 border border-stone-200 px-2 py-0.5 rounded-md">
+                              Half / Full Available
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-medium text-stone-500 bg-stone-50 px-2 py-0.5 rounded-md">
+                              Full Portion
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1972,7 +1929,7 @@ export default function Storefront() {
       </a>
 
 
-      {/* Category Marquee Animation Styles */}
+      {/* Category & Specials Marquee Animation Styles */}
       <style>{`
         @keyframes storefrontMarquee {
           0% { transform: translateX(0); }
@@ -1984,6 +1941,19 @@ export default function Storefront() {
         }
         .group\\/storefrontMarquee:hover .storefront-marquee-track,
         .storefront-marquee-track:hover {
+          animation-play-state: paused !important;
+        }
+
+        @keyframes specialsMarquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(calc(-50% - 12px)); }
+        }
+        .specials-marquee-track {
+          animation: specialsMarquee 38s linear infinite;
+          will-change: transform;
+        }
+        .group\\/specialsMarquee:hover .specials-marquee-track,
+        .specials-marquee-track:hover {
           animation-play-state: paused !important;
         }
       `}</style>

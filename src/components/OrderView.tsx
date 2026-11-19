@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Menu, Search, ShoppingCart, Minus, Plus, ChevronRight, Clock, Star, Sun, Coffee, CupSoda, Pizza, ConciergeBell, Utensils, UtensilsCrossed, Flame, Soup, Droplets, Leaf, Info } from 'lucide-react';
 import { NoodleBowlIcon } from './CustomIcons';
-import { getCategoryMeta } from '../utils/dhabaThemeData';
+import { getCategoryMeta, getDishPunjabi } from '../utils/dhabaThemeData';
 
 interface OrderViewProps {
   isLoading?: boolean;
@@ -325,7 +325,10 @@ export default function OrderView({
                          <div className="flex flex-col flex-1 justify-between py-1">
                            <div>
                              <div className="flex justify-between items-start mb-1 gap-2">
-                               <h3 className="font-serif font-bold text-stone-800 text-lg sm:text-xl leading-tight group-hover:text-dhaba-orange transition-colors">{item.name}</h3>
+                               <p className="text-[#C89B3C] font-serif font-bold text-xs sm:text-sm tracking-wide leading-tight mb-0.5">
+                                {getDishPunjabi(item.name, item.punjabi)}
+                              </p>
+                              <h3 className="font-serif font-bold text-stone-800 text-lg sm:text-xl leading-tight group-hover:text-dhaba-orange transition-colors">{item.name}</h3>
                                {item.fullPortionPieces && (
                                 <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200/60 font-semibold px-2 py-0.5 rounded-md whitespace-nowrap">
                                   {item.fullPortionPieces} Pieces
