@@ -836,7 +836,7 @@ export default function Storefront() {
                 ) : visibleSpecials.length > 0 ? (
                   marqueeSpecials.map((item, idx) => {
                     const locked = isItemLocked(item);
-                    const punjabiName = getDishPunjabi(item.name);
+                    const punjabiName = getDishPunjabi(item.name, item.punjabi);
                     return (
                       <div
                         key={`${item.id || item.name}-${idx}`}
@@ -1019,7 +1019,7 @@ export default function Storefront() {
                 ) : filteredMenu.length > 0 ? (
                   filteredMenu.map((item, idx) => {
                     const locked = isItemLocked(item);
-                    const punjabiName = getDishPunjabi(item.name);
+                    const punjabiName = getDishPunjabi(item.name, item.punjabi);
                     return (
                       <div
                         key={`${item.id || item.name}-${idx}`}

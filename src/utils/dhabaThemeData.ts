@@ -28,10 +28,16 @@ export const CATEGORY_META_MAP: Record<string, CategoryMeta> = {
     subtitle: "ਪਰੰਪਰਾਗਤ ਸ਼ਾਹੀ ਪੰਜਾਬੀ ਸਵਾਦ",
     accentColor: "bg-orange-100",
   },
+  "Indian Cuisine": {
+    emoji: "🍛",
+    punjabi: "ਇੰਡੀਅਨ ਕੁਜ਼ੀਨ",
+    subtitle: "ਦੇਸੀ ਘਿਓ ਦੀਆਂ ਸਬਜ਼ੀਆਂ, ਦਾਲਾਂ ਤੇ ਪਨੀਰ",
+    accentColor: "bg-orange-100",
+  },
   "Main Course": {
     emoji: "🍛",
     punjabi: "ਮੇਨ ਕੋਰਸ",
-    subtitle: "ਦੇਸੀ ਘਿਓ ਦੀਆਂ ਖ਼ਾਸ ਸਬਜ਼ੀਆਂ ਤੇ ਦਾਲਾਂ",
+    subtitle: "ਤਾਜ਼ੀਆਂ ਸਬਜ਼ੀਆਂ, ਸ਼ਾਹੀ ਪਨੀਰ ਤੇ ਦਾਲਾਂ",
     accentColor: "bg-orange-100",
   },
   Dal: {
@@ -70,11 +76,23 @@ export const CATEGORY_META_MAP: Record<string, CategoryMeta> = {
     subtitle: "ਪਕੌੜੇ, ਕਟਲੈਟ ਤੇ ਗਰਮ ਚਾਟ",
     accentColor: "bg-amber-100",
   },
+  Noodles: {
+    emoji: "🍜",
+    punjabi: "ਨੂਡਲਜ਼",
+    subtitle: "ਵੈਜ, ਹੱਕਾ ਤੇ ਚਿਲੀ ਗਾਰਲਿਕ ਨੂਡਲਜ਼",
+    accentColor: "bg-amber-100",
+  },
   Chinese: {
     emoji: "🥡",
     punjabi: "ਚਾਈਨੀਜ਼",
-    subtitle: "ਨੂਡਲਜ਼, ਮੰਚੂਰੀਅਨ ਤੇ ਫ੍ਰਾਈਡ ਰਾਈਸ",
+    subtitle: "ਮੰਚੂਰੀਅਨ, ਸਪ੍ਰਿੰਗ ਰੋਲ ਤੇ ਫ੍ਰਾਈਡ ਰਾਈਸ",
     accentColor: "bg-red-100",
+  },
+  Momos: {
+    emoji: "🥟",
+    punjabi: "ਮੋਮੋਸ",
+    subtitle: "ਗਰਮਾ-ਗਰਮ ਸਟੀਮ ਤੇ ਫ੍ਰਾਈਡ ਮੋਮੋਸ",
+    accentColor: "bg-amber-100",
   },
   "Rice & Pulao": {
     emoji: "🍚",
@@ -82,10 +100,34 @@ export const CATEGORY_META_MAP: Record<string, CategoryMeta> = {
     subtitle: "ਖ਼ੁਸ਼ਬੂਦਾਰ ਬਾਸਮਤੀ ਚੌਲ ਤੇ ਬਿਰਿਆਨੀ",
     accentColor: "bg-yellow-100",
   },
+  "Raita/Curd": {
+    emoji: "🥣",
+    punjabi: "ਰਾਇਤਾ ਅਤੇ ਦਹੀਂ",
+    subtitle: "ਠੰਢਾ ਦਹੀਂ ਤੇ ਤਾਜ਼ਾ ਰਾਇਤਾ",
+    accentColor: "bg-green-100",
+  },
   "Raita & Salad": {
+    emoji: "🥣",
+    punjabi: "ਰਾਇਤਾ ਅਤੇ ਦਹੀਂ",
+    subtitle: "ਠੰਢਾ ਦਹੀਂ ਤੇ ਤਾਜ਼ਾ ਰਾਇਤਾ",
+    accentColor: "bg-green-100",
+  },
+  Raita: {
+    emoji: "🥣",
+    punjabi: "ਰਾਇਤਾ ਅਤੇ ਦਹੀਂ",
+    subtitle: "ਠੰਢਾ ਦਹੀਂ ਤੇ ਤਾਜ਼ਾ ਰਾਇਤਾ",
+    accentColor: "bg-green-100",
+  },
+  Salad: {
     emoji: "🥗",
-    punjabi: "ਰਾਇਤਾ ਅਤੇ ਸਲਾਦ",
-    subtitle: "ਠੰਢਾ ਦਹੀਂ ਰਾਇਤਾ ਤੇ ਹਰਾ ਸਲਾਦ",
+    punjabi: "ਸਲਾਦ",
+    subtitle: "ਤਾਜ਼ਾ ਹਰਾ ਤੇ ਪਿਆਜ਼ ਸਲਾਦ",
+    accentColor: "bg-green-100",
+  },
+  Salads: {
+    emoji: "🥗",
+    punjabi: "ਸਲਾਦ",
+    subtitle: "ਤਾਜ਼ਾ ਹਰਾ ਤੇ ਪਿਆਜ਼ ਸਲਾਦ",
     accentColor: "bg-green-100",
   },
   Beverages: {
@@ -94,15 +136,27 @@ export const CATEGORY_META_MAP: Record<string, CategoryMeta> = {
     subtitle: "ਮਿੱਠੀ ਲੱਸੀ, ਸ਼ੇਕ, ਕੋਲਡ ਡ੍ਰਿੰਕਸ ਤੇ ਚਾਹ",
     accentColor: "bg-cyan-100",
   },
+  Mocktails: {
+    emoji: "🍹",
+    punjabi: "ਮੌਕਟੇਲਜ਼",
+    subtitle: "ਠੰਢੇ ਨਿੰਬੂ ਪਾਣੀ ਤੇ ਤਾਜ਼ਗੀ ਭਰੇ ਮੋਜੀਟੋ",
+    accentColor: "bg-teal-100",
+  },
+  Deserts: {
+    emoji: "🍨",
+    punjabi: "ਡੈਜ਼ਰਟਸ",
+    subtitle: "ਗਰਮ ਗੁਲਾਬ ਜਾਮੁਨ ਤੇ ਦੇਸੀ ਮਿਠਾਈਆਂ",
+    accentColor: "bg-pink-100",
+  },
   Desserts: {
     emoji: "🍨",
-    punjabi: "ਮਿਠਾਈਆਂ",
-    subtitle: "ਗੁਲਾਬ ਜਾਮੁਨ, ਕੁਲਫ਼ੀ ਤੇ ਖ਼ਾਸ ਮਿੱਠਾ",
+    punjabi: "ਡੈਜ਼ਰਟਸ",
+    subtitle: "ਗਰਮ ਗੁਲਾਬ ਜਾਮੁਨ ਤੇ ਦੇਸੀ ਮਿਠਾਈਆਂ",
     accentColor: "bg-pink-100",
   },
   Shakes: {
     emoji: "🧋",
-    punjabi: "ਸ਼ੇਕਸ ",
+    punjabi: "ਸ਼ੇਕਸ",
     subtitle: "ਠੰਢੇ ਆਈਸਕ੍ਰੀਮ ਸ਼ੇਕ ਤੇ ਕੋਲਡ ਕੌਫ਼ੀ",
     accentColor: "bg-purple-100",
   },
@@ -174,7 +228,7 @@ export const CATEGORY_META_MAP: Record<string, CategoryMeta> = {
   },
   Soya: {
     emoji: "🍢",
-    punjabi: " ਚਾਪ",
+    punjabi: "ਸੋਇਆ ਚਾਪ",
     subtitle: "ਮਲਾਈ ਚਾਪ ਤੇ ਤੰਦੂਰੀ ਚਾਪ",
     accentColor: "bg-orange-100",
   },
@@ -186,8 +240,223 @@ export const CATEGORY_META_MAP: Record<string, CategoryMeta> = {
   },
 };
 
+// Clean and normalize strings for matching
+function normalizeKey(str: string): string {
+  return (str || "")
+    .toLowerCase()
+    .replace(/[()[\]{}_/\\.,\-+*&^%$#@!~`'":;?<>]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Exact Static Gurmukhi Overrides for Dishes (Highest Priority)
+// ─────────────────────────────────────────────────────────────────────────────
+export const STATIC_DISH_PUNJABI: Record<string, string> = {
+  // Part 2: Broken & Misspelled Dish Names
+  "tandoori aloo piyaj paratha": "ਤੰਦੂਰੀ ਆਲੂ ਪਿਆਜ਼ ਪਰਾਂਠਾ",
+  "tandoori aloo pyaj paratha": "ਤੰਦੂਰੀ ਆਲੂ ਪਿਆਜ਼ ਪਰਾਂਠਾ",
+  "tandoori aloo pyaz paratha": "ਤੰਦੂਰੀ ਆਲੂ ਪਿਆਜ਼ ਪਰਾਂਠਾ",
+  "tandoori aloo piyaj parantha": "ਤੰਦੂਰੀ ਆਲੂ ਪਿਆਜ਼ ਪਰਾਂਠਾ",
+  "tandoori piyaj paratha": "ਤੰਦੂਰੀ ਪਿਆਜ਼ ਪਰਾਂਠਾ",
+  "tandoori pyaj paratha": "ਤੰਦੂਰੀ ਪਿਆਜ਼ ਪਰਾਂਠਾ",
+  "tandoori pyaz paratha": "ਤੰਦੂਰੀ ਪਿਆਜ਼ ਪਰਾਂਠਾ",
+  "tandoori piyaj parantha": "ਤੰਦੂਰੀ ਪਿਆਜ਼ ਪਰਾਂਠਾ",
+  "tawa piyaj paratha": "ਤਵਾ ਪਿਆਜ਼ ਪਰਾਂਠਾ",
+  "tawa pyaj paratha": "ਤਵਾ ਪਿਆਜ਼ ਪਰਾਂਠਾ",
+  "tawa pyaz paratha ": "ਤਵਾ ਪਿਆਜ਼ ਪਰਾਂਠਾ",
+  "tawa piyaj parantha": "ਤਵਾ ਪਿਆਜ਼ ਪਰਾਂਠਾ",
+  "chole bhature": "ਛੋਲੇ ਭਟੂਰੇ",
+  "chhole bhature": "ਛੋਲੇ ਭਟੂਰੇ",
+  "chana bhatura": "ਛੋਲੇ ਭਟੂਰੇ",
+  "chana bhature": "ਛੋਲੇ ਭਟੂਰੇ",
+  "dhaba special kadahi panner": "ਢਾਬਾ ਸਪੈਸ਼ਲ ਕੜਾਹੀ ਪਨੀਰ",
+  "dhaba special kadahi paneer": "ਢਾਬਾ ਸਪੈਸ਼ਲ ਕੜਾਹੀ ਪਨੀਰ",
+  "dhaba spl kadahi panner": "ਢਾਬਾ ਸਪੈਸ਼ਲ ਕੜਾਹੀ ਪਨੀਰ",
+  "dhaba spl kadahi paneer": "ਢਾਬਾ ਸਪੈਸ਼ਲ ਕੜਾਹੀ ਪਨੀਰ",
+  "dhaba special kadhai paneer": "ਢਾਬਾ ਸਪੈਸ਼ਲ ਕੜਾਹੀ ਪਨੀਰ",
+  "sev bhaji": "ਸੇਵ ਭਾਜੀ",
+  "shev bhaji": "ਸੇਵ ਭਾਜੀ",
+  "sahi paneer": "ਸ਼ਾਹੀ ਪਨੀਰ",
+  "shahi paneer": "ਸ਼ਾਹੀ ਪਨੀਰ",
+  "kadahi mushroom": "ਕੜਾਹੀ ਮਸ਼ਰੂਮ",
+  "kadhai mushroom": "ਕੜਾਹੀ ਮਸ਼ਰੂਮ",
+  "karahi mushroom": "ਕੜਾਹੀ ਮਸ਼ਰੂਮ",
+  "mushroom do pyaza": "ਮਸ਼ਰੂਮ ਦੋ ਪਿਆਜ਼ਾ",
+  "mushroom do pyaj": "ਮਸ਼ਰੂਮ ਦੋ ਪਿਆਜ਼ਾ",
+  "mushroom dopyaza": "ਮਸ਼ਰੂਮ ਦੋ ਪਿਆਜ਼ਾ",
+  "chilly paneer": "ਚਿਲੀ ਪਨੀਰ",
+  "chilli paneer": "ਚਿਲੀ ਪਨੀਰ",
+  "chili paneer": "ਚਿਲੀ ਪਨੀਰ",
+  "chilly paneer dry": "ਚਿਲੀ ਪਨੀਰ",
+  "chilly paneer gravy": "ਚਿਲੀ ਪਨੀਰ",
+  "chilli paneer dry": "ਚਿਲੀ ਪਨੀਰ",
+  "chilli paneer gravy": "ਚਿਲੀ ਪਨੀਰ",
+  "dal maharani": "ਦਾਲ ਮਹਾਰਾਣੀ",
+  "daal maharani": "ਦਾਲ ਮਹਾਰਾਣੀ",
+  "channa masala mix w b": "ਚਨਾ ਮਸਾਲਾ ਮਿਕਸ",
+  "channa masala mix wb": "ਚਨਾ ਮਸਾਲਾ ਮਿਕਸ",
+  "chana masala mix w b": "ਚਨਾ ਮਸਾਲਾ ਮਿਕਸ",
+  "chana masala mix wb": "ਚਨਾ ਮਸਾਲਾ ਮਿਕਸ",
+  "chana masala mix": "ਚਨਾ ਮਸਾਲਾ ਮਿਕਸ",
+  "channa masala mix": "ਚਨਾ ਮਸਾਲਾ ਮਿਕਸ",
+  "black chana fry": "ਬਲੈਕ ਛੋਲੇ ਫ੍ਰਾਈ",
+  "kala chana fry": "ਬਲੈਕ ਛੋਲੇ ਫ੍ਰਾਈ" ,
+  "espresso coffee": "ਐਸਪ੍ਰੈਸੋ ਕੌਫ਼ੀ",
+  "white sugar tea": "ਵਾਈਟ ਸ਼ੂਗਰ ਚਾਹ",
+  "white sugar chai": "ਵਾਈਟ ਸ਼ੂਗਰ ਚਾਹ",
+  "black tea": "ਬਲੈਕ ਚਾਹ",
+  "black chai": "ਬਲੈਕ ਚਾਹ",
+  "milk glass": "ਦੁੱਧ ਗਲਾਸ",
+  "glass milk": "ਦੁੱਧ ਗਲਾਸ",
+  "gud khulad tea": "ਗੁੜ ਕੁੱਲ੍ਹੜ ਚਾਹ",
+  "gud kulhad tea": "ਗੁੜ ਕੁੱਲ੍ਹੜ ਚਾਹ",
+  "gur khulad tea": "ਗੁੜ ਕੁੱਲ੍ਹੜ ਚਾਹ",
+  "gur kulhad tea": "ਗੁੜ ਕੁੱਲ੍ਹੜ ਚਾਹ",
+  "pineapple raita": "ਪਾਈਨਐਪਲ ਰਾਇਤਾ",
+  "simple thali": "ਸਿੰਪਲ ਥਾਲੀ",
+  "honey chilli cauliflower": "ਹਨੀ ਚਿਲੀ ਕੌਲੀਫਲਾਵਰ",
+  "honey chilly cauliflower": "ਹਨੀ ਚਿਲੀ ਕੌਲੀਫਲਾਵਰ",
+  "honey chilli gobi": "ਹਨੀ ਚਿਲੀ ਕੌਲੀਫਲਾਵਰ",
+  "chilly paneer pizza": "ਚਿਲੀ ਪਨੀਰ ਪੀਜ਼ਾ",
+  "chilli paneer pizza": "ਚਿਲੀ ਪਨੀਰ ਪੀਜ਼ਾ",
+  "chocolate shake": "ਚਾਕਲੇਟ ਸ਼ੇਕ",
+  "oreo shake": "ਓਰੀਓ ਸ਼ੇਕ",
+  "strawberry shake": "ਸਟ੍ਰਾਬੇਰੀ ਸ਼ੇਕ",
+  "black current shake": "ਬਲੈਕ ਕਰੰਟ ਸ਼ੇਕ",
+  "blackcurrant shake": "ਬਲੈਕ ਕਰੰਟ ਸ਼ੇਕ",
+  "butter scotch shake": "ਬਟਰਸਕੌਚ ਸ਼ੇਕ",
+  "butterscotch shake": "ਬਟਰਸਕੌਚ ਸ਼ੇਕ",
+  "banana shake": "ਬਨਾਨਾ ਸ਼ੇਕ",
+  "singapori noodles": "ਸਿੰਗਾਪੁਰੀ ਨੂਡਲਜ਼",
+  "singapore noodles": "ਸਿੰਗਾਪੁਰੀ ਨੂਡਲਜ਼",
+  "chilly garlic noodles": "ਚਿਲੀ ਗਾਰਲਿਕ ਨੂਡਲਜ਼",
+  "chilli garlic noodles": "ਚਿਲੀ ਗਾਰਲਿਕ ਨੂਡਲਜ਼",
+  "aloo tikki burger": "ਆਲੂ ਟਿੱਕੀ ਬਰਗਰ" ,
+  "alu tikki burger": "ਆਲੂ ਟਿੱਕੀ ਬਰਗਰ",
+  "amritsari kulcha": "ਅੰਮ੍ਰਿਤਸਰੀ ਕੁਲਚਾ",
+  "white souce pasta": "ਵਾਈਟ ਸੌਸ ਪਾਸਤਾ",
+  "white sauce pasta": "ਵਾਈਟ ਸੌਸ ਪਾਸਤਾ",
+  "red souce pasta": "ਰੈੱਡ ਸੌਸ ਪਾਸਤਾ",
+  "red sauce pasta": "ਰੈੱਡ ਸੌਸ ਪਾਸਤਾ",
+  "mix souce pasta": "ਮਿਕਸ ਸੌਸ ਪਾਸਤਾ",
+  "mix sauce pasta": "ਮਿਕਸ ਸੌਸ ਪਾਸਤਾ",
+  "aachari chaap": "ਅਚਾਰੀ ਚਾਪ",
+  "achari chaap": "ਅਚਾਰੀ ਚਾਪ",
+  "aachari champ": "ਅਚਾਰੀ ਚਾਪ",
+  "achari champ": "ਅਚਾਰੀ ਚਾਪ",
+  "peri peri chaap": "ਪੈਰੀ ਪੈਰੀ ਚਾਪ",
+  "peri peri champ": "ਪੈਰੀ ਪੈਰੀ ਚਾਪ",
+  "chilly chaap": "ਚਿਲੀ ਚਾਪ",
+  "chilli chaap": "ਚਿਲੀ ਚਾਪ",
+  "chilly champ": "ਚਿਲੀ ਚਾਪ",
+  "chilli champ": "ਚਿਲੀ ਚਾਪ",
+  "manchow soup": "ਮਨਚਾਓ ਸੂਪ",
+  "watermelon mojito": "ਵਾਟਰਮੈਲਨ ਮੋਜੀਟੋ",
+  "mint mojito": "ਮਿੰਟ ਮੋਜੀਟੋ",
+  "plain maggie": "ਸਾਦਾ ਮੈਗੀ",
+  "plain maggi": "ਸਾਦਾ ਮੈਗੀ",
+  "veg maggie": "ਵੈਜ ਮੈਗੀ",
+  "veg maggi": "ਵੈਜ ਮੈਗੀ",
+  "peanuts masala": "ਪੀਨਟ ਮਸਾਲਾ",
+  "peanut masala": "ਪੀਨਟ ਮਸਾਲਾ",
+  "veggie nuggets": "ਵੈਜੀ ਨਗੇਟਸ",
+  "veg nuggets": "ਵੈਜੀ ਨਗੇਟਸ",
+  "veggie smiles": "ਵੈਜੀ ਸਮਾਈਲਜ਼",
+  "veg smiles": "ਵੈਜੀ ਸਮਾਈਲਜ਼",
+
+  // Part 3: Duplicate & Incomplete Dishes
+  "tandoori mix paratha": "ਤੰਦੂਰੀ ਮਿਕਸ ਪਰਾਂਠਾ",
+  "tandoori mix parantha": "ਤੰਦੂਰੀ ਮਿਕਸ ਪਰਾਂਠਾ",
+  "tawa mix paratha": "ਤਵਾ ਮਿਕਸ ਪਰਾਂਠਾ",
+  "tawa mix parantha": "ਤਵਾ ਮਿਕਸ ਪਰਾਂਠਾ",
+  "tandoori paneer paratha": "ਤੰਦੂਰੀ ਪਨੀਰ ਪਰਾਂਠਾ",
+  "tandoori paneer parantha": "ਤੰਦੂਰੀ ਪਨੀਰ ਪਰਾਂਠਾ",
+  "tawa paneer paratha": "ਤਵਾ ਪਨੀਰ ਪਰਾਂਠਾ",
+  "tawa paneer parantha": "ਤਵਾ ਪਨੀਰ ਪਰਾਂਠਾ",
+  "dhaba special dal makhani": "ਢਾਬਾ ਸਪੈਸ਼ਲ ਦਾਲ ਮੱਖਣੀ",
+  "dhaba spl dal makhani": "ਢਾਬਾ ਸਪੈਸ਼ਲ ਦਾਲ ਮੱਖਣੀ",
+  "dhaba special dal makhni": "ਢਾਬਾ ਸਪੈਸ਼ਲ ਦਾਲ ਮੱਖਣੀ",
+  "dhaba special paneer bhurji": "ਢਾਬਾ ਸਪੈਸ਼ਲ ਪਨੀਰ ਭੁਰਜੀ",
+  "dhaba spl paneer bhurji": "ਢਾਬਾ ਸਪੈਸ਼ਲ ਪਨੀਰ ਭੁਰਜੀ",
+  "rajmah masala": "ਰਾਜਮਾਂਹ ਮਸਾਲਾ",
+  "rajma masala": "ਰਾਜਮਾਂਹ ਮਸਾਲਾ",
+  "yellow dal handi": "ਪੀਲੀ ਦਾਲ ਹਾਂਡੀ",
+  "black dal tadka": "ਕਾਲੀ ਦਾਲ ਤੜਕਾ",
+  "black chana masala": "ਕਾਲੇ ਛੋਲੇ ਮਸਾਲਾ",
+  "kala chana masala": "ਕਾਲੇ ਛੋਲੇ ਮਸਾਲਾ",
+  "mix veg raita": "ਮਿਕਸ ਵੈਜ ਰਾਇਤਾ",
+  "cheese naan with gravy": "ਚੀਜ਼ ਨਾਨ ਵਿਥ ਗ੍ਰੇਵੀ",
+  "cheese naan gravy": "ਚੀਜ਼ ਨਾਨ ਵਿਥ ਗ੍ਰੇਵੀ",
+  "veg biryani with raita": "ਵੈਜ ਬਿਰਿਆਨੀ ਵਿਥ ਰਾਇਤਾ",
+  "veg biryani raita": "ਵੈਜ ਬਿਰਿਆਨੀ ਵਿਥ ਰਾਇਤਾ",
+  "rajma rice": "ਰਾਜਮਾਂਹ ਚੌਲ",
+  "rajmah rice": "ਰਾਜਮਾਂਹ ਚੌਲ",
+  "green salad": "ਹਰਾ ਸਲਾਦ",
+  "hot gulab jamun": "ਗਰਮ ਗੁਲਾਬ ਜਾਮੁਨ",
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Broken Gurmukhi / Matra Replacements (Overrides corrupt existing strings)
+// ─────────────────────────────────────────────────────────────────────────────
+export const BROKEN_GURMUKHI_REPLACEMENTS: Record<string, string> = {
+  // Categories
+  "ਇਨਡਿਾਨ ੁਿਸਿਨੇ": "ਇੰਡੀਅਨ ਕੁਜ਼ੀਨ",
+  "ਮੋਕਟੈਲਸ": "ਮੌਕਟੇਲਜ਼",
+  "ਡੇਸੇਰਟਸ": "ਡੈਜ਼ਰਟਸ",
+  "ਰਾਇਤਾ ਅਤੇ ਸਲਾਦ": "ਰਾਇਤਾ ਅਤੇ ਦਹੀਂ",
+
+  // Broken / Misspelled dishes
+  "ਤੰਦੂਰੀ ਆਲੂ ਪਿਯਾਜ ਪਰਾਂਠਾ": "ਤੰਦੂਰੀ ਆਲੂ ਪਿਆਜ਼ ਪਰਾਂਠਾ",
+  "ਤੰਦੂਰੀ ਪਿਯਾਜ ਪਰਾਂਠਾ": "ਤੰਦੂਰੀ ਪਿਆਜ਼ ਪਰਾਂਠਾ",
+  "ਤਵਾ ਪਿਯਾਜ ਪਰਾਂਠਾ": "ਤਵਾ ਪਿਆਜ਼ ਪਰਾਂਠਾ",
+  "ਛੋਲੇ ਭਾਟੁਰੇ": "ਛੋਲੇ ਭਟੂਰੇ",
+  "ਢਾਬਾ ਸਪੈਸ਼ਲ ਕਾਡਾਹਿ ਪਾਨਨੇਰ": "ਢਾਬਾ ਸਪੈਸ਼ਲ ਕੜਾਹੀ ਪਨੀਰ",
+  "ਸੇਵ ਭਾਜਿ": "ਸੇਵ ਭਾਜੀ",
+  "ਸਾਹਿ ਪਨੀਰ": "ਸ਼ਾਹੀ ਪਨੀਰ",
+  "ਕਾਡਾਹਿ ਮਸ਼ਰੂਮ": "ਕੜਾਹੀ ਮਸ਼ਰੂਮ",
+  "ਮਸ਼ਰੂਮ ਦੋ ਪਯਾਾ": "ਮਸ਼ਰੂਮ ਦੋ ਪਿਆਜ਼ਾ",
+  "ਚਿਲਲਯ ਪਨੀਰ": "ਚਿਲੀ ਪਨੀਰ",
+  "ਦਾਲ ਮਾਹਾਰਾਨਿ": "ਦਾਲ ਮਹਾਰਾਣੀ",
+  "ਚਾਨਨਾ ਮਸਾਲਾ ਮਿਕਸ ਵ ਬ": "ਚਨਾ ਮਸਾਲਾ ਮਿਕਸ",
+  "ਬਲਾਕ ਛੋਲੇ ਫ੍ਰਾਈ": "ਬਲੈਕ ਛੋਲੇ ਫ੍ਰਾਈ",
+  "ਏਸਪਰੇਸਸੋ ਕੌਫ਼ੀ": "ਐਸਪ੍ਰੈਸੋ ਕੌਫ਼ੀ",
+  "ਵਾਈਟ ਸੁਗਾਰ ਚਾਹ": "ਵਾਈਟ ਸ਼ੂਗਰ ਚਾਹ",
+  "ਬਲਾਕ ਚਾਹ": "ਬਲੈਕ ਚਾਹ",
+  "ਦੁੱਧ ਗਲਾਸਸ": "ਦੁੱਧ ਗਲਾਸ",
+  "ਗੁੜ ਖੁਲਾਡ ਚਾਹ": "ਗੁੜ ਕੁੱਲ੍ਹੜ ਚਾਹ",
+  "ਪਿਨੇਾਪਪਲੇ ਰਾਇਤਾ": "ਪਾਈਨਐਪਲ ਰਾਇਤਾ",
+  "ਸਿਮਪਲੇ ਥਾਲੀ": "ਸਿੰਪਲ ਥਾਲੀ",
+  "ਹਨੀ ਚਿਲੀ ੌਲਿਫਲੋਵੇਰ": "ਹਨੀ ਚਿਲੀ ਕੌਲੀਫਲਾਵਰ",
+  "ਚਿਲਲਯ ਪਨੀਰ ਪੀਜ਼ਾ": "ਚਿਲੀ ਪਨੀਰ ਪੀਜ਼ਾ",
+  "ਚੋੋਲਾਟੇ ਸ਼ੇਕ": "ਚਾਕਲੇਟ ਸ਼ੇਕ",
+  "ਓਰੇੋ ਸ਼ੇਕ": "ਓਰੀਓ ਸ਼ੇਕ",
+  "ਸਟਰਾਵਬੇਰਰਯ ਸ਼ੇਕ": "ਸਟ੍ਰਾਬੇਰੀ ਸ਼ੇਕ",
+  "ਬਲਾਕ ੁਰਰੇਨਟ ਸ਼ੇਕ": "ਬਲੈਕ ਕਰੰਟ ਸ਼ੇਕ",
+  "ਬਟਰ ਸੋਟਚ ਸ਼ੇਕ": "ਬਟਰਸਕੌਚ ਸ਼ੇਕ",
+  "ਬਾਨਾਨਾ ਸ਼ੇਕ": "ਬਨਾਨਾ ਸ਼ੇਕ",
+  "ਸਿਨਗਾਪੋਰਿ ਨੂਡਲਜ਼": "ਸਿੰਗਾਪੁਰੀ ਨੂਡਲਜ਼",
+  "ਚਿਲਲਯ ਗਾਰਲਿਕ ਨੂਡਲਜ਼": "ਚਿਲੀ ਗਾਰਲਿਕ ਨੂਡਲਜ਼",
+  "ਆਲੂ ਟਿਕਕਿ ਬਰਗਰ": "ਆਲੂ ਟਿੱਕੀ ਬਰਗਰ",
+  "ਅਮਰਿਟਸਾਰਿ ਕੁਲਚਾ": "ਅੰਮ੍ਰਿਤਸਰੀ ਕੁਲਚਾ",
+  "ਵਾਈਟ ਸੋੁੇ ਪਾਸਤਾ": "ਵਾਈਟ ਸੌਸ ਪਾਸਤਾ",
+  "ਰੈੱਡ ਸੋੁੇ ਪਾਸਤਾ": "ਰੈੱਡ ਸੌਸ ਪਾਸਤਾ",
+  "ਮਿਕਸ ਸੋੁੇ ਪਾਸਤਾ": "ਮਿਕਸ ਸੌਸ ਪਾਸਤਾ",
+  "ਾਚਾਰਿ ਚਾਪ": "ਅਚਾਰੀ ਚਾਪ",
+  "ਪੇਰਿ ਪੇਰਿ ਚਾਪ": "ਪੈਰੀ ਪੈਰੀ ਚਾਪ",
+  "ਚਿਲਲਯ ਚਾਪ": "ਚਿਲੀ ਚਾਪ",
+  "ਮਾਨਚੋਵ ਸੂਪ": "ਮਨਚਾਓ ਸੂਪ",
+  "ਵਾਟੇਰਮੇਲੋਨ ਮੋਜਿਟੋ": "ਵਾਟਰਮੈਲਨ ਮੋਜੀਟੋ",
+  "ਮਿਨਟ ਮੋਜਿਟੋ": "ਮਿੰਟ ਮੋਜੀਟੋ",
+  "ਸਾਦਾ ਮਾਗਗਿੇ": "ਸਾਦਾ ਮੈਗੀ",
+  "ਵੈਜ ਮਾਗਗਿੇ": "ਵੈਜ ਮੈਗੀ",
+  "ਪੇਾਨੁਟਸ ਮਸਾਲਾ": "ਪੀਨਟ ਮਸਾਲਾ",
+  "ਵੇਗਗਿੇ ਨੁਗਗੇਟਸ": "ਵੈਜੀ ਨਗੇਟਸ",
+  "ਵੇਗਗਿੇ ਸਮਿਲੇਸ": "ਵੈਜੀ ਸਮਾਈਲਜ਼",
+};
+
 // Common Indian Dhaba Word Dictionary for dynamic Gurmukhi translation
-const WORD_MAP: Record<string, string> = {
+export const WORD_MAP: Record<string, string> = {
   spl: "ਸਪੈਸ਼ਲ",
   special: "ਸਪੈਸ਼ਲ",
   delux: "ਡੀਲਕਸ",
@@ -212,8 +481,11 @@ const WORD_MAP: Record<string, string> = {
   pakoda: "ਪਕੌੜਾ",
   pakore: "ਪਕੌੜੇ",
   paneer: "ਪਨੀਰ",
+  panner: "ਪਨੀਰ",
   shahi: "ਸ਼ਾਹੀ",
+  sahi: "ਸ਼ਾਹੀ",
   kadhai: "ਕੜਾਹੀ",
+  kadahi: "ਕੜਾਹੀ",
   karahi: "ਕੜਾਹੀ",
   butter: "ਬਟਰ",
   masala: "ਮਸਾਲਾ",
@@ -224,6 +496,7 @@ const WORD_MAP: Record<string, string> = {
   kopta: "ਕੋਫ਼ਤਾ",
   mix: "ਮਿਕਸ",
   veg: "ਵੈਜ",
+  veggie: "ਵੈਜੀ",
   vegetable: "ਸਬਜ਼ੀ",
   palak: "ਪਾਲਕ",
   mutter: "ਮਟਰ",
@@ -237,6 +510,9 @@ const WORD_MAP: Record<string, string> = {
   gobi: "ਗੋਭੀ",
   pyaz: "ਪਿਆਜ਼",
   pyaaz: "ਪਿਆਜ਼",
+  pyaj: "ਪਿਆਜ਼",
+  piyaj: "ਪਿਆਜ਼",
+  pyaza: "ਪਿਆਜ਼ਾ",
   onion: "ਪਿਆਜ਼",
   methi: "ਮੇਥੀ",
   corn: "ਕੌਰਨ",
@@ -262,6 +538,7 @@ const WORD_MAP: Record<string, string> = {
   prantha: "ਪਰਾਂਠਾ",
   kulcha: "ਕੁਲਚਾ",
   bhatura: "ਭਟੂਰਾ",
+  bhature: "ਭਟੂਰੇ",
   poori: "ਪੂਰੀ",
   puri: "ਪੂਰੀ",
   roomali: "ਰੁਮਾਲੀ",
@@ -288,6 +565,8 @@ const WORD_MAP: Record<string, string> = {
   chai: "ਚਾਹ",
   gud: "ਗੁੜ",
   gur: "ਗੁੜ",
+  khulad: "ਕੁੱਲ੍ਹੜ",
+  kulhad: "ਕੁੱਲ੍ਹੜ",
   coffee: "ਕੌਫ਼ੀ",
   cold: "ਕੋਲਡ",
   hot: "ਗਰਮ",
@@ -310,6 +589,7 @@ const WORD_MAP: Record<string, string> = {
   hakka: "ਹੱਕਾ",
   chilli: "ਚਿਲੀ",
   chili: "ਚਿਲੀ",
+  chilly: "ਚਿਲੀ",
   spring: "ਸਪ੍ਰਿੰਗ",
   roll: "ਰੋਲ",
   rolls: "ਰੋਲ",
@@ -319,6 +599,7 @@ const WORD_MAP: Record<string, string> = {
   soya: "ਸੋਇਆ",
   thali: "ਥਾਲੀ",
   regular: "ਰੈਗੂਲਰ",
+  simple: "ਸਿੰਪਲ",
   harjinder: "ਹਰਜਿੰਦਰ",
   tourist: "ਟੂਰਿਸਟ",
   dhaba: "ਢਾਬਾ",
@@ -332,7 +613,8 @@ const WORD_MAP: Record<string, string> = {
   pasta: "ਪਾਸਤਾ",
   red: "ਰੈੱਡ",
   white: "ਵਾਈਟ",
-  sauce: "ਸਾਸ",
+  sauce: "ਸੌਸ",
+  souce: "ਸੌਸ",
   fries: "ਫ੍ਰਾਈਜ਼",
   french: "ਫ੍ਰੈਂਚ",
   finger: "ਫਿੰਗਰ",
@@ -340,10 +622,12 @@ const WORD_MAP: Record<string, string> = {
   crispy: "ਕੁਰਕੁਰਾ",
   honey: "ਹਨੀ",
   potato: "ਆਲੂ",
+  cauliflower: "ਕੌਲੀਫਲਾਵਰ",
   gravy: "ਗ੍ਰੇਵੀ",
   dry: "ਡ੍ਰਾਈ",
   curry: "ਕਰੀ",
   milk: "ਦੁੱਧ",
+  glass: "ਗਲਾਸ",
   baby: "ਬੇਬੀ",
   water: "ਪਾਣੀ",
   mineral: "ਮਿਨਰਲ",
@@ -354,8 +638,15 @@ const WORD_MAP: Record<string, string> = {
   drinks: "ਡ੍ਰਿੰਕਸ",
   beverage: "ਪੀਣ ਵਾਲੇ",
   beverages: "ਪੀਣ ਵਾਲੇ",
-  dessert: "ਮਿਠਾਈ",
-  desserts: "ਮਿਠਾਈਆਂ",
+  mocktail: "ਮੌਕਟੇਲ",
+  mocktails: "ਮੌਕਟੇਲਜ਼",
+  mojito: "ਮੋਜੀਟੋ",
+  mint: "ਮਿੰਟ",
+  watermelon: "ਵਾਟਰਮੈਲਨ",
+  dessert: "ਡੈਜ਼ਰਟ",
+  desserts: "ਡੈਜ਼ਰਟਸ",
+  desert: "ਡੈਜ਼ਰਟ",
+  deserts: "ਡੈਜ਼ਰਟਸ",
   snacks: "ਸਨੈਕਸ",
   snack: "ਸਨੈਕ",
   breakfast: "ਨਾਸ਼ਤਾ",
@@ -363,6 +654,11 @@ const WORD_MAP: Record<string, string> = {
   dinner: "ਰਾਤ ਦਾ ਖਾਣਾ",
   main: "ਮੇਨ",
   course: "ਕੋਰਸ",
+  cuisine: "ਕੁਜ਼ੀਨ",
+  indian: "ਇੰਡੀਅਨ",
+  chinese: "ਚਾਈਨੀਜ਼",
+  momo: "ਮੋਮੋਸ",
+  momos: "ਮੋਮੋਸ",
   bread: "ਰੋਟੀ",
   breads: "ਰੋਟੀਆਂ",
   seasonal: "ਮੌਸਮੀ",
@@ -370,25 +666,53 @@ const WORD_MAP: Record<string, string> = {
   pasanda: "ਪਸੰਦਾ",
   lababdar: "ਲਬਾਬਦਾਰ",
   do: "ਦੋ",
-  "do-pyaza": "ਦੋ ਪਿਆਜ਼ਾ",
-  dopyaza: "ਦੋ ਪਿਆਜ਼ਾ",
   handi: "ਹਾਂਡੀ",
-  "tawa-paneer": "ਤਵਾ ਪਨੀਰ",
   sev: "ਸੇਵ",
+  bhaji: "ਭਾਜੀ",
   tamatar: "ਟਮਾਟਰ",
   korma: "ਕੋਰਮਾ",
   kurma: "ਕੋਰਮਾ",
   navratan: "ਨਵਰਤਨ",
-  "methi-malai": "ਮੇਥੀ ਮਲਾਈ",
   chutney: "ਚਟਣੀ",
   achar: "ਅਚਾਰ",
+  achari: "ਅਚਾਰੀ",
+  aachari: "ਅਚਾਰੀ",
   pickle: "ਅਚਾਰ",
   sirka: "ਸਿਰਕਾ",
   extra: "ਵਾਧੂ",
+  maharani: "ਮਹਾਰਾਣੀ",
+  espresso: "ਐਸਪ੍ਰੈਸੋ",
+  sugar: "ਸ਼ੂਗਰ",
+  black: "ਬਲੈਕ",
+  kala: "ਕਾਲੇ",
+  pineapple: "ਪਾਈਨਐਪਲ",
+  chocolate: "ਚਾਕਲੇਟ",
+  oreo: "ਓਰੀਓ",
+  strawberry: "ਸਟ੍ਰਾਬੇਰੀ",
+  current: "ਕਰੰਟ",
+  scotch: "ਸਕੌਚ",
+  banana: "ਬਨਾਨਾ",
+  singapori: "ਸਿੰਗਾਪੁਰੀ",
+  amritsari: "ਅੰਮ੍ਰਿਤਸਰੀ",
+  peri: "ਪੈਰੀ",
+  manchow: "ਮਨਚਾਓ",
+  maggie: "ਮੈਗੀ",
+  maggi: "ਮੈਗੀ",
+  peanut: "ਪੀਨਟ",
+  peanuts: "ਪੀਨਟ",
+  nugget: "ਨਗੇਟ",
+  nuggets: "ਨਗੇਟਸ",
+  smile: "ਸਮਾਈਲ",
+  smiles: "ਸਮਾਈਲਜ਼",
+  with: "ਵਿਥ",
 };
 
 // Full dish exact phrase mappings
-const DISH_PHRASES: Record<string, string> = {
+export const DISH_PHRASES: Record<string, string> = {
+  // Static Dish Overrides
+  ...STATIC_DISH_PUNJABI,
+
+  // Additional Common Dishes
   "spl dal makhni": "ਸਪੈਸ਼ਲ ਦਾਲ ਮੱਖਣੀ",
   "spl dal makhani": "ਸਪੈਸ਼ਲ ਦਾਲ ਮੱਖਣੀ",
   "dal makhani": "ਦਾਲ ਮੱਖਣੀ",
@@ -449,7 +773,6 @@ const DISH_PHRASES: Record<string, string> = {
   "matar pulao": "ਮਟਰ ਪੁਲਾਓ",
   "boondi raita": "ਬੂੰਦੀ ਰਾਇਤਾ",
   "mix raita": "ਮਿਕਸ ਰਾਇਤਾ",
-  "green salad": " ਸਲਾਦ",
   "sweet lassi": "ਮਿੱਠੀ ਲੱਸੀ",
   "salted lassi": "ਨਮਕੀਨ ਲੱਸੀ",
   "dhaba spl gud tea": "ਢਾਬਾ ਸਪੈਸ਼ਲ ਗੁੜ ਦੀ ਚਾਹ",
@@ -465,7 +788,6 @@ const DISH_PHRASES: Record<string, string> = {
   "hot coffee": "ਗਰਮ ਕੌਫ਼ੀ",
   "veg manchurian": "ਵੈਜ ਮੰਚੂਰੀਅਨ",
   "hakka noodles": "ਹੱਕਾ ਨੂਡਲਜ਼",
-  "chilli paneer": "ਚਿਲੀ ਪਨੀਰ",
   "spring roll": "ਸਪ੍ਰਿੰਗ ਰੋਲ",
   "soya malai chaap": "ਸੋਇਆ ਮਲਾਈ ਚਾਪ",
   "soya tikka": "ਸੋਇਆ ਟਿੱਕਾ",
@@ -474,23 +796,48 @@ const DISH_PHRASES: Record<string, string> = {
   "french fries": "ਫ੍ਰੈਂਚ ਫਰਾਈ",
 };
 
-// Fallback phonetic syllable transliterator for any unfamiliar English words into Gurmukhi
-function transliterateToGurmukhi(text: string): string {
+// ─────────────────────────────────────────────────────────────────────────────
+// Robust Phonetic Transliteration & Gurmukhi Cleaner
+// ─────────────────────────────────────────────────────────────────────────────
+export function cleanBrokenGurmukhi(text: string): string {
+  if (!text) return "";
+
+  // Replace orphaned leading dependent matras with proper independent vowels
+  let s = text
+    .replace(/(^|\s)\u0A3E/g, '$1ਆ') // ਾ -> ਆ
+    .replace(/(^|\s)\u0A3F/g, '$1ਇ') // ਿ -> ਇ
+    .replace(/(^|\s)\u0A40/g, '$1ਈ') // ੀ -> ਈ
+    .replace(/(^|\s)\u0A41/g, '$1ਉ') // ੁ -> ਉ
+    .replace(/(^|\s)\u0A42/g, '$1ਊ') // ੂ -> ਊ
+    .replace(/(^|\s)\u0A47/g, '$1ਏ') // ੇ -> ਏ
+    .replace(/(^|\s)\u0A48/g, '$1ਐ') // ੈ -> ਐ
+    .replace(/(^|\s)\u0A4B/g, '$1ਓ') // ੋ -> ਓ
+    .replace(/(^|\s)\u0A4C/g, '$1ਔ') // ੌ -> ਔ
+    .replace(/(^|\s)[\u0A4D\u0A70\u0A71]/g, '$1'); // floating virama/tippi/addak at word boundary
+
+  // Replace double vowel matras (e.g., ੋੁ -> ੌ or keep single)
+  s = s.replace(/ੋੁੇ/g, 'ੌਸ').replace(/ੋੁ/g, 'ੌ');
+  // General consecutive dependent vowel signs: keep only first
+  s = s.replace(/([\u0A3E-\u0A4C])[\u0A3E-\u0A4C]+/g, '$1');
+
+  return s.trim();
+}
+
+export function transliterateToGurmukhi(text: string): string {
   if (!text) return "";
   const cleaned = text.trim();
-  // Split into words
   const words = cleaned.split(/[\s\-_/()]+/);
+  
   const punjabiWords = words.map(w => {
     const lw = w.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (!lw) return "";
     if (WORD_MAP[lw]) return WORD_MAP[lw];
 
-    // Syllable / character phonetic conversion
     let res = "";
     let i = 0;
     while (i < lw.length) {
-      const c2 = lw.substring(i, i + 2);
       const c3 = lw.substring(i, i + 3);
+      const c2 = lw.substring(i, i + 2);
 
       if (c3 === "sch" || c3 === "shh") { res += "ਸ਼"; i += 3; continue; }
       if (c2 === "kh") { res += "ਖ"; i += 2; continue; }
@@ -502,16 +849,17 @@ function transliterateToGurmukhi(text: string): string {
       if (c2 === "ph") { res += "ਫ"; i += 2; continue; }
       if (c2 === "bh") { res += "ਭ"; i += 2; continue; }
       if (c2 === "sh") { res += "ਸ਼"; i += 2; continue; }
-      if (c2 === "ee") { res += "ੀ"; i += 2; continue; }
-      if (c2 === "oo") { res += "ੂ"; i += 2; continue; }
-      if (c2 === "aa") { res += "ਾ"; i += 2; continue; }
-      if (c2 === "ai") { res += "ੈ"; i += 2; continue; }
-      if (c2 === "au") { res += "ੌ"; i += 2; continue; }
+      if (c2 === "ee") { res += (i === 0 ? "ਈ" : "ੀ"); i += 2; continue; }
+      if (c2 === "oo") { res += (i === 0 ? "ਊ" : "ੂ"); i += 2; continue; }
+      if (c2 === "aa") { res += (i === 0 ? "ਆ" : "ਾ"); i += 2; continue; }
+      if (c2 === "ai") { res += (i === 0 ? "ਐ" : "ੈ"); i += 2; continue; }
+      if (c2 === "au") { res += (i === 0 ? "ਔ" : "ੌ"); i += 2; continue; }
 
       const c1 = lw[i];
-      if (c1 === 'k') res += "ਕ";
+      if (c1 === 'k' || c1 === 'c' || c1 === 'q') res += "ਕ";
       else if (c1 === 'g') res += "ਗ";
       else if (c1 === 'j') res += "ਜ";
+      else if (c1 === 'z') res += "ਜ਼";
       else if (c1 === 't') res += "ਟ";
       else if (c1 === 'd') res += "ਡ";
       else if (c1 === 'n') res += "ਨ";
@@ -525,6 +873,7 @@ function transliterateToGurmukhi(text: string): string {
       else if (c1 === 'v' || c1 === 'w') res += "ਵ";
       else if (c1 === 's') res += "ਸ";
       else if (c1 === 'h') res += "ਹ";
+      else if (c1 === 'x') res += "ਕਸ";
       else if (c1 === 'a') res += (i === 0 ? "ਅ" : "ਾ");
       else if (c1 === 'i') res += (i === 0 ? "ਇ" : "ਿ");
       else if (c1 === 'u') res += (i === 0 ? "ਉ" : "ੁ");
@@ -535,95 +884,176 @@ function transliterateToGurmukhi(text: string): string {
     return res || w;
   });
 
-  return punjabiWords.filter(Boolean).join(" ");
+  const out = punjabiWords.filter(Boolean).join(" ");
+  return cleanBrokenGurmukhi(out);
 }
 
-/**
- * Returns a guaranteed authentic Punjabi Gurmukhi name for ANY dish name.
- * NEVER returns empty string!
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// Returns a guaranteed authentic Punjabi Gurmukhi name for ANY dish name
+// ─────────────────────────────────────────────────────────────────────────────
 export function getDishPunjabi(name: string, existingPunjabi?: string): string {
+  const rawName = (name || "").trim();
+  const normKey = normalizeKey(rawName);
+
+  // 1. Highest Priority: Static dish overrides (by exact full name or normalized name)
+  if (STATIC_DISH_PUNJABI[normKey]) {
+    return STATIC_DISH_PUNJABI[normKey];
+  }
+  const lowerRaw = rawName.toLowerCase();
+  if (STATIC_DISH_PUNJABI[lowerRaw]) {
+    return STATIC_DISH_PUNJABI[lowerRaw];
+  }
+
+  // 2. Check if existingPunjabi has a known broken/misspelled Gurmukhi string to override
   if (existingPunjabi && existingPunjabi.trim()) {
-    // If it already has Gurmukhi characters, return it
-    if (/[\u0A00-\u0A7F]/.test(existingPunjabi)) return existingPunjabi.trim();
+    const trimmedExisting = existingPunjabi.trim();
+    if (BROKEN_GURMUKHI_REPLACEMENTS[trimmedExisting]) {
+      return BROKEN_GURMUKHI_REPLACEMENTS[trimmedExisting];
+    }
+    // If it's valid Gurmukhi and has no broken matras, return it
+    if (/[\u0A00-\u0A7F]/.test(trimmedExisting)) {
+      const cleaned = cleanBrokenGurmukhi(trimmedExisting);
+      if (cleaned) return cleaned;
+    }
   }
 
-  if (!name || !name.trim()) return "ਸੁਆਦਿਸ਼ਟ ਪਕਵਾਨ";
+  if (!rawName) return "ਸੁਆਦਿਸ਼ਟ ਪਕਵਾਨ";
 
-  const lower = name.toLowerCase().trim();
-
-  // 1. Direct phrase lookup
-  if (DISH_PHRASES[lower]) return DISH_PHRASES[lower];
-
-  // 2. Partial phrase lookup
-  for (const [key, val] of Object.entries(DISH_PHRASES)) {
-    if (lower.includes(key)) return val;
+  // 3. Exact phrase lookup in DISH_PHRASES (Longest keys first to prevent partial truncation)
+  const sortedPhrases = Object.entries(DISH_PHRASES).sort((a, b) => b[0].length - a[0].length);
+  for (const [key, val] of sortedPhrases) {
+    if (normKey === key || lowerRaw === key) return val;
+  }
+  for (const [key, val] of sortedPhrases) {
+    if (normKey.includes(key) || lowerRaw.includes(key)) return val;
   }
 
-  // 3. Word-by-word dictionary translation
-  const words = lower.split(/[\s\-_/()]+/).filter(Boolean);
+  // 4. Word-by-word dictionary translation
+  const words = normKey.split(' ').filter(Boolean);
   const translatedWords = words.map(w => WORD_MAP[w] || null);
 
-  // If at least one word is recognized, fill unrecognized with transliteration
   if (translatedWords.some(Boolean)) {
     const combined = words.map((w, idx) => translatedWords[idx] || transliterateToGurmukhi(w));
-    return combined.join(" ");
+    return cleanBrokenGurmukhi(combined.join(" "));
   }
 
-  // 4. Syllabic transliteration fallback
-  const transliterated = transliterateToGurmukhi(name);
-  if (transliterated && transliterated.trim()) return transliterated.trim();
-
-  return "ਸਵਾਦਿਸ਼ਟ ਪਕਵਾਨ";
+  // 5. Fallback transliteration
+  const transliterated = transliterateToGurmukhi(rawName);
+  return cleanBrokenGurmukhi(transliterated) || "ਸੁਆਦਿਸ਼ਟ ਪਕਵਾਨ";
 }
 
-/**
- * Returns complete category metadata with a guaranteed Gurmukhi title for ANY category.
- * NEVER returns empty Gurmukhi title!
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// Returns complete category metadata with guaranteed Gurmukhi title and subtitle
+// ─────────────────────────────────────────────────────────────────────────────
 export function getCategoryMeta(catName: string): CategoryMeta {
   const trimmed = (catName || "").trim();
   const lower = trimmed.toLowerCase();
+  const norm = normalizeKey(trimmed);
 
-  if (CATEGORY_META_MAP[trimmed]) return CATEGORY_META_MAP[trimmed];
+  // 1. Direct match in CATEGORY_META_MAP (case-insensitive)
+  for (const [key, val] of Object.entries(CATEGORY_META_MAP)) {
+    if (key.toLowerCase() === lower || normalizeKey(key) === norm) {
+      return val;
+    }
+  }
 
-  // Keyword matching
-  if (lower.includes("breakfast") || lower.includes("prantha") || lower.includes("paratha"))
-    return CATEGORY_META_MAP["Breakfast"];
-  if (lower.includes("bread") || lower.includes("roti") || lower.includes("naan"))
-    return CATEGORY_META_MAP["Breads"];
-  if (lower.includes("tandoor")) return CATEGORY_META_MAP["Tandoori Breads"];
-  if (lower.includes("dal") || lower.includes("daal")) return CATEGORY_META_MAP["Dal"];
-  if (lower.includes("paneer") || lower.includes("cheese")) return CATEGORY_META_MAP["Paneer"];
-  if (lower.includes("chinese") || lower.includes("noodle") || lower.includes("manchurian"))
+  // 2. Specific matching rules in priority order
+  if (lower.includes("indian cuisine") || lower === "indian") {
+    return CATEGORY_META_MAP["Indian Cuisine"];
+  }
+  if (lower === "salad" || lower === "salads") {
+    return CATEGORY_META_MAP["Salad"];
+  }
+  if (lower.includes("raita") || lower.includes("curd")) {
+    return CATEGORY_META_MAP["Raita/Curd"];
+  }
+  if (lower.includes("noodle")) {
+    return CATEGORY_META_MAP["Noodles"];
+  }
+  if (lower.includes("momo")) {
+    return CATEGORY_META_MAP["Momos"];
+  }
+  if (lower.includes("mocktail")) {
+    return CATEGORY_META_MAP["Mocktails"];
+  }
+  if (lower.includes("desert") || lower.includes("dessert")) {
+    return CATEGORY_META_MAP["Deserts"];
+  }
+  if (lower.includes("chinese") || lower.includes("manchurian")) {
     return CATEGORY_META_MAP["Chinese"];
-  if (lower.includes("snack") || lower.includes("tikka") || lower.includes("kebab"))
+  }
+  if (lower.includes("salad")) {
+    return CATEGORY_META_MAP["Salad"];
+  }
+  if (lower.includes("breakfast") || lower.includes("prantha") || lower.includes("paratha")) {
+    return CATEGORY_META_MAP["Breakfast"];
+  }
+  if (lower.includes("bread") || lower.includes("roti") || lower.includes("naan")) {
+    return CATEGORY_META_MAP["Breads"];
+  }
+  if (lower.includes("tandoor")) {
+    return CATEGORY_META_MAP["Tandoori Breads"];
+  }
+  if (lower.includes("dal") || lower.includes("daal")) {
+    return CATEGORY_META_MAP["Dal"];
+  }
+  if (lower.includes("paneer") || lower.includes("cheese")) {
+    return CATEGORY_META_MAP["Paneer"];
+  }
+  if (lower.includes("snack") || lower.includes("tikka") || lower.includes("kebab")) {
     return CATEGORY_META_MAP["Snacks"];
-  if (lower.includes("starter") || lower.includes("pakora") || lower.includes("cutlet"))
+  }
+  if (lower.includes("starter") || lower.includes("pakora") || lower.includes("cutlet")) {
     return CATEGORY_META_MAP["Indian Snacks"];
-  if (lower.includes("rice") || lower.includes("biryani") || lower.includes("pulao"))
+  }
+  if (lower.includes("rice") || lower.includes("biryani") || lower.includes("pulao")) {
     return CATEGORY_META_MAP["Rice & Pulao"];
-  if (lower.includes("raita") || lower.includes("salad") || lower.includes("curd"))
-    return CATEGORY_META_MAP["Raita & Salad"];
-  if (lower.includes("drink") || lower.includes("beverage") || lower.includes("lassi") || lower.includes("juice"))
+  }
+  if (lower.includes("drink") || lower.includes("beverage") || lower.includes("lassi") || lower.includes("juice")) {
     return CATEGORY_META_MAP["Beverages"];
-  if (lower.includes("shake") || lower.includes("coffee")) return CATEGORY_META_MAP["Shakes"];
-  if (lower.includes("dessert") || lower.includes("sweet") || lower.includes("kulfi") || lower.includes("jamun"))
-    return CATEGORY_META_MAP["Desserts"];
-  if (lower.includes("thali")) return CATEGORY_META_MAP["Thali"];
-  if (lower.includes("pizza")) return CATEGORY_META_MAP["Pizza"];
-  if (lower.includes("burger")) return CATEGORY_META_MAP["Burger"];
-  if (lower.includes("sandwich")) return CATEGORY_META_MAP["Sandwich"];
-  if (lower.includes("soup")) return CATEGORY_META_MAP["Soup"];
-  if (lower.includes("side")) return CATEGORY_META_MAP["Sides"];
-  if (lower.includes("special") || lower.includes("spl")) return CATEGORY_META_MAP["Dhaba Special"];
-  if (lower.includes("pasta")) return CATEGORY_META_MAP["Pasta"];
-  if (lower.includes("cake")) return CATEGORY_META_MAP["Cake"];
-  if (lower.includes("seasonal")) return CATEGORY_META_MAP["Seasonal"];
-  if (lower.includes("chaap") || lower.includes("soya")) return CATEGORY_META_MAP["Soya"];
-  if (lower.includes("chai") || lower.includes("tea")) return CATEGORY_META_MAP["Tea"];
-  if (lower.includes("main") || lower.includes("sabzi") || lower.includes("curry") || lower.includes("gravy"))
+  }
+  if (lower.includes("shake") || lower.includes("coffee")) {
+    return CATEGORY_META_MAP["Shakes"];
+  }
+  if (lower.includes("thali")) {
+    return CATEGORY_META_MAP["Thali"];
+  }
+  if (lower.includes("pizza")) {
+    return CATEGORY_META_MAP["Pizza"];
+  }
+  if (lower.includes("burger")) {
+    return CATEGORY_META_MAP["Burger"];
+  }
+  if (lower.includes("sandwich")) {
+    return CATEGORY_META_MAP["Sandwich"];
+  }
+  if (lower.includes("soup")) {
+    return CATEGORY_META_MAP["Soup"];
+  }
+  if (lower.includes("side")) {
+    return CATEGORY_META_MAP["Sides"];
+  }
+  if (lower.includes("special") || lower.includes("spl")) {
+    return CATEGORY_META_MAP["Dhaba Special"];
+  }
+  if (lower.includes("pasta")) {
+    return CATEGORY_META_MAP["Pasta"];
+  }
+  if (lower.includes("cake")) {
+    return CATEGORY_META_MAP["Cake"];
+  }
+  if (lower.includes("seasonal")) {
+    return CATEGORY_META_MAP["Seasonal"];
+  }
+  if (lower.includes("chaap") || lower.includes("soya")) {
+    return CATEGORY_META_MAP["Soya"];
+  }
+  if (lower.includes("chai") || lower.includes("tea")) {
+    return CATEGORY_META_MAP["Tea"];
+  }
+  if (lower.includes("main") || lower.includes("sabzi") || lower.includes("curry") || lower.includes("gravy")) {
     return CATEGORY_META_MAP["Main Course"];
+  }
 
   // Generate authentic Gurmukhi name for custom category
   const punjabiName = getDishPunjabi(trimmed);

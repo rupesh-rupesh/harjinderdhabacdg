@@ -16,6 +16,20 @@ import { Resend } from 'resend';
 import crypto from 'crypto';
 import { exec } from 'child_process';
 import cache from './src/lib/redis.js';
+import {
+  ensureHydrated,
+  saveDraft,
+  getDrafts,
+  deleteDraft,
+  createActiveBill,
+  getActiveBills,
+  updateBill,
+  deleteBill,
+  getBills,
+  getBillingStats,
+  getDailyRevenueSeries,
+  REDIS_KEYS
+} from './src/lib/redisBilling.js';
 
 console.log('RELOADING BACKEND...');
 
@@ -1264,51 +1278,28 @@ app.delete('/api/admin/staff/:id', async (req, res) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── Admin Stats / Orders ─────────────────────────────────────────────────────
+// ─── Admin Stats / Orders (Redis Billing & Orders Engine) ────────────────────────
 app.get('/api/admin/stats', async (req, res) => {
   try {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const r: any = await db.execute(sql`
-      SELECT
-        (SELECT COALESCE(SUM(total), 0) FROM orders WHERE status = 'completed' AND created_at >= ${today.toISOString()}) as daily_revenue,
-        (SELECT COUNT(*) FROM orders) as total_orders,
-        (SELECT COUNT(*) FROM orders WHERE status IN ('pending', 'processing')) as active_orders,
-        (SELECT COUNT(*) FROM users WHERE uid = 'pos_system') as pos_users
-    `);
-    res.json({ dailyRevenue: Number(r[0].daily_revenue || 0), totalOrders: Number(r[0].total_orders || 0), activeOrders: Number(r[0].active_orders || 0), posUsers: Number(r[0].pos_users || 0) });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+    await ensureHydrated(db, orders);
+    const stats = await getBillingStats();
+    res.json(stats);
+  } catch (e: any) {
+    console.error("ERROR in /api/admin/stats:", e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/api/admin/orders/test-active', (req, res) => {
-  console.log("TEST ACTIVE HIT!");
   res.json({ message: 'It works!' });
 });
 
 app.get('/api/admin/orders/active', async (req, res) => {
   try {
-    console.log("HIT /api/admin/orders/active");
-    const yesterday = new Date();
-    yesterday.setHours(yesterday.getHours() - 24);
-    
-    console.log("1. Fetching from Redis");
-    const activeStr = await cache.hGetAll('active_orders');
-    console.log("Redis response:", activeStr);
-    const activeRedis = Object.keys(activeStr || {}).map(k => JSON.parse(activeStr[k]));
-    
-    console.log("2. Fetching from Postgres");
-    const pgOrders = await db.select().from(orders).where(
-      sql`${orders.status} IN ('pending', 'processing') OR ${orders.createdAt} >= ${yesterday.toISOString()}`
-    ).orderBy(desc(orders.createdAt));
-    console.log("Postgres fetched", pgOrders.length);
-    
-    const merged = [...activeRedis, ...pgOrders];
-    const uniqueOrders = Array.from(new Map(merged.map(o => [String(o.id), o])).values());
-    uniqueOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    
-    console.log("Sending response");
-    res.json(uniqueOrders);
-  }
-  catch (e: any) { 
+    await ensureHydrated(db, orders);
+    const active = await getActiveBills();
+    res.json(active);
+  } catch (e: any) { 
     console.error("ERROR in /api/admin/orders/active:", e);
     res.status(500).json({ error: e.message, stack: e.stack }); 
   }
@@ -1316,162 +1307,54 @@ app.get('/api/admin/orders/active', async (req, res) => {
 
 app.get('/api/admin/daily-revenue', async (req, res) => {
   try {
-    const r: any = await db.execute(sql`SELECT DATE(created_at) as date_str, COUNT(id) as order_count, COALESCE(SUM(total), 0) as revenue FROM orders WHERE status = 'completed' GROUP BY DATE(created_at) ORDER BY DATE(created_at) ASC`);
-    res.json(r);
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+    await ensureHydrated(db, orders);
+    const series = await getDailyRevenueSeries();
+    res.json(series);
+  } catch (e: any) {
+    console.error("ERROR in /api/admin/daily-revenue:", e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/api/admin/orders', async (req, res) => {
   try {
-    const limitNum = Math.min(parseInt(req.query.limit as string) || 50, 500);
-    const offsetNum = parseInt(req.query.offset as string) || 0;
-    const lite = req.query.lite === 'true';
-    const statusFilter = req.query.status as string;
-    const startDate = req.query.startDate as string;
-    const endDate = req.query.endDate as string;
-    const search = req.query.search as string;
-    const searchType = req.query.searchType as string;
-
-    const conditions = [];
-    if (statusFilter) conditions.push(eq(orders.status, statusFilter));
-    if (startDate && endDate) {
-      conditions.push(sql`created_at >= ${startDate} AND created_at <= ${endDate}`);
-    }
-
-    if (search) {
-      if (searchType === 'orderNo') {
-        const idStr = search.replace(/[^0-9]/g, '');
-        if (idStr) conditions.push(eq(orders.id, parseInt(idStr)));
-      } else if (searchType === 'amount') {
-        const amtStr = search.replace(/[^0-9.]/g, '');
-        if (amtStr) conditions.push(eq(orders.total, parseFloat(amtStr)));
-      } else if (searchType === 'table') {
-        conditions.push(sql`items::text ILIKE ${'%' + search + '%'}`);
-      } else {
-        // all
-        const idStr = search.replace(/[^0-9]/g, '');
-        const amtStr = search.replace(/[^0-9.]/g, '');
-        
-        const orConditions = [];
-        if (idStr) orConditions.push(eq(orders.id, parseInt(idStr)));
-        if (amtStr) orConditions.push(eq(orders.total, parseFloat(amtStr)));
-        orConditions.push(sql`items::text ILIKE ${'%' + search + '%'}`);
-        
-        conditions.push(or(...orConditions));
-      }
-    }
-
-    const whereClause = conditions.length > 0 ? (conditions.length === 1 ? conditions[0] : and(...conditions)) : undefined;
-
-    // --- Redis Cache Injection ---
-    
-    // 1. Fetch from Redis if asking for active/pending orders
-    if (statusFilter === 'pending' || statusFilter === 'processing') {
-       const activeStr = await cache.hGetAll('active_orders');
-       const activeArr = Object.keys(activeStr).map(k => JSON.parse(activeStr[k])).filter((o: any) => statusFilter ? o.status === statusFilter : true);
-       activeArr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-       return res.json(activeArr.slice(offsetNum, offsetNum + limitNum));
-    }
-
-    // 2. Fetch completed orders within last 48 hours (default mode - no date param)
-    if (statusFilter === 'completed' && !startDate && !search) {
-      // Compute the cutoff timestamp for 48 hours ago
-      const cutoff48h = new Date(Date.now() - 48 * 60 * 60 * 1000);
-
-      // Pull from Redis first
-      const keys = await cache.keys('completed_order:*');
-      const cachedOrders: any[] = [];
-      const cachedIds = new Set<number>();
-      for (const k of keys) {
-        const data = await cache.get(k);
-        if (data) {
-          const o = JSON.parse(data as string);
-          // Only include if within last 48h
-          if (new Date(o.createdAt) >= cutoff48h) {
-            cachedOrders.push(o);
-            cachedIds.add(o.id);
-          }
-        }
-      }
-
-      // Also fetch from DB for the 48h window to catch any orders not in Redis
-      const dbOrders = await db.select().from(orders)
-        .where(and(
-          eq(orders.status, 'completed'),
-          sql`created_at >= ${cutoff48h.toISOString()}`
-        ))
-        .orderBy(desc(orders.createdAt))
-        .limit(limitNum);
-
-      // Merge: DB is authoritative, add Redis-only entries that aren't in DB
-      const merged = [...dbOrders];
-      for (const co of cachedOrders) {
-        if (!merged.find((o: any) => o.id === co.id)) {
-          merged.push(co);
-        }
-      }
-      merged.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      return res.json(merged.slice(0, limitNum));
-    }
-
-    // --- Fallback to DB ---
-    let query: any;
-    if (lite) {
-      query = db.select({
-        id: orders.id,
-        userId: orders.userId,
-        total: orders.total,
-        status: orders.status,
-        createdAt: orders.createdAt
-      }).from(orders);
-    } else {
-      query = db.select().from(orders);
-    }
-
-    if (whereClause) {
-      query = query.where(whereClause);
-    }
-
-    query = query.orderBy(desc(orders.createdAt)).limit(limitNum).offset(offsetNum);
-
-    res.json(await query);
+    await ensureHydrated(db, orders);
+    const bills = await getBills(req.query as any);
+    res.json(bills);
+  } catch (e: any) {
+    console.error("ERROR in /api/admin/orders:", e);
+    res.status(500).json({ error: e.message });
   }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── POS Drafts (Redis) ────────────────────────────────────────────────────────
+// ─── POS Drafts (Redis-Only) ───────────────────────────────────────────────────
 app.post('/api/admin/pos/drafts', async (req, res) => {
   try {
     const { tableNumber, items, total } = req.body;
-    const draftId = `draft:table:${tableNumber}`;
-    await cache.set(draftId, JSON.stringify({ tableNumber, items, total, updatedAt: Date.now() }));
+    await saveDraft(tableNumber, items, total);
     res.json({ success: true, tableNumber });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/admin/pos/drafts', async (req, res) => {
   try {
-    const keys = await cache.keys('draft:table:*');
-    const drafts = [];
-    for (const key of keys) {
-      const data = await cache.get(key);
-      if (data) drafts.push(JSON.parse(data as string));
-    }
+    const drafts = await getDrafts();
     res.json(drafts);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/admin/pos/drafts/:tableNumber', async (req, res) => {
   try {
-    await cache.del(`draft:table:${req.params.tableNumber}`);
+    await deleteDraft(req.params.tableNumber);
     res.json({ success: true });
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── POS Orders & Customer Orders (Redis-First) ──────────────────────────────
 app.post('/api/admin/pos/orders', async (req, res) => {
   try {
     const { tableNumber, items, total } = req.body;
-    let posUserId = await cache.get('pos_system_user_id');
+    let posUserId = await cache.get(REDIS_KEYS.POS_USER_ID);
     if (!posUserId) {
       let posUser = await db.select().from(users).where(eq(users.uid, 'pos_system')).limit(1);
       if (posUser.length === 0) {
@@ -1479,26 +1362,18 @@ app.post('/api/admin/pos/orders', async (req, res) => {
         posUser = nu;
       }
       posUserId = posUser[0].id.toString();
-      await cache.set('pos_system_user_id', String(posUserId));
+      await cache.set(REDIS_KEYS.POS_USER_ID, String(posUserId));
     }
     const posItems = [{ name: `Table ${tableNumber}`, price: 0, quantity: 1, isTableMarker: true }, ...items];
-    
-    // Save to Redis active orders hash instead of DB immediately
-    const redisId = await cache.incr('order_id_seq');
-    const newOrder = {
-      id: redisId,
-      userId: Number(posUserId),
-      items: JSON.stringify(posItems),
+    const newBill = await createActiveBill({
+      tableNumber,
+      items: posItems,
       total,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    };
-    await cache.hSet('active_orders', redisId.toString(), JSON.stringify(newOrder));
-    
-    // Clear draft if exists
-    await cache.del(`draft:table:${tableNumber}`);
+      userId: Number(posUserId),
+      status: 'pending'
+    });
 
-    res.json(newOrder);
+    res.json(newBill);
   } catch (e: any) { res.status(500).json({ error: 'POS order failed: ' + e.message }); }
 });
 
@@ -1511,61 +1386,29 @@ app.put('/api/admin/orders/:id', async (req, res) => {
     if (total !== undefined) updateData.total = total;
     if (Object.keys(updateData).length === 0) return res.status(400).json({ error: 'No fields to update' });
     
-    // Check if order exists in Redis active_orders
-    const redisOrderStr = await cache.hGet('active_orders', Number(req.params.id).toString());
-    if (redisOrderStr) {
-      let redisOrder = JSON.parse(redisOrderStr);
-      redisOrder = { ...redisOrder, ...updateData };
-      if (redisOrder.status === 'completed' || redisOrder.status === 'cancelled') {
-        await cache.hDel('active_orders', redisOrder.id.toString());
-        const r = await db.insert(orders).values({
-          id: redisOrder.id,
-          userId: redisOrder.userId,
-          items: redisOrder.items,
-          total: redisOrder.total,
-          status: redisOrder.status,
-          createdAt: new Date(redisOrder.createdAt)
-        }).returning();
-        if (redisOrder.status === 'completed') {
-           await cache.setEx(`completed_order:${r[0].id}`, 48 * 60 * 60, JSON.stringify(r[0]));
-        }
-        return res.json(r[0]);
-      } else {
-        await cache.hSet('active_orders', redisOrder.id.toString(), JSON.stringify(redisOrder));
-        return res.json(redisOrder);
-      }
-    }
-
-    const r = await db.update(orders).set(updateData).where(eq(orders.id, Number(req.params.id))).returning();
-    if (r.length > 0 && r[0].status === 'completed') {
-       await cache.setEx(`completed_order:${r[0].id}`, 48 * 60 * 60, JSON.stringify(r[0]));
-    }
-    res.json(r[0] || {});
+    const updated = await updateBill(req.params.id, updateData, db, orders);
+    res.json(updated);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/admin/orders/:id', async (req, res) => {
-  try { await db.delete(orders).where(eq(orders.id, Number(req.params.id))); res.json({ success: true }); }
-  catch (e: any) { res.status(500).json({ error: e.message }); }
+  try {
+    await deleteBill(req.params.id, db, orders);
+    res.json({ success: true });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
 // ─── Orders (customer) ────────────────────────────────────────────────────────
 app.post('/api/orders', async (req, res) => {
   try {
     const { items, total, userId } = req.body;
-    
-    const redisId = await cache.incr('order_id_seq');
-    const newOrder = {
-      id: redisId,
-      userId: userId || 1,
-      items: typeof items === 'string' ? items : JSON.stringify(items),
+    const newBill = await createActiveBill({
+      items,
       total,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    };
-    await cache.hSet('active_orders', redisId.toString(), JSON.stringify(newOrder));
-    
-    res.json(newOrder);
+      userId: userId || 1,
+      status: 'pending'
+    });
+    res.json(newBill);
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1633,6 +1476,10 @@ app.post('/api/print/raw', express.json({ limit: '10mb' }), (req, res) => {
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server listening on port ${PORT}`);
+    // Cold start Redis hydration for billing & orders (only completed bills, one-time)
+    ensureHydrated(db, orders).catch(err => {
+      console.error('[ServerStartup] Cold start hydration error:', err);
+    });
   });
 })();
 

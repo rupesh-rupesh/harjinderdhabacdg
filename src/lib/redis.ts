@@ -39,6 +39,10 @@ class InMemoryCache {
     this.store.set(key, JSON.stringify(hash));
     return 1;
   }
+  async hLen(key: string) {
+    const hash = this.store.get(key) ? JSON.parse(this.store.get(key)!) : {};
+    return Object.keys(hash).length;
+  }
   async incr(key: string) {
     const val = parseInt(this.store.get(key) || '1000000') + 1;
     this.store.set(key, val.toString());
@@ -82,6 +86,7 @@ export const cache = {
   hGet: async (key: string, field: string) => isRedisConnected ? redisClient.hGet(key, field) : fallbackCache.hGet(key, field),
   hGetAll: async (key: string) => isRedisConnected ? redisClient.hGetAll(key) : fallbackCache.hGetAll(key),
   hDel: async (key: string, field: string) => isRedisConnected ? redisClient.hDel(key, field) : fallbackCache.hDel(key, field),
+  hLen: async (key: string) => isRedisConnected ? redisClient.hLen(key) : fallbackCache.hLen(key),
   incr: async (key: string) => isRedisConnected ? redisClient.incr(key) : fallbackCache.incr(key)
 };
 
